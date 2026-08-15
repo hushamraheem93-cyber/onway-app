@@ -16,6 +16,54 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # ── Root check ────────────────────────────────────────────────────────────────
 [[ $EUID -ne 0 ]] && err "Run as root: sudo bash server-setup.sh"
 
+# ── ALLOWED_ORIGINS is a LIST, and writing to it is ADDITIVE ──────────────────
+# H-47: this used to be
+#     sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://${DOMAIN}|" .env
+# The `.*` swallowed the operator's entire list and left one entry behind, with no
+# warning and no way to notice. Running a documented step must never silently
+# discard configuration.
+#
+# merge_allowed_origins keeps every entry already in the file, appends the ones
+# passed as arguments only when they are absent, and collapses duplicates. It
+# removes nothing, ever.
+#
+# The rewrite goes through a temp file that is copied BACK OVER the original with
+# `cat >` rather than `mv`: .env is owned by the service user and mode 600 (H-46),
+# and mv would replace it with the temp file's ownership and permissions.
+#
+# NOTE: ssl-setup.sh carries a byte-identical copy of this function. Neither
+# script can source the other — server-setup.sh is run through `curl | bash`, so
+# it has no sibling files on disk. A unit test asserts the two copies stay equal.
+merge_allowed_origins() {
+  local env_file="$1"; shift
+  local current entry seen=""
+
+  current="$(sed -n 's/^ALLOWED_ORIGINS=//p' "$env_file" | head -1)"
+
+  for entry in ${current//,/ } "$@"; do
+    entry="$(printf '%s' "$entry" | tr -d '[:space:]')"
+    [[ -z "$entry" ]] && continue
+    case ",${seen}," in *",${entry},"*) continue ;; esac
+    seen="${seen:+$seen,}${entry}"
+  done
+
+  local tmp
+  tmp="$(mktemp)"
+  if grep -q '^ALLOWED_ORIGINS=' "$env_file"; then
+    awk -v val="$seen" '
+      /^ALLOWED_ORIGINS=/ && !replaced { print "ALLOWED_ORIGINS=" val; replaced = 1; next }
+      { print }
+    ' "$env_file" > "$tmp"
+  else
+    cat "$env_file" > "$tmp"
+    printf 'ALLOWED_ORIGINS=%s\n' "$seen" >> "$tmp"
+  fi
+  cat "$tmp" > "$env_file"
+  rm -f "$tmp"
+
+  printf '%s' "$seen"
+}
+
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}  OnWay — Production Server Setup                              ${NC}"
@@ -122,7 +170,10 @@ success "Repository ready at ${APP_DIR}"
 # 5. Install dependencies & build
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 info "Installing npm dependencies..."
-npm install --prefer-offline 2>&1 | tail -3
+# H-48: see the same change in update.sh. `npm ci` installs exactly the locked tree
+# and never rewrites package-lock.json, so no unreviewed package can enter here and
+# the tracked lockfile stays clean for later `git pull`s.
+npm ci --prefer-offline --no-audit --no-fund 2>&1 | tail -3
 success "Dependencies installed"
 
 info "Building server..."
@@ -166,11 +217,21 @@ if [[ ! -f "${APP_DIR}/.env" ]]; then
   sed -i 's/^PORT=.*/PORT=5000/'               "${APP_DIR}/.env"
   sed -i 's/^DEV_MODE=.*/DEV_MODE=false/'       "${APP_DIR}/.env"
 
-  # Pre-fill ALLOWED_ORIGINS if domain was given
+  # Add the domain to ALLOWED_ORIGINS if one was given — additive, never a replace.
+  # (.env was just copied from .env.example, so the list is normally empty here.
+  # It is still merged rather than overwritten: re-running this script on a server
+  # whose .env already carries a list must not throw that list away.)
   if [[ -n "${DOMAIN:-}" ]]; then
-    sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://${DOMAIN}|" "${APP_DIR}/.env"
-    sed -i "s|^EXPO_PUBLIC_API_BASE_URL=.*|EXPO_PUBLIC_API_BASE_URL=https://${DOMAIN}|" "${APP_DIR}/.env"
+    MERGED="$(merge_allowed_origins "${APP_DIR}/.env" "https://${DOMAIN}")"
+    info "ALLOWED_ORIGINS=${MERGED}"
   fi
+
+  # EXPO_PUBLIC_API_BASE_URL is deliberately left as the template's empty value.
+  # It is baked into the mobile bundle at Expo BUILD time from eas.json; no server
+  # module reads it at runtime. Writing it here would produce a .env that looks
+  # authoritative while disagreeing with the binary that is actually shipped.
+  warn "EXPO_PUBLIC_API_BASE_URL is NOT set by this script — it comes from eas.json"
+  warn "at Expo build time. Change it there and rebuild to repoint the mobile app."
 
   warn ".env file created at ${APP_DIR}/.env"
   warn "You MUST fill in the required secrets before starting the server."

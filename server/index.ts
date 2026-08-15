@@ -10,6 +10,7 @@ import {
   selfOriginFromHeaders,
 } from "./originGuard";
 import { initializeFirebase, getFirestore } from "./firebase";
+import { isExpoGoSurfaceEnabled } from "./env";
 import vendorRouter from "./vendor";
 import { sendVendorOrderReminderNotification } from "./pushNotifications";
 import * as fs from "fs";
@@ -341,6 +342,17 @@ function getAppName(): string {
 }
 
 function serveExpoManifest(platform: string, res: Response) {
+  // H-49: the gate comes BEFORE the path is even built. Disabling the static
+  // mount alone would not be enough — this route reads static-build/ directly,
+  // so in production it must never reach the filesystem at all. The 404 body is
+  // identical to the "no manifest built" one on purpose: the response must not
+  // reveal whether a directory exists on the server.
+  if (!isExpoGoSurfaceEnabled()) {
+    return res
+      .status(404)
+      .json({ error: `Manifest not found for platform: ${platform}` });
+  }
+
   const manifestPath = path.resolve(
     process.cwd(),
     "static-build",
@@ -778,16 +790,23 @@ function configureExpoAndLanding(app: express.Application) {
     etag: true,
   }));
 
-  app.use(express.static(path.resolve(process.cwd(), "static-build"), {
-    maxAge: 0,
-    etag: false,
-    lastModified: false,
-    setHeaders: (staticRes) => {
-      staticRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      staticRes.setHeader("Pragma", "no-cache");
-      staticRes.setHeader("Expires", "0");
-    },
-  }));
+  // H-49: static-build/ holds UNSIGNED Expo Go bundles. Serving them from the API
+  // origin means anything written into that directory executes inside any Expo Go
+  // client pointed at this host. It is a development surface, so it is mounted only
+  // outside production — the mount is not registered at all, rather than registered
+  // and then blocked, so there is no middleware left to bypass.
+  if (isExpoGoSurfaceEnabled()) {
+    app.use(express.static(path.resolve(process.cwd(), "static-build"), {
+      maxAge: 0,
+      etag: false,
+      lastModified: false,
+      setHeaders: (staticRes) => {
+        staticRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        staticRes.setHeader("Pragma", "no-cache");
+        staticRes.setHeader("Expires", "0");
+      },
+    }));
+  }
 
 }
 

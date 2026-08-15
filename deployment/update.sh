@@ -40,7 +40,16 @@ git pull origin main
 success "Code updated"
 
 info "Installing/updating dependencies..."
-npm install --prefer-offline 2>&1 | tail -3
+# H-48: `npm install` was free to write package-lock.json, and it did — it added
+# packages that were never in the committed lock and so never went through CI.
+# Worse, the lockfile is TRACKED: the mutation left the working tree dirty and the
+# NEXT deploy's `git pull origin main` above aborted with "Your local changes would
+# be overwritten by merge", wedging the deploy until someone intervened by hand.
+#
+# `npm ci` installs exactly what the lockfile says and never writes it back, which
+# removes both problems. It also fails loudly when package.json and the lock have
+# drifted apart, instead of quietly reconciling them on the production server.
+npm ci --prefer-offline --no-audit --no-fund 2>&1 | tail -3
 success "Dependencies ready"
 
 info "Building server..."

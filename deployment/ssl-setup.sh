@@ -13,6 +13,54 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 [[ $EUID -ne 0 ]] && err "Run as root: sudo bash ssl-setup.sh"
 
+# ── ALLOWED_ORIGINS is a LIST, and writing to it is ADDITIVE ──────────────────
+# H-47: this used to be
+#     sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://${DOMAIN}|" .env
+# The `.*` swallowed the operator's entire list and left one entry behind, with no
+# warning and no way to notice. Running a documented step must never silently
+# discard configuration.
+#
+# merge_allowed_origins keeps every entry already in the file, appends the ones
+# passed as arguments only when they are absent, and collapses duplicates. It
+# removes nothing, ever.
+#
+# The rewrite goes through a temp file that is copied BACK OVER the original with
+# `cat >` rather than `mv`: .env is owned by the service user and mode 600 (H-46),
+# and mv would replace it with the temp file's ownership and permissions.
+#
+# NOTE: server-setup.sh carries a byte-identical copy of this function. Neither
+# script can source the other — server-setup.sh is run through `curl | bash`, so
+# it has no sibling files on disk. A unit test asserts the two copies stay equal.
+merge_allowed_origins() {
+  local env_file="$1"; shift
+  local current entry seen=""
+
+  current="$(sed -n 's/^ALLOWED_ORIGINS=//p' "$env_file" | head -1)"
+
+  for entry in ${current//,/ } "$@"; do
+    entry="$(printf '%s' "$entry" | tr -d '[:space:]')"
+    [[ -z "$entry" ]] && continue
+    case ",${seen}," in *",${entry},"*) continue ;; esac
+    seen="${seen:+$seen,}${entry}"
+  done
+
+  local tmp
+  tmp="$(mktemp)"
+  if grep -q '^ALLOWED_ORIGINS=' "$env_file"; then
+    awk -v val="$seen" '
+      /^ALLOWED_ORIGINS=/ && !replaced { print "ALLOWED_ORIGINS=" val; replaced = 1; next }
+      { print }
+    ' "$env_file" > "$tmp"
+  else
+    cat "$env_file" > "$tmp"
+    printf 'ALLOWED_ORIGINS=%s\n' "$seen" >> "$tmp"
+  fi
+  cat "$tmp" > "$env_file"
+  rm -f "$tmp"
+
+  printf '%s' "$seen"
+}
+
 read -rp "$(echo -e "${YELLOW}Domain name${NC} (e.g. api.example.com): ")" DOMAIN
 read -rp "$(echo -e "${YELLOW}Email address${NC} (for Let's Encrypt expiry notices): ")" EMAIL
 
@@ -37,12 +85,27 @@ certbot --nginx \
   --no-eff-email \
   --redirect
 
-# Update ALLOWED_ORIGINS in .env
+# Add this domain to ALLOWED_ORIGINS in .env — WITHOUT dropping what is there.
 APP_DIR="/var/www/onway"
 if [[ -f "${APP_DIR}/.env" ]]; then
-  sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://${DOMAIN}|" "${APP_DIR}/.env"
-  sed -i "s|^EXPO_PUBLIC_API_BASE_URL=.*|EXPO_PUBLIC_API_BASE_URL=https://${DOMAIN}|" "${APP_DIR}/.env"
-  info "Updated ALLOWED_ORIGINS and EXPO_PUBLIC_API_BASE_URL in .env"
+  BEFORE="$(sed -n 's/^ALLOWED_ORIGINS=//p' "${APP_DIR}/.env" | head -1)"
+  AFTER="$(merge_allowed_origins "${APP_DIR}/.env" "https://${DOMAIN}")"
+  info "ALLOWED_ORIGINS before: ${BEFORE:-(empty)}"
+  info "ALLOWED_ORIGINS after : ${AFTER}"
+
+  # EXPO_PUBLIC_API_BASE_URL is deliberately NOT touched here.
+  #
+  # It is a build-time value: the mobile app reads process.env.EXPO_PUBLIC_API_BASE_URL,
+  # which Expo bakes into the bundle when the binary is built. eas.json is what
+  # supplies it. Nothing on this server reads the variable at runtime, so rewriting
+  # it here would only produce a .env that looks authoritative while disagreeing
+  # with what is actually shipped in the app.
+  echo ""
+  info "EXPO_PUBLIC_API_BASE_URL was NOT modified — on purpose."
+  echo "    It is injected at Expo BUILD time from eas.json, not read at runtime here."
+  echo "    To point the mobile app at this domain, change it in eas.json and rebuild:"
+  echo "      eas build --profile production --platform ios"
+  echo ""
 fi
 
 info "Reloading Nginx..."

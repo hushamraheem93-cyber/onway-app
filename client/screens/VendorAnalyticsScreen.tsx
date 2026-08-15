@@ -5,9 +5,7 @@
  * All business logic, API calls, Firebase listeners, and hooks are
  * preserved from the original screens. Only UI/layout changes.
  */
-import React, { useState, useEffect, useCallback } from "react";
-import { onSnapshot, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -352,33 +350,19 @@ const rm = StyleSheet.create({
 
 // ─── Wallet tab ────────────────────────────────────────────────────────────────
 
-function WalletTab({ vendorId }: { vendorId: string | null }) {
+function WalletTab() {
   const { vendorToken } = useAuth();
   const { theme } = useTheme();
+  // H-50: see VendorWalletScreen — the settlementLedger onSnapshot listener that
+  // used to live here could only ever receive permission-denied, because the rules
+  // close that collection to the client SDK. useSettlement is the working source.
   const settlement = useSettlement("vendor");
-  const [liveBalance, setLive] = useState<number | null>(null);
   const [period, setPeriod] = useState<Period>("month");
-
-  // Firestore real-time listener (unchanged)
-  useEffect(() => {
-    if (!vendorId) return;
-    try {
-      const unsub = onSnapshot(
-        doc(db, "settlementLedger", `vendor:${vendorId}`),
-        (snap) => {
-          if (snap.exists())
-            setLive((snap.data() as any).outstandingTotal ?? null);
-        },
-        () => {},
-      );
-      return () => unsub();
-    } catch {}
-  }, [vendorId]);
 
   const handleRequestSettlement = useCallback(() => {
     Alert.alert(
       "طلب تسوية",
-      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(liveBalance ?? settlement.view?.outstanding ?? 0)} إلى الإدارة.`,
+      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(settlement.view?.outstanding ?? 0)} إلى الإدارة.`,
       [
         { text: "إلغاء", style: "cancel" },
         {
@@ -390,7 +374,7 @@ function WalletTab({ vendorId }: { vendorId: string | null }) {
         },
       ],
     );
-  }, [settlement, liveBalance]);
+  }, [settlement]);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<WalletData>({
     queryKey: ["/api/vendor/wallet", period],
@@ -412,12 +396,7 @@ function WalletTab({ vendorId }: { vendorId: string | null }) {
   const dailySales = data?.dailySales ?? [];
   const recentSales = data?.recentSales ?? [];
 
-  const liveSettlementView = settlement.view
-    ? {
-        ...settlement.view,
-        outstanding: liveBalance ?? settlement.view.outstanding,
-      }
-    : settlement.view;
+  const liveSettlementView = settlement.view;
 
   return (
     <ScrollView
@@ -1178,7 +1157,7 @@ export default function VendorAnalyticsScreen() {
       {/* Content */}
       <View style={{ flex: 1, paddingBottom: tabBarHeight }}>
         {activeTab === "wallet" ? (
-          <WalletTab vendorId={vendorId ?? null} />
+          <WalletTab />
         ) : (
           <RatingsTab vendorId={vendorId ?? null} />
         )}

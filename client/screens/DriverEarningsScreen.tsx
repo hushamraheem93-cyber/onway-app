@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -15,8 +9,6 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import { onSnapshot, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -1286,14 +1278,15 @@ export default function DriverEarningsScreen() {
   const [txFilter, setTxFilter] = useState<TxFilter>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [liveSettlement, setLiveSettlement] = useState<{
-    outstandingTotal: number;
-    totalGross: number;
-    totalCommission: number;
-    lastSettlementAmount: number;
-    totalOrders: number;
-  } | null>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+  // H-50: there was a `liveSettlement` state fed by an onSnapshot listener on
+  // settlementLedger. That collection is closed to the client SDK (rules:
+  // `allow read, write: if false`) because the document ids are enumerable and
+  // this app uses a custom JWT, not Firebase Auth — so every driver's debt would
+  // have been world-readable. The listener therefore only ever received
+  // permission-denied, liveSettlement stayed null forever, and the two cards
+  // gated on it never rendered. Everything it carried is already on
+  // /api/driver/wallet, which reads the same ledger document server-side through
+  // the Admin SDK, so `account` below is the single source for all of it.
 
   const fetchData = useCallback(async () => {
     if (!phoneNumber) return;
@@ -1329,40 +1322,6 @@ export default function DriverEarningsScreen() {
     fetchData();
   }, [fetchData]);
 
-  // ── Real-time Firestore listener on settlementLedger/driver:${phoneNumber} ─
-  useEffect(() => {
-    if (!phoneNumber) return;
-    const ledgerDocId = `driver:${phoneNumber}`;
-    try {
-      const docRef = doc(db, "settlementLedger", ledgerDocId);
-      const unsub = onSnapshot(
-        docRef,
-        (snap) => {
-          if (snap.exists()) {
-            const d = snap.data() as any;
-            setLiveSettlement({
-              outstandingTotal: d.outstandingTotal ?? 0,
-              totalGross: d.totalGross ?? 0,
-              totalCommission: d.totalCommission ?? 0,
-              lastSettlementAmount: d.lastSettlementAmount ?? 0,
-              totalOrders: d.totalOrders ?? 0,
-            });
-          }
-        },
-        (_err) => {
-          // Silently ignore — the REST-based account state remains the fallback
-        },
-      );
-      unsubscribeRef.current = unsub;
-      return () => {
-        unsub();
-        unsubscribeRef.current = null;
-      };
-    } catch {
-      // firebase SDK not ready — gracefully ignore
-    }
-  }, [phoneNumber]);
-
   // ── Filtered transactions ──────────────────────────────────────────────────
   const filteredTx = useMemo(
     () => filterTransactions(transactions, txFilter, customFrom, customTo),
@@ -1370,9 +1329,8 @@ export default function DriverEarningsScreen() {
   );
 
   // ── Account status ─────────────────────────────────────────────────────────
-  // Prefer live Firestore data when available; fall back to REST-based account
-  const amountOwed =
-    liveSettlement?.outstandingTotal ?? account?.amountOwed ?? 0;
+  // /api/driver/wallet maps ledger.outstandingTotal onto account.amountOwed.
+  const amountOwed = account?.amountOwed ?? 0;
   const acctStatus = getAccountStatus(amountOwed, suspendThreshold);
 
   if (loading) {
@@ -1543,21 +1501,19 @@ export default function DriverEarningsScreen() {
         ) : null}
       </View>
 
-      {/* Debt limit progress bar — live from Firestore onSnapshot */}
+      {/* Debt limit progress bar */}
       <DebtLimitBar owed={amountOwed} threshold={suspendThreshold} />
 
       {/* Payment ratio card */}
       {account ? <PaymentRatioCard account={account} /> : null}
 
       {/* Financial summary */}
-      {account || liveSettlement ? (
+      {account ? (
         <>
           <View style={styles.statsGrid}>
             <StatCard
               title="إجمالي أرباح التوصيل"
-              value={formatPrice(
-                liveSettlement?.totalCommission ?? account?.totalEarnings ?? 0,
-              )}
+              value={formatPrice(account.totalEarnings ?? 0)}
               icon="dollar-sign"
               color={AppColors.success}
             />
@@ -1582,22 +1538,28 @@ export default function DriverEarningsScreen() {
               color={AppColors.warning}
             />
           </View>
-          {liveSettlement ? (
-            <View style={styles.statsGrid}>
-              <StatCard
-                title="آخر رحلة"
-                value={formatPrice(liveSettlement.lastSettlementAmount)}
-                icon="zap"
-                color={AppColors.primary}
-              />
-              <StatCard
-                title="نقد محصّل (كلي)"
-                value={formatPrice(liveSettlement.totalGross)}
-                icon="dollar-sign"
-                color={AppColors.info}
-              />
-            </View>
-          ) : null}
+          {/* H-50: these two were gated on the denied listener and so never
+              rendered. /api/driver/wallet already carries both:
+                lastPaymentAmount    = ledger.lastSettlementAmount
+                totalGross           = totalEarnings + totalOnwayCommission
+                                       (the endpoint splits gross into those two) */}
+          <View style={styles.statsGrid}>
+            <StatCard
+              title="آخر رحلة"
+              value={formatPrice(account.lastPaymentAmount ?? 0)}
+              icon="zap"
+              color={AppColors.primary}
+            />
+            <StatCard
+              title="نقد محصّل (كلي)"
+              value={formatPrice(
+                (account.totalEarnings ?? 0) +
+                  (account.totalOnwayCommission ?? 0),
+              )}
+              icon="dollar-sign"
+              color={AppColors.info}
+            />
+          </View>
         </>
       ) : null}
 

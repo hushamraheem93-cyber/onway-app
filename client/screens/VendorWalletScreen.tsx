@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { onSnapshot, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -133,53 +131,21 @@ const chartStyles = StyleSheet.create({
   },
 });
 
-/** Decode the vendor ID from the JWT payload without external libraries */
-function decodeVendorId(token: string | null): string | null {
-  if (!token) return null;
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.vendorId || payload.sub || payload.id || null;
-  } catch {
-    return null;
-  }
-}
-
 export default function VendorWalletScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorToken } = useAuth();
-  const vendorId = decodeVendorId(vendorToken);
+  // H-50: a `liveBalance` onSnapshot listener on settlementLedger used to sit
+  // here. That collection is closed to the client SDK (rules: `allow read,
+  // write: if false`), so the listener only ever received permission-denied and
+  // liveBalance stayed null. useSettlement already serves the same number over
+  // the JWT-authorised REST endpoint, which reads the ledger with the Admin SDK.
   const settlement = useSettlement("vendor");
-  const [liveBalance, setLiveBalance] = useState<number | null>(null);
-
-  // ── Real-time Firestore listener on settlementLedger/vendor:${vendorId} ───
-  useEffect(() => {
-    if (!vendorId) return;
-    const ledgerDocId = `vendor:${vendorId}`;
-    try {
-      const docRef = doc(db, "settlementLedger", ledgerDocId);
-      const unsub = onSnapshot(
-        docRef,
-        (snap) => {
-          if (snap.exists()) {
-            const d = snap.data() as any;
-            setLiveBalance(d.outstandingTotal ?? null);
-          }
-        },
-        () => {
-          /* silently ignore */
-        },
-      );
-      return () => unsub();
-    } catch {
-      // firebase not ready — gracefully ignore
-    }
-  }, [vendorId]);
 
   const handleRequestSettlement = useCallback(() => {
     Alert.alert(
       "طلب تسوية",
-      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(liveBalance ?? settlement.view?.outstanding ?? 0)} إلى الإدارة.`,
+      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(settlement.view?.outstanding ?? 0)} إلى الإدارة.`,
       [
         { text: "إلغاء", style: "cancel" },
         {
@@ -219,15 +185,9 @@ export default function VendorWalletScreen() {
   const dailySales = data?.dailySales ?? [];
   const recentSales = data?.recentSales ?? [];
 
-  // Merge the live Firestore balance into the settlement view so SettlementStatusBar
-  // and the alert dialog reflect real-time outstanding amount without waiting for
-  // the next WebSocket "settlements:changed" event or manual pull-to-refresh.
-  const liveSettlementView = settlement.view
-    ? {
-        ...settlement.view,
-        outstanding: liveBalance ?? settlement.view.outstanding,
-      }
-    : settlement.view;
+  // The outstanding amount comes from useSettlement, refreshed by the
+  // "settlements:changed" socket event and by pull-to-refresh.
+  const liveSettlementView = settlement.view;
 
   return (
     <ScrollView

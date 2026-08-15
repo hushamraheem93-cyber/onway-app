@@ -67,7 +67,16 @@ set_env "MASTER_RECOVERY_PASSWORD" "MASTER_RECOVERY_PASSWORD (emergency — leav
 echo ""
 
 echo -e "${BLUE}── Domain / CORS ─────────────────────────────────────────────${NC}"
-set_env "ALLOWED_ORIGINS"         "ALLOWED_ORIGINS (e.g. https://api.example.com)"
+# ALLOWED_ORIGINS is a COMMA-SEPARATED LIST, not one origin. The old prompt showed a
+# single example, which is how an operator ends up storing one value where several
+# belong. Same-origin surfaces (the /admin panel, /vendor, the mobile apps) do NOT
+# need to be listed — they are allowed by the server's own origin. This is only for
+# genuinely cross-origin browser clients.
+echo "ALLOWED_ORIGINS is a COMMA-SEPARATED LIST — you may enter several origins."
+echo "  one origin  : https://api.example.com"
+echo "  several     : https://api.example.com,https://www.api.example.com"
+echo "Leave blank if every client is same-origin or a native mobile app."
+set_env "ALLOWED_ORIGINS"         "ALLOWED_ORIGINS (comma-separated, e.g. https://a.example.com,https://www.a.example.com)"
 set_env "EXPO_PUBLIC_API_BASE_URL" "EXPO_PUBLIC_API_BASE_URL (same as above, no trailing slash)"
 echo ""
 
