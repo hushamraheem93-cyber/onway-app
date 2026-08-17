@@ -36,9 +36,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "../..");
 const read = (p) => readFileSync(join(root, p), "utf8");
 
+/**
+ * H-64 removed client/screens/VendorWalletScreen.tsx, which this suite used to
+ * check as a third screen. No navigator mounted it, so its copy of the listener
+ * could never run and asserting on it proved nothing about the app. Both
+ * screens that DO render — the driver's and the vendor's — are still checked
+ * here, so the guard's reach over live code is unchanged.
+ */
 const SCREENS = {
   "client/screens/DriverEarningsScreen.tsx": read("client/screens/DriverEarningsScreen.tsx"),
-  "client/screens/VendorWalletScreen.tsx": read("client/screens/VendorWalletScreen.tsx"),
   "client/screens/VendorAnalyticsScreen.tsx": read("client/screens/VendorAnalyticsScreen.tsx"),
 };
 /** The removal is explained in comments that name the old code — strip them. */
@@ -174,10 +180,7 @@ describe("H-50 · the two driver cards render from REST", () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe("H-50 · the vendor screens use the REST settlement view", () => {
-  for (const f of [
-    "client/screens/VendorWalletScreen.tsx",
-    "client/screens/VendorAnalyticsScreen.tsx",
-  ]) {
+  for (const f of ["client/screens/VendorAnalyticsScreen.tsx"]) {
     const short = f.split("/").pop();
 
     test(`${short} sources the outstanding amount from useSettlement`, () => {
