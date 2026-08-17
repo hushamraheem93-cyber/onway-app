@@ -11,8 +11,8 @@ interface Props {
   deliveryFee: number;
   serviceFee: number;
   promoDiscount: number;
-  isRestaurantOrder: boolean;
-  hasAreaSelected: boolean;
+  /** True once the delivery fee is known (an area is picked, or the store overrides it). */
+  feeResolved: boolean;
 }
 
 export function OrderSummaryCard({
@@ -21,17 +21,16 @@ export function OrderSummaryCard({
   deliveryFee,
   serviceFee,
   promoDiscount,
-  isRestaurantOrder,
-  hasAreaSelected,
+  feeResolved,
 }: Props) {
   const { theme } = useTheme();
   const total = subtotal + deliveryFee + serviceFee - promoDiscount;
 
-  const deliveryLabel = isRestaurantOrder
-    ? formatPrice(1000)
-    : hasAreaSelected
-      ? formatPrice(deliveryFee)
-      : "اختر المنطقة";
+  // D-3: this used to print a literal 1000 for restaurant baskets — a fourth copy
+  // of the old flat restaurant fee, and the one the customer actually reads. There
+  // is no per-kind fee any more: the delivery fee is the selected area's fee, or
+  // the store's own override, and both arrive here already resolved.
+  const deliveryLabel = feeResolved ? formatPrice(deliveryFee) : "اختر المنطقة";
 
   return (
     <View

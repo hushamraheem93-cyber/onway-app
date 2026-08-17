@@ -17,6 +17,21 @@ export function isDevMode(): boolean {
   return process.env.DEV_MODE === "true";
 }
 
+// ── Demo / catalogue seeding (H-68) ─────────────────────────────────────────
+//
+// The rule itself lives in shared/seedGuard.mjs, not here. Three seed paths need
+// it and one of them (scripts/seed-test-data.mjs) runs under bare node with no
+// TypeScript loader, so a .ts module could not be shared with it without changing
+// how that script is invoked. Re-exporting keeps `server/env.ts` the single import
+// site for the server while there is still exactly one implementation.
+export {
+  DEMO_SEED_OPT_IN,
+  DEMO_SEED_OPT_IN_VALUE,
+  NON_PRODUCTION_NODE_ENVS,
+  demoSeedDenialReason,
+  isDemoSeedAllowed,
+} from "../shared/seedGuard.mjs";
+
 /**
  * H-49 — may this process serve the Expo Go surface (`static-build/`)?
  *

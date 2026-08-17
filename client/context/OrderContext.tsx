@@ -78,6 +78,8 @@ export interface Order {
     | "ready"
     | "picked_up"
     | "in_delivery"
+    // C-1: legacy only — the server writes `in_delivery`. Retained so an old
+    // document does not fail to type-check.
     | "delivering"
     | "delivered"
     | "cancelled"

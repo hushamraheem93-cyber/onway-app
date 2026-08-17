@@ -97,6 +97,15 @@ import type { LedgerInput } from "./financialLedger";
 import {
   sanitizeQuantity,
   capOrderItemImages,
+  buildStoredOrderItem,
+  parseLatitude,
+  parseLongitude,
+  validateOrderFields,
+  checkDocumentImageLimits,
+  documentRejectionStatus,
+  documentRejectionMessage,
+  MAX_DOCUMENT_PIXELS,
+  type DocumentImageRejection,
   safeImageExtension,
   safeImageContentType,
   sniffImageMime,
@@ -108,10 +117,21 @@ import {
   JWT_VERIFY_OPTS,
   csvCell,
   csvNumber,
+  type ResolvedOrderLine,
 } from "./orderValidation";
+import {
+  DEFAULT_DELIVERY_PRICING,
+  normalizeDeliveryPricing,
+  splitDeliveryFee,
+  orderKindForVendor,
+  type DeliveryPricing,
+  type OrderKind,
+} from "../shared/deliveryPricing";
+import { normalizeWorkingHours } from "../shared/storeHours";
+import { isProductAvailable } from "../shared/productAvailability";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
-import { isDevMode } from "./env";
+import { isDevMode, isDemoSeedAllowed, demoSeedDenialReason } from "./env";
 
 // (The disk-storage multer engine and its `uploads/` directory were removed here.
 //  Their only consumer was POST /api/upload, which had no callers. Every upload in
@@ -460,6 +480,24 @@ async function batchBelongsToDriver(batchId: string, driverPhone: string): Promi
  * (getSignedDriverDocUrl), so access to a government ID always expires and can be cut
  * off by rotating/deleting the object, instead of living behind an unrevocable token.
  */
+/**
+ * H-70: a document the caller sent that this server will not process.
+ *
+ * Distinguished from every other failure in `storeDriverDocument` so the route can
+ * answer 4xx — the client sent something unusable — instead of the blanket 502 it
+ * returns when Storage itself fails. `kind` names which of the three documents it
+ * was, for the log line; the image and the reason string never reach the log.
+ */
+class DocumentImageError extends Error {
+  constructor(
+    readonly rejection: DocumentImageRejection,
+    readonly kind: string,
+  ) {
+    super(`${kind}: ${rejection}`);
+    this.name = "DocumentImageError";
+  }
+}
+
 async function storeDriverDocument(
   value: string,
   phoneNumber: string,
@@ -474,7 +512,42 @@ async function storeDriverDocument(
   const m = value.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
   if (!m) throw new Error(`${kind}: expected a base64 image data URI`);
 
-  const webp = await sharp(Buffer.from(m[2], "base64"))
+  // H-70: refuse before anything heavy runs.
+  //
+  // The declared `image/…` type in the data URI is NOT used as a guard — a caller
+  // writes it. What follows trusts only what sharp can actually read out of the
+  // bytes. `.metadata()` parses the header alone (about a millisecond even for an
+  // 8000×8000 file) and never decodes, so the check costs nothing on real uploads
+  // while a decompression bomb is rejected before a single pixel is materialised.
+  const raw = Buffer.from(m[2], "base64");
+
+  // Step 1 — read the header only. Deliberately WITHOUT limitInputPixels: parsing
+  // a header allocates no pixel buffer whatever the dimensions claim, so this is
+  // safe on a bomb, and letting it succeed is what lets the size be reported
+  // accurately instead of collapsing into a generic "unreadable".
+  let meta: sharp.Metadata;
+  try {
+    meta = await sharp(raw).metadata();
+  } catch {
+    // Unsupported, truncated or deliberately malformed — never continue on a file
+    // whose dimensions could not be established. The reason is not echoed: this is
+    // a government identity document.
+    throw new DocumentImageError("unreadable", kind);
+  }
+
+  // Step 2 — decide. This is the check that closes H-70, and it runs before any
+  // pixel is decoded.
+  const rejection = checkDocumentImageLimits({
+    bytes: raw.length,
+    width: meta.width,
+    height: meta.height,
+  });
+  if (rejection) throw new DocumentImageError(rejection, kind);
+
+  // Step 3 — only now the heavy work. `limitInputPixels` repeats the bound inside
+  // libvips so that if the check above were ever removed or bypassed, the decode
+  // still refuses rather than running to completion.
+  const webp = await sharp(raw, { limitInputPixels: MAX_DOCUMENT_PIXELS })
     .rotate() // honour EXIF orientation — phone photos are routinely sideways
     .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
     .webp({ quality: 82 })
@@ -812,7 +885,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const id = v.id || d.id;
         return {
           id, storeName, businessType: v.businessType,
-          address: v.address || "", bio: v.bio || "",
+          // H-64 / 7: the admin used to write `location`/`description` and the app
+          // reads `address`/`bio`. Both directions now resolve to one value.
+          address: v.address || v.location || "", bio: v.bio || v.description || "",
           totalProducts: v.totalProducts || 0,
           approvedAt: v.approvedAt || v.createdAt || "",
           profileImageUrl: limitImageSize(v.profileImageUrl || "", 80000),
@@ -821,7 +896,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ratingCount: v.ratingCount ?? 0,
           deliveryTime: v.deliveryTime || "30-45",
           deliveryPrice: v.deliveryPrice ?? 0,
-          workingHours: v.workingHours || null,
+          // D-6: fold the legacy admin-only openTime/closeTime into the shape the
+          // app actually reads, so a store edited before this fix is not shown as
+          // permanently open while the dashboard displays real hours.
+          workingHours: normalizeWorkingHours(v.workingHours, { openTime: v.openTime, closeTime: v.closeTime }),
           hasDelivery: v.hasDelivery ?? true,
           minOrder: v.minOrder ?? 0,
           // #9: store-specific delivery fee override (null ⇒ use default). Lets the
@@ -1002,6 +1080,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function checkIsRestaurantOrder(order: any): Promise<boolean> {
     try {
+      // D-3: the classification frozen at checkout wins. Everything below it is the
+      // pre-D-3 guesswork kept only for orders placed before that field existed —
+      // and `order.vendorId` in particular answered TRUE for every marketplace
+      // order, which is how shopping deliveries were being priced as restaurants.
+      if (order.orderKind === "restaurant") return true;
+      if (order.orderKind === "shopping") return false;
       // Fast path: already tagged on the order
       if (order.vendorId) return true;
       if (order.orderType === "restaurant") return true;
@@ -1937,14 +2021,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     onlinePaymentEnabled: boolean;
     driverPayoutRule: { type: string; flatRestaurant: number; flatDefault: number; percent: number };
     autoSuspendThreshold: number;
-    restaurantDeliveryFee: number;
+    deliveryPricing: DeliveryPricing;
     maxBatchSize: number;
   }> {
     const defaults = {
       onlinePaymentEnabled: false,
       driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
       autoSuspendThreshold: 100000,
-      restaurantDeliveryFee: 1000,
+      deliveryPricing: DEFAULT_DELIVERY_PRICING,
       // Max orders a driver can carry in one batch (dispatch A3). Admin-configurable
       // 1–4; clamped on read so a bad stored value can never break dispatch.
       maxBatchSize: 3,
@@ -1957,11 +2041,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const snap = await db.collection("system_settings").doc("global").get();
       const d = snap.exists ? (snap.data() as any) : {};
+      // D-3: `deliveryPricing` holds ONLY the split percentages. The delivery fee
+      // itself is never a system setting — it comes from the delivery area, or from
+      // a store's explicit override. A pre-D-3 `restaurantDeliveryFee` is therefore
+      // deliberately not read: it was a per-kind flat fee behind a condition that
+      // could never be true, and honouring it now would reintroduce exactly the
+      // kind-dependent pricing this removes.
       const result = {
         onlinePaymentEnabled: d.onlinePaymentEnabled ?? defaults.onlinePaymentEnabled,
         driverPayoutRule: d.driverPayoutRule ?? defaults.driverPayoutRule,
         autoSuspendThreshold: d.autoSuspendThreshold ?? defaults.autoSuspendThreshold,
-        restaurantDeliveryFee: d.restaurantDeliveryFee ?? defaults.restaurantDeliveryFee,
+        deliveryPricing: normalizeDeliveryPricing(d.deliveryPricing),
         // Clamp to 1–4 so a corrupt value can never make dispatch build huge/empty batches.
         maxBatchSize: Math.min(4, Math.max(1, Number(d.maxBatchSize) || defaults.maxBatchSize)),
       };
@@ -1978,21 +2068,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     _sysSettingsCacheAt = 0;
   }
 
-  // Compute driver payout from configurable rule
+  /**
+   * Split one order's delivery fee between the driver and the platform (D-3).
+   *
+   * `storedAppSharePercent` is the percentage FROZEN onto the order when it was
+   * created, exactly as `vendorCommissionAmount` freezes the store's commission.
+   * Passing it means a settlement that runs days later pays what the order was
+   * sold at, not what the settings happen to say now — and it is what keeps this
+   * change away from historical orders entirely.
+   *
+   * Orders created before D-3 carry no frozen percentage. They fall through to the
+   * table for their kind rather than to the old flat rule: the flat rule is what
+   * produced `driverEarning > deliveryFee` (a 200-dinar fee paying 1000), and
+   * reproducing that on a replayed settlement would re-create the loss. The old
+   * `driverPayoutRule` is still read and still editable, but it can no longer
+   * decide money — see the note on the settings route.
+   */
   async function computeDriverPayout(
     isRestaurant: boolean,
     deliveryFee: number,
+    storedAppSharePercent?: unknown,
   ): Promise<{ driverEarning: number; deductionAmount: number }> {
     const settings = await getSystemSettings();
-    const rule = settings.driverPayoutRule;
-    let driverEarning: number;
-    if (rule.type === "percent") {
-      driverEarning = Math.max(0, Math.round((deliveryFee || 0) * (rule.percent || 15) / 100));
-    } else {
-      driverEarning = isRestaurant ? (rule.flatRestaurant ?? 750) : (rule.flatDefault ?? 2000);
-    }
-    const deductionAmount = Math.max(0, (deliveryFee || 0) - driverEarning);
-    return { driverEarning, deductionAmount };
+    const kind: OrderKind = isRestaurant ? "restaurant" : "shopping";
+    const percent =
+      storedAppSharePercent == null
+        ? settings.deliveryPricing[kind].appSharePercent
+        : storedAppSharePercent;
+    const { appShare, driverEarning } = splitDeliveryFee(deliveryFee, percent);
+    // `deductionAmount` is the platform's share. The name is what the settlement
+    // ledger and every caller already use, so it stays.
+    return { driverEarning, deductionAmount: appShare };
   }
 
   /**
@@ -2018,7 +2124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     driverPhone: string | null,
   ): Promise<{ driverEarning: number; deductionAmount: number; isRestaurantOrder: boolean; driverOutstanding: number }> {
     const isRestaurantOrder = await checkIsRestaurantOrder(order);
-    const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
+    const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0, (order as any).appSharePercent);
     if (driverPhone) {
       // H-33: the result was discarded. The settlement accrual below still ran, so
       // the ledger recorded the money while the ORDER document kept no earnings —
@@ -2183,7 +2289,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onlinePaymentEnabled: settings.onlinePaymentEnabled,
         driverPayoutRule: settings.driverPayoutRule,
         autoSuspendThreshold: settings.autoSuspendThreshold,
-        restaurantDeliveryFee: settings.restaurantDeliveryFee,
+        // D-3: the checkout screen used to hold its own hardcoded 1000 for the
+        // restaurant fee, so a change here moved what the customer was CHARGED
+        // without moving what they were SHOWN. Both now come from this response.
+        // D-3: the split percentages only. The delivery FEE is not here and is no
+        // longer a system setting — the app reads it from /api/delivery-areas, the
+        // same collection the server prices from.
+        deliveryPricing: settings.deliveryPricing,
         maxBatchSize: settings.maxBatchSize,
       });
     } catch (error: any) {
@@ -2197,7 +2309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "Database unavailable" });
-      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold, restaurantDeliveryFee, maxBatchSize } = req.body;
+      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold, restaurantDeliveryFee, maxBatchSize, deliveryPricing } = req.body;
       const update: Record<string, any> = {};
       if (typeof onlinePaymentEnabled === "boolean") update.onlinePaymentEnabled = onlinePaymentEnabled;
       if (maxBatchSize !== undefined) {
@@ -2207,20 +2319,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (driverPayoutRule && typeof driverPayoutRule === "object") {
         const r = driverPayoutRule as any;
         if (r.type === "flat" || r.type === "percent") {
+          // D-3: `Number(x) || fallback` stored 750 when the admin typed 0 — the
+          // same class of bug as H-06's `|| 10` on the store commission. A rate of
+          // zero is a legitimate commercial choice and must survive being saved.
+          // This rule no longer decides any payout (see computeDriverPayout); it is
+          // kept editable so an existing configuration is not silently discarded.
+          const num = (value: unknown, fallback: number) => {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : fallback;
+          };
           update.driverPayoutRule = {
             type: r.type,
-            flatRestaurant: Math.max(0, Number(r.flatRestaurant) || 750),
-            flatDefault: Math.max(0, Number(r.flatDefault) || 2000),
-            percent: Math.min(100, Math.max(0, Number(r.percent) || 15)),
+            flatRestaurant: Math.max(0, num(r.flatRestaurant, 750)),
+            flatDefault: Math.max(0, num(r.flatDefault, 2000)),
+            percent: Math.min(100, Math.max(0, num(r.percent, 15))),
           };
         }
+      }
+      // D-3: the platform's cut of the delivery fee, per order kind. No fee lives
+      // here — fees are per delivery AREA. Validated strictly (rejected, not
+      // clamped) so a bad admin payload is reported instead of silently rewritten;
+      // the READ path clamps instead, because there a bad stored value must degrade
+      // rather than break every order.
+      if (deliveryPricing !== undefined) {
+        const dp = deliveryPricing as any;
+        if (!dp || typeof dp !== "object") {
+          return res.status(400).json({ error: "صيغة تقسيم أجرة التوصيل غير صحيحة" });
+        }
+        const cleaned: Record<string, { appSharePercent: number }> = {};
+        for (const kind of ["restaurant", "shopping"] as const) {
+          const k = dp[kind];
+          if (!k || typeof k !== "object") {
+            return res.status(400).json({ error: "صيغة تقسيم أجرة التوصيل غير صحيحة" });
+          }
+          const share = Number(k.appSharePercent);
+          if (!Number.isFinite(share) || share < 0 || share > 100) {
+            return res.status(400).json({ error: "حصة التطبيق يجب أن تكون بين 0 و100" });
+          }
+          cleaned[kind] = { appSharePercent: Math.round(share) };
+        }
+        update.deliveryPricing = cleaned;
       }
       if (typeof autoSuspendThreshold === "number" && autoSuspendThreshold >= 0) {
         update.autoSuspendThreshold = Math.round(autoSuspendThreshold);
       }
-      if (typeof restaurantDeliveryFee === "number" && restaurantDeliveryFee >= 0) {
-        update.restaurantDeliveryFee = Math.round(restaurantDeliveryFee);
-      }
+      // `restaurantDeliveryFee` is deliberately NOT accepted any more. It was a
+      // per-kind flat fee, and D-3 removed per-kind fees entirely; continuing to
+      // store it would leave a value in the database that nothing reads and that a
+      // future reader could mistake for the real fee. Delivery fees are edited
+      // through /api/admin/delivery-areas.
+      void restaurantDeliveryFee;
       if (Object.keys(update).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
       }
@@ -2306,10 +2454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         && !isValidCommissionPercent(commissionPercent)) {
       return res.status(400).json({ error: "نسبة العمولة غير صالحة — يجب أن تكون رقماً بين 0 و100" });
     }
-    const parseCoord = (v: any, min: number, max: number): number | null => {
-      const n = Number(v);
-      return (v === undefined || v === null || v === "" || !isFinite(n) || n < min || n > max) ? null : n;
-    };
+    // H-67: this was the file's second private copy of the same coordinate check.
+    // Both now call the shared one; the semantics are unchanged (unusable ⇒ null).
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
     const data = {
@@ -2341,10 +2487,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : Math.max(0, Math.round(Number(deliveryFee) || 0)),
       openTime: openTime ? String(openTime) : "",
       closeTime: closeTime ? String(closeTime) : "",
+      // D-6: the customer app reads `workingHours`, never the loose pair above.
+      workingHours: normalizeWorkingHours(null, { openTime, closeTime }),
       description: description ? String(description) : "",
       sortOrder: maxOrder + 1,
-      latitude: parseCoord(latitude, -90, 90),
-      longitude: parseCoord(longitude, -180, 180),
+      latitude: parseLatitude(latitude),
+      longitude: parseLongitude(longitude),
     };
     try {
       const id = await createFirestoreVendor(data);
@@ -2360,7 +2508,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const body = req.body as Record<string, any>;
     const vendorUpdates: Record<string, any> = {};
     if (body.name !== undefined) vendorUpdates.name = String(body.name);
-    if (body.location !== undefined) vendorUpdates.location = String(body.location);
+    // H-64 / 7: the admin's "الموقع" and the vendor's `address` are the same fact,
+    // and the customer app reads `address` (StoresListScreen / HomeScreen). Writing
+    // only `location` meant an admin edit never reached a customer. Both are written
+    // so nothing that still reads the legacy name breaks; `address` is the one the
+    // app uses, so the two can no longer disagree.
+    if (body.location !== undefined) {
+      vendorUpdates.location = String(body.location);
+      vendorUpdates.address = String(body.location);
+    }
     if (body.whatsappNumber !== undefined) vendorUpdates.whatsappNumber = String(body.whatsappNumber);
     // H-06: an unvalidated Number() here stored NaN / negatives / >100 straight
     // into the rate every later settlement is computed from.
@@ -2384,21 +2540,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? null
         : Math.max(0, Math.round(Number(body.deliveryFee) || 0));
     }
+    // D-6: opening hours must land where the CUSTOMER app reads them.
+    //
+    // These two strings were stored on their own and nothing ever read them — the
+    // app decides "مفتوح"/"مغلق" from `workingHours` only. An admin changing a
+    // store's hours therefore changed nothing a customer could see. They are still
+    // written (the dashboard and some reports show them) but the same edit now
+    // rebuilds `workingHours`, preserving whatever open DAYS the store owner chose.
     if (body.openTime !== undefined) vendorUpdates.openTime = String(body.openTime);
     if (body.closeTime !== undefined) vendorUpdates.closeTime = String(body.closeTime);
-    if (body.description !== undefined) vendorUpdates.description = String(body.description);
+    if (body.openTime !== undefined || body.closeTime !== undefined) {
+      const db = getFirestore();
+      const snap = db ? await db.collection("vendors").doc(id).get() : null;
+      const existing = (snap?.exists ? snap.data() : {}) as any;
+      const merged = normalizeWorkingHours(
+        {
+          ...(existing?.workingHours ?? {}),
+          ...(body.openTime !== undefined ? { openTime: body.openTime } : {}),
+          ...(body.closeTime !== undefined ? { closeTime: body.closeTime } : {}),
+        },
+        { openTime: existing?.openTime, closeTime: existing?.closeTime },
+      );
+      // null means the pair no longer forms a usable window — clearing the hours is
+      // a legitimate edit ("open whenever"), so it is stored as such rather than
+      // leaving a half-updated object behind.
+      vendorUpdates.workingHours = merged;
+    }
+    // Store availability, previously vendor-only (PATCH /api/vendor/availability).
+    // The server already refuses orders on either flag (POST /api/orders), so a
+    // store could stop taking orders with the admin seeing "مفتوح" and having no
+    // way to clear it. Same fields, same meaning — no new behaviour.
+    if (body.isVacation !== undefined) vendorUpdates.isVacation = Boolean(body.isVacation);
+    if (body.isBusy !== undefined) vendorUpdates.isBusy = Boolean(body.isBusy);
+    // Same pairing for the store blurb: the admin wrote `description`, the vendor
+    // writes `bio`, and the app shows `bio` (StoreProductsScreen).
+    if (body.description !== undefined) {
+      vendorUpdates.description = String(body.description);
+      vendorUpdates.bio = String(body.description);
+    }
     if (Array.isArray(body.supportedCategories)) vendorUpdates.supportedCategories = body.supportedCategories;
     if (body.sortOrder !== undefined) vendorUpdates.sortOrder = Number(body.sortOrder);
     if (body.isPinned !== undefined) vendorUpdates.isPinned = Boolean(body.isPinned);
     if (body.isFeatured !== undefined) vendorUpdates.isFeatured = Boolean(body.isFeatured);
     if (body.isVerified !== undefined) vendorUpdates.isVerified = Boolean(body.isVerified);
     // Store geo-location set on the map. A blank value clears it (null).
-    const clampCoord = (v: any, min: number, max: number): number | null => {
-      const n = Number(v);
-      return (v === null || v === "" || !isFinite(n) || n < min || n > max) ? null : n;
-    };
-    if (body.latitude !== undefined) vendorUpdates.latitude = clampCoord(body.latitude, -90, 90);
-    if (body.longitude !== undefined) vendorUpdates.longitude = clampCoord(body.longitude, -180, 180);
+    // H-67: this route's local `clampCoord` was the only coordinate validation in
+    // the file, and the customer-facing order route had none. The logic moved to
+    // orderValidation.ts unchanged — same bounds, same null-for-unusable result —
+    // so both routes now share one definition instead of one having a copy.
+    if (body.latitude !== undefined) vendorUpdates.latitude = parseLatitude(body.latitude);
+    if (body.longitude !== undefined) vendorUpdates.longitude = parseLongitude(body.longitude);
     try {
       await updateFirestoreVendor(id, vendorUpdates);
       invalidateVendorsCache();
@@ -2498,7 +2689,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/orders", async (req, res) => {
     const db = getFirestore();
     if (db) {
-      const rawOrders = await getOrders();
+      // #19: bounded. The dashboard fetches this endpoint several times per page
+      // load and used to receive every order ever placed each time.
+      const limit = Math.min(2000, Math.max(1, parseInt(String(req.query.limit ?? ""), 10) || 500));
+      const rawOrders = await getOrders(limit);
       const ordersWithDates = rawOrders.map(o => ({
         ...o,
         createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
@@ -2631,10 +2825,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // #9: capture the store's optional flat delivery-fee override here (the vendor
       // doc is already read for the availability check — no extra Firestore read).
       let vendorDeliveryFeeOverride: number | null = null;
+      let pricingVendorData: any = null; // D-3: classifies the order, see below
       if (bodyVendorId) {
         const vAvailDoc = await db.collection("vendors").doc(String(bodyVendorId)).get();
         if (vAvailDoc.exists) {
           const vAvail = vAvailDoc.data() as any;
+          pricingVendorData = vAvail;
           if (vAvail.isVacation) {
             return res.status(400).json({ error: "المتجر في وضع الإجازة حالياً، يرجى المحاولة لاحقاً" });
           }
@@ -2665,6 +2861,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: `الطلب يحتوي على عدد كبير جداً من العناصر (الحد ${MAX_ORDER_ITEM_LINES})`,
         });
       }
+
+      // ── H-67: the order's own fields, validated before anything is stored ──
+      //
+      // One call, one place. These five arrived from the body unvalidated and were
+      // written onto the document as they were: an address that need not be text, a
+      // note of any length, an unrecognised tag, and coordinates that need not be
+      // points on Earth. `1e309` arrives from JSON.parse as `Infinity`, passes the
+      // `typeof … === "number"` gate at both distance call sites, and turns every
+      // haversine result into NaN — which makes the driver-proximity sort order
+      // undefined. Refusing the request is the only point at which that is cheap.
+      //
+      // The raw `address`/`notes`/`orderType`/`latitude`/`longitude` are not read
+      // again below; everything the write needs comes out of `fields.value`.
+      const fields = validateOrderFields({ address, notes, orderType, latitude, longitude });
+      if (!fields.ok) {
+        return res.status(400).json({ error: fields.error });
+      }
+      const {
+        address: normalizedAddress,
+        notes: normalizedNotes,
+        orderType: normalizedOrderType,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
+      } = fields.value;
 
       const allProductsForPricing = await getCachedProducts();
       const verifiedPriceByProductId = new Map<string, number>();
@@ -2713,9 +2933,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // H-66: what the order will actually be stored with, resolved line by line
+      // from the catalogue rather than copied from the request. Kept parallel to
+      // `items` — every path that fails to resolve a line returns 400 below, so by
+      // the time this is read it holds exactly one entry per submitted item.
+      //
+      // Per LINE, not per productId: the same product can appear twice in one cart
+      // with different add-ons, and those two lines have different verified prices.
+      const resolvedLines: ResolvedOrderLine[] = [];
+
       for (const it of items as any[]) {
         let realPrice: number | undefined;
         let available = true; // only an explicit inStock === false blocks the order
+        // Catalogue-resolved presentation for this line. Populated alongside the
+        // price so the two can never come from different products.
+        let resolvedName: unknown;
+        let resolvedImage: unknown;
+        let resolvedRestaurant: unknown;
+        let resolvedVariant: { id?: unknown; name?: unknown; priceAdjustment?: unknown } | null = null;
+        const resolvedAddons: { id?: unknown; name?: unknown; price?: unknown }[] = [];
         const legacyProduct = allProductsForPricing.find((p: any) => p.id === it.productId);
         // H-05 (defence in depth): only a FINITE, STRICTLY POSITIVE stored price may
         // be used. `!Number.isNaN(...)` alone let a negative or Infinity price that
@@ -2725,6 +2961,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // unknownProductIds and the order is rejected instead of silently discounted.
         if (legacyProduct && isValidProductPrice(legacyProduct.price)) {
           realPrice = Number(legacyProduct.price);
+          resolvedName = legacyProduct.name;
+          resolvedImage = legacyProduct.image;
+          resolvedRestaurant = legacyProduct.restaurant;
           if (legacyProduct.inStock === false) available = false;
           if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
@@ -2736,20 +2975,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const vpPrice = Number(vp?.price);
             if (isValidProductPrice(vpPrice)) {
               realPrice = vpPrice;
+              resolvedName = vp.name;
+              // H-66: the picture is taken from the same document as the price.
+              // `imageUrl` is the field vendors write; `imageUrls[0]` covers the
+              // multi-image products, matching what the storefront shows first.
+              resolvedImage =
+                vp.imageUrl ?? (Array.isArray(vp.imageUrls) ? vp.imageUrls[0] : undefined);
               // Add verified variant price adjustment
               if (it.selectedVariantId && Array.isArray(vp.variants)) {
                 const variant = vp.variants.find((v: any) => v.id === it.selectedVariantId);
-                if (variant) realPrice += Number(variant.priceAdjustment) || 0;
+                if (variant) {
+                  realPrice += Number(variant.priceAdjustment) || 0;
+                  // H-66: store the catalogue's own label and adjustment, so the
+                  // line the store reads describes the variant it was priced for.
+                  resolvedVariant = {
+                    id: variant.id,
+                    name: variant.name,
+                    priceAdjustment: Number(variant.priceAdjustment) || 0,
+                  };
+                }
               }
               // Add verified addon prices
               if (Array.isArray(it.selectedAddons) && Array.isArray(vp.addons)) {
                 for (const orderAddon of it.selectedAddons as any[]) {
                   const dbAddon = vp.addons.find((a: any) => a.id === orderAddon.id);
-                  if (dbAddon) realPrice += Number(dbAddon.price) || 0;
+                  if (dbAddon) {
+                    realPrice += Number(dbAddon.price) || 0;
+                    // Only add-ons the product actually defines are stored — an id
+                    // the catalogue does not know added nothing to the price, so
+                    // persisting its client-supplied name and cost would describe
+                    // something the customer was never charged for.
+                    resolvedAddons.push({
+                      id: dbAddon.id,
+                      name: dbAddon.name,
+                      price: Number(dbAddon.price) || 0,
+                    });
+                  }
                 }
               }
             }
-            if (vp?.inStock === false) available = false;
+            // G-1: this used to test `inStock === false` only. `stock` is the field
+            // vendors actually maintain — every live product has it and none has
+            // `inStock` — so a product marked down to zero stayed on sale. Four live
+            // products are in that state right now.
+            if (!isProductAvailable(vp)) available = false;
           }
           // Vendor-added items are never legacy "restaurants" category products
           allItemsAreRestaurant = false;
@@ -2770,6 +3039,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         verifiedPriceByProductId.set(it.productId, realPrice);
         verifiedSubtotal += realPrice * quantity;
+        // H-66: the same numbers that were just charged for, kept per line.
+        resolvedLines.push({
+          productId: it.productId,
+          name: resolvedName,
+          unitPrice: realPrice,
+          quantity: it.quantity,
+          image: resolvedImage,
+          restaurant: resolvedRestaurant,
+          variant: resolvedVariant,
+          addons: resolvedAddons,
+        });
       }
 
       if (unknownProductIds.length > 0) {
@@ -2786,9 +3066,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Recompute delivery fee. Precedence (#9):
       //   1. the store's own flat delivery fee, when set — independent per store;
-      //   2. otherwise restaurant orders use the flat fee in system_settings
-      //      (admin-configurable, default 1000 IQD);
-      //   3. otherwise the authoritative deliveryAreas collection fee for the region.
+      //   2. otherwise the authoritative deliveryAreas collection fee for the region.
+      //
+      // D-3: there is no longer a per-kind step between them. A restaurant delivery
+      // and a shopping delivery to the same address cost the same, because getting
+      // there costs the same; what differs is only how the fee is SPLIT (below).
+      // The step that used to sit here read a flat `restaurantDeliveryFee` behind
+      // `allItemsAreRestaurant`, a condition that required every basket line to be
+      // in the legacy `products` collection — which holds no documents — so it was
+      // unreachable code that made the admin's restaurant fee setting inert.
       //
       // H-02: this used to SEED the fee with `Number(deliveryFee) || 0` taken from
       // the request body and only overwrite it when the region matched an active
@@ -2797,14 +3083,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // is computed from `order.deliveryFee` (computeDriverPayout), the driver earned
       // nothing on that order while the cash they owed the company still grew.
       // The body value is no longer read at all: the fee now comes only from a store
-      // override, the restaurant flat fee, or a matching active delivery area, and an
-      // order whose region resolves to none of those is refused instead of shipped free.
+      // override or a matching active delivery area, and an order whose region
+      // resolves to neither is refused instead of shipped free.
       const sysSettings = await getSystemSettings();
+
+      // D-3: ONE classification. It no longer changes what the customer PAYS — only
+      // which split percentage applies to it. It reads the STORE, not the basket.
+      // `allItemsAreRestaurant` survives solely as the fallback for a legacy order
+      // that has no store at all.
+      if (!pricingVendorData) {
+        const itemVendorId = [...vendorProductById.values()]
+          .map((vp: any) => vp?.vendorId)
+          .find((id: any) => typeof id === "string" && id);
+        if (itemVendorId) {
+          const vDoc = await db.collection("vendors").doc(String(itemVendorId)).get();
+          if (vDoc.exists) pricingVendorData = vDoc.data();
+        }
+      }
+      const orderKind: OrderKind = orderKindForVendor(pricingVendorData, allItemsAreRestaurant);
+      const appSharePercent = sysSettings.deliveryPricing[orderKind].appSharePercent;
+
       let verifiedDeliveryFee: number | null = null;
       if (vendorDeliveryFeeOverride != null) {
         verifiedDeliveryFee = vendorDeliveryFeeOverride;
-      } else if (allItemsAreRestaurant) {
-        verifiedDeliveryFee = sysSettings.restaurantDeliveryFee;
       } else {
         const areas = await getFirestoreDeliveryAreas(true);
         // Trim both sides: the client posts back the very name this collection served
@@ -2892,28 +3193,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn(`[PRICE_DRIFT] Total drift on order from ${phoneNumber} — client sent ${total}, server computed ${verifiedTotal} (delivery: ${verifiedDeliveryFee})`);
       }
 
+      // H-66: the lines to persist, rebuilt from the catalogue. Nothing the client
+      // sent about a product's name, price, quantity, variant or add-ons survives
+      // into the document — the store, the driver, the admin panel and the printed
+      // receipt now read back exactly what the server verified and charged for.
+      const verifiedItems = resolvedLines.map(buildStoredOrderItem);
+
       const orderData: any = {
         userId: userId || "",
         phoneNumber,
         // Inline Base64 item images are what pushed large carts past Firestore's
         // 1MB document limit and made checkout fail outright. See capOrderItemImages.
-        items: capOrderItemImages(items),
+        items: capOrderItemImages(verifiedItems),
         total: verifiedTotal,
         deliveryFee: verifiedDeliveryFee,
-        address,
+        // H-67: the normalised text, never the raw body value.
+        address: normalizedAddress,
         region,
         status: "pending",
       };
       // H-01: stored unconditionally — an omitted field must never erase the fee.
       orderData.serviceFee = verifiedServiceFee;
+      // D-3: freeze the pricing decision onto the order, exactly as
+      // vendorCommissionAmount freezes the store's commission. Settlement runs when
+      // the order is delivered — possibly days later, possibly after an admin has
+      // changed the split — and it must pay what this order was sold at. It also
+      // means changing the settings can never move money on an order already placed.
+      orderData.orderKind = orderKind;
+      orderData.appSharePercent = appSharePercent;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
-      if (notes) orderData.notes = notes;
-      if (latitude !== undefined && longitude !== undefined) {
-        orderData.latitude = latitude;
-        orderData.longitude = longitude;
+      if (normalizedNotes) orderData.notes = normalizedNotes;
+      // H-67: the stored pair is the PARSED pair. Every later distance calculation
+      // reads these fields back off the order document, so storing the validated
+      // numbers is what makes "what was computed with" and "what was stored" the
+      // same values by construction. Both are non-null together or absent together.
+      if (parsedLatitude !== null && parsedLongitude !== null) {
+        orderData.latitude = parsedLatitude;
+        orderData.longitude = parsedLongitude;
       }
-      if (orderType) orderData.orderType = orderType;
+      if (normalizedOrderType) orderData.orderType = normalizedOrderType;
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
       // H-03: store the canonical spelling, so the order and promoUsageHistory agree.
@@ -2934,14 +3253,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let restaurantSubtotal = 0;
         let detectedRestaurantName: string | null = null;
 
-        for (const it of (items as any[])) {
+        // H-66: walk the verified lines, not the request. Two consequences, both
+        // deliberate:
+        //   • the price is this LINE's verified price. `verifiedPriceByProductId`
+        //     is keyed by product, so when one basket held the same product twice
+        //     with different add-ons both lines were valued at whichever price was
+        //     computed last — making restaurantSubtotal disagree with the
+        //     verifiedSubtotal the customer was actually charged. The payout base
+        //     and the charge now come from the same per-line numbers.
+        //   • `restaurantItems` carries the stored line, so the vendor-name keyword
+        //     fallback below matches on the catalogue's product name rather than on
+        //     a name the caller chose.
+        for (const it of verifiedItems) {
           const prod = allProds.find((p: any) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
             restaurantItems.push({ ...it, restaurantName: prod.restaurant });
-            // Same sanitiser as the subtotal above. This value becomes
-            // orderData.restaurantSubtotal, which vendorCommissionBase() uses as the
-            // vendor payout base — an unvalidated quantity here is money.
-            restaurantSubtotal += (verifiedPriceByProductId.get(it.productId) ?? Number(it.price) ?? 0) * sanitizeQuantity(it.quantity);
+            // `it.quantity` is already sanitised by buildStoredOrderItem. This value
+            // becomes orderData.restaurantSubtotal, which vendorCommissionBase()
+            // uses as the vendor payout base — an unvalidated quantity here is money.
+            restaurantSubtotal += it.price * it.quantity;
             if (!detectedRestaurantName && prod.restaurant) {
               detectedRestaurantName = prod.restaurant;
             }
@@ -4150,6 +4480,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? await storeDriverDocument(driverLicenseImage, phoneNumber, "license")
           : undefined;
       } catch (docErr: any) {
+        // H-70: a document this server refused to process is the caller's problem,
+        // not an upstream failure — answering 502 for it told the driver to "try
+        // again", which for an oversized photo is advice that can never work.
+        // Nothing about the image itself is logged: these are identity documents.
+        if (docErr instanceof DocumentImageError) {
+          console.warn(`[DRIVER] document rejected (${docErr.kind}): ${docErr.rejection}`);
+          return res
+            .status(documentRejectionStatus(docErr.rejection))
+            .json({ error: documentRejectionMessage(docErr.rejection) });
+        }
         console.error("[DRIVER] document upload FAILED:", docErr?.message);
         return res.status(502).json({ error: "تعذّر رفع صور الوثائق، حاول مجدداً" });
       }
@@ -6556,23 +6896,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalDriverEarnings = 0;
       let totalDeliveryFees = 0;
       let ordersWithEarnings = 0;
+      let ordersMissingEarnings = 0;
 
       for (const order of deliveredOrders) {
         const o = order as any;
         const deliveryFee = o.deliveryFee || 0;
         totalDeliveryFees += deliveryFee;
 
+        // D-3: this used to invent `driverEarning = isRestaurant ? 750 : 2000` and
+        // `ownerEarning = isRestaurant ? 250 : 1000` for any delivered order that
+        // carried no earnings. Those four constants matched no rule the system has
+        // ever applied — with the live configuration the real figures were 1000 and
+        // 0 — so the owner-earnings screen reported money that was never booked, and
+        // it could not be reconciled against orders.ownerEarning.
+        //
+        // An order with no stored earnings is a settlement that never ran. It is
+        // counted and reported as such; nothing is fabricated for it, and it is NOT
+        // recomputed from today's settings either, which would silently restate
+        // historical figures.
         if (o.driverEarning !== undefined) {
           totalDriverEarnings += o.driverEarning || 0;
           totalOwnerEarnings += o.ownerEarning || 0;
           ordersWithEarnings++;
         } else {
-          const isRestaurant = await checkIsRestaurantOrder(o);
-          const driverEarning = isRestaurant ? 750 : 2000;
-          const ownerEarning = isRestaurant ? 250 : 1000;
-          totalDriverEarnings += driverEarning;
-          totalOwnerEarnings += ownerEarning;
-          ordersWithEarnings++;
+          ordersMissingEarnings++;
         }
       }
 
@@ -6581,6 +6928,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalDriverEarnings,
         totalDeliveryFees,
         ordersWithEarnings,
+        // Surfaced rather than hidden: a non-zero value means these totals cover
+        // fewer orders than were delivered, and the gap is real, not a rounding.
+        ordersMissingEarnings,
         totalDeliveredOrders: deliveredOrders.length,
       });
     } catch (error: any) {
@@ -7418,7 +7768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       const newOrders = orders.filter((o: any) => o.status === "pending").length;
       const preparingOrders = orders.filter((o: any) => ["confirmed","preparing","ready"].includes(o.status)).length;
-      const inDelivery = orders.filter((o: any) => ["picked_up","in_delivery","delivering"].includes(o.status)).length;
+      const inDelivery = orders.filter((o: any) => ["picked_up","in_delivery"].includes(o.status)).length;
 
       // Late orders: pending > 30 min
       const lateOrders = orders.filter((o: any) => {
@@ -7518,83 +7868,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Zones Management ──────────────────────────────────────────────────────
-  app.get("/api/admin/zones", async (_req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.json([]);
-      const snap = await db.collection("zones").orderBy("order", "asc").get();
-      const zones = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      res.json(zones);
-    } catch {
-      res.status(500).json({ error: "حدث خطأ" });
-    }
-  });
-
-  app.post("/api/admin/zones", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "DB unavailable" });
-      const { name, nameEn, type, parentId, deliveryFee, isActive, order } = req.body;
-      if (!name || !type) return res.status(400).json({ error: "الاسم والنوع مطلوبان" });
-      const ref = await db.collection("zones").add({
-        name, nameEn: nameEn || "", type, parentId: parentId || null,
-        deliveryFee: Number(deliveryFee) || 0,
-        isActive: isActive !== false,
-        order: Number(order) || 0,
-        createdAt: new Date().toISOString(),
-      });
-      res.json({ id: ref.id, success: true });
-    } catch {
-      res.status(500).json({ error: "حدث خطأ" });
-    }
-  });
-
-  app.put("/api/admin/zones/:id", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "DB unavailable" });
-      const id = req.params["id"] as string;
-      const { name, nameEn, type, parentId, deliveryFee, isActive, order } = req.body;
-      await db.collection("zones").doc(id).update({
-        name, nameEn: nameEn || "", type, parentId: parentId || null,
-        deliveryFee: Number(deliveryFee) || 0,
-        isActive: isActive !== false,
-        order: Number(order) || 0,
-        updatedAt: new Date().toISOString(),
-      });
-      res.json({ success: true });
-    } catch {
-      res.status(500).json({ error: "حدث خطأ" });
-    }
-  });
-
-  app.delete("/api/admin/zones/:id", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "DB unavailable" });
-      const id = req.params["id"] as string;
-      await db.collection("zones").doc(id).delete();
-      res.json({ success: true });
-    } catch {
-      res.status(500).json({ error: "حدث خطأ" });
-    }
-  });
-
-  app.patch("/api/admin/zones/:id/toggle", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "DB unavailable" });
-      const id = req.params["id"] as string;
-      const doc = await db.collection("zones").doc(id).get();
-      if (!doc.exists) return res.status(404).json({ error: "غير موجود" });
-      const current = (doc.data() as any).isActive;
-      await doc.ref.update({ isActive: !current, updatedAt: new Date().toISOString() });
-      res.json({ success: true, isActive: !current });
-    } catch {
-      res.status(500).json({ error: "حدث خطأ" });
-    }
-  });
+  // ── Zones Management — REMOVED (H-64 / 3) ─────────────────────────────────
+  //
+  // `zones` was a second region system living beside `deliveryAreas`: its own
+  // collection, its own admin CRUD (GET/POST/PUT/DELETE/toggle) and its own tab,
+  // including its own "delivery fee" column. Nothing read it — not the order
+  // pricing path, not the app, not any report — and it held zero documents.
+  //
+  // Two editable region lists, one of which silently does nothing, is exactly the
+  // "more than one source of truth" this round exists to remove. `deliveryAreas`
+  // is the single source: name, fee, active state, and it is what POST /api/orders
+  // prices from and what the app reads from GET /api/delivery-areas.
+  //
+  // Manage regions through /api/admin/delivery-areas.
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ENTERPRISE RATING & STORE RANKING SYSTEM
@@ -8307,8 +8593,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
   app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
-    // Block in any production environment (VPS, cloud, or published Replit deployment).
-    if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT === "1") {
+    // H-68: this used to deny only when NODE_ENV was the exact string "production"
+    // or REPLIT_DEPLOYMENT was exactly "1" — so an unset or differently-spelled
+    // NODE_ENV fell straight through and the seed ran. `.replit` publishes without
+    // setting NODE_ENV at all, which left the live catalogue one admin request away
+    // from demo stores if REPLIT_DEPLOYMENT was not exactly "1".
+    //
+    // isDemoSeedAllowed() denies by default and requires an explicit opt-in plus a
+    // positively-recognised development environment. Being an authenticated admin
+    // is deliberately NOT part of it: this route already sits behind the global
+    // requireAdminAuth, and the whole point is that admin rights must not be enough
+    // to write demo data into production.
+    if (!isDemoSeedAllowed()) {
+      console.warn(`[SEED_BLOCKED] /api/admin/seed-demo-stores refused: ${demoSeedDenialReason()}`);
       return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
     }
     try {

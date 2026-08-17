@@ -319,7 +319,9 @@ describe("C-20 · behaviour, RTL and dependencies are untouched", () => {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
     const known = new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]);
     for (const spec of imports) {
-      if (spec.startsWith(".") || spec.startsWith("@/")) continue;
+      // "@/" and "@shared/" are tsconfig path aliases (see tsconfig.json), not
+      // npm packages, so neither can be an undeclared dependency.
+      if (spec.startsWith(".") || spec.startsWith("@/") || spec.startsWith("@shared/")) continue;
       const name = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
       assert.ok(known.has(name) || name.startsWith("react-native") || name === "react",
         `HomeScreen imports an undeclared package: ${name}`);

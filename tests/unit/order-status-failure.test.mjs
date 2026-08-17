@@ -172,9 +172,14 @@ describe("H-33 · the ledger and the order record must not disagree", () => {
       "the ledger would still be credited while the order carries no earnings");
   });
 
-  test("the computed payout itself is unchanged", () => {
-    assert.match(fn, /computeDriverPayout\(isRestaurantOrder, order\.deliveryFee \|\| 0\)/,
-      "the payout formula changed — this fix must not touch business logic");
+  test("the payout is still computed from the order, not from the caller", () => {
+    // H-33 guarded that its own fix did not touch the payout. D-3 changed the
+    // formula deliberately — a flat table that could pay a driver more than the fee
+    // became a percentage split of the fee itself — and added the percentage frozen
+    // on the order as a third argument. What H-33 needs remains true and is still
+    // asserted: the inputs come from the ORDER document.
+    assert.match(fn, /computeDriverPayout\(isRestaurantOrder, order\.deliveryFee \|\| 0, \(order as any\)\.appSharePercent\)/,
+      "the payout stopped being computed from the order's own stored values");
   });
 });
 

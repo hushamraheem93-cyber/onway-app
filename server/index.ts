@@ -183,14 +183,40 @@ function setupRateLimiter(app: express.Application) {
     };
   }
 
-  // Rate limit HTML admin endpoints (outside /api)
+  // Rate limit HTML admin endpoints (outside /api).
+  //
+  // This is the login limiter, and it is independent of the `/api` limiter below —
+  // it runs on the browser-facing /admin/* routes, which the /api middleware never
+  // sees. Nothing here relies on the global default.
   const ADMIN_HTML_RATE: Record<string, number> = {
+    // H-69: the login PAGE had no limit of any kind. The ADMIN_HTML_RATE lookup
+    // returned undefined for it and the /api limiter does not cover /admin, so an
+    // unauthenticated caller could request it without bound — which is what made
+    // the synchronous template read in that handler a denial-of-service lever.
+    // 30/min is far above a human reloading a login form and still caps a flood.
+    "GET:/admin/login": 30,
     "POST:/admin/login": 10,
     "POST:/admin/google-signin": 10,
     "POST:/admin/reset-password": 5,
   };
+
+  // H-69: the counter is keyed on a NORMALISED path.
+  //
+  // Express routes case-insensitively and ignores a trailing slash by default, so
+  // `/admin/login`, `/admin/login/`, `/ADMIN/LOGIN` and `/Admin/Login/` all reach
+  // the same handler — but `req.path` differs for each, so an exact-match lookup
+  // gave every spelling its own counter. That let the existing 10/min password
+  // limit be multiplied by as many casings as the attacker cared to generate,
+  // which is not a limit at all. One spelling, one counter.
+  function rateLimitPath(p: string): string {
+    const lower = p.toLowerCase();
+    return lower.length > 1 && lower.endsWith("/")
+      ? lower.replace(/\/+$/, "")
+      : lower;
+  }
+
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const routeKey = `${req.method}:${req.path}`;
+    const routeKey = `${req.method.toUpperCase()}:${rateLimitPath(req.path)}`;
     const limit = ADMIN_HTML_RATE[routeKey];
     if (!limit) return next();
 
@@ -424,6 +450,7 @@ import {
   invalidateSession,
   invalidateAllSessions,
   getSessionToken,
+  getSessionUsername,
   isValidSession,
   loadRevocationState,
 } from "./adminAuth";
@@ -454,18 +481,24 @@ function configureExpoAndLanding(app: express.Application) {
   );
   const appName = getAppName();
 
-  const adminTemplatePath = path.resolve(
-    process.cwd(),
-    "server",
-    "templates",
-    "admin.html",
+  // H-69: both of these used to be read with fs.readFileSync INSIDE the request
+  // path — `renderLogin()` on every hit of the login page, and `GET /admin` on
+  // every dashboard load. admin.html is 636KB, so each of those reads blocked the
+  // single event loop for the whole of a synchronous disk read, stalling every
+  // other in-flight request. The login page needs no session, so an unauthenticated
+  // attacker could hold the loop down just by requesting it in a loop.
+  //
+  // They are static files that ship with the build, exactly like the two landing
+  // templates already loaded above, so they are read once here at configure time
+  // and served from memory afterwards. The bytes served are unchanged.
+  const adminTemplate = fs.readFileSync(
+    path.resolve(process.cwd(), "server", "templates", "admin.html"),
+    "utf-8",
   );
 
-  const loginTemplatePath = path.resolve(
-    process.cwd(),
-    "server",
-    "templates",
-    "login.html",
+  const loginTemplate = fs.readFileSync(
+    path.resolve(process.cwd(), "server", "templates", "login.html"),
+    "utf-8",
   );
 
 
@@ -476,9 +509,10 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   // Helper: render login page with injected values
+  // H-69: substitutes into the template held in memory. Same two replacements on
+  // the same bytes as before — only the disk read left the request path.
   function renderLogin(errorPlaceholder: string, googleBtnPlaceholder: string): string {
-    const template = fs.readFileSync(loginTemplatePath, "utf-8");
-    return template
+    return loginTemplate
       .replace("ERROR_PLACEHOLDER", errorPlaceholder)
       .replace("GOOGLE_BTN_PLACEHOLDER", googleBtnPlaceholder);
   }
@@ -696,6 +730,32 @@ function configureExpoAndLanding(app: express.Application) {
     });
   });
 
+  // GET /api/admin/session — is this session still valid? (H-64 / A-2)
+  //
+  // The mobile dashboard used to gate itself on the mere PRESENCE of a stored
+  // token, so an expired or revoked one rendered the whole panel and then failed
+  // every query with 401, with no way back to the login screen. This is the cheap
+  // check it can make first: no database work, just the same `isValidSession` the
+  // guard uses — signature, type, `jti` revocation and `revokedBefore` included.
+  app.get("/api/admin/session", (req: Request, res: Response) => {
+    if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
+    res.json({ valid: true, username: getSessionUsername(req) || null });
+  });
+
+  // POST /api/admin/logout — invalidate the session for BOTH surfaces (A-1)
+  //
+  // `GET /admin/logout` below is a browser redirect that clears the cookie. The
+  // mobile panel authenticates with a Bearer token and cannot use it, which is why
+  // it had no way to sign out at all — its own error message told the admin to
+  // "sign out and back in" with no control to do it. `getSessionToken` reads the
+  // cookie or the Bearer header, so one handler serves both, and the session is
+  // invalidated SERVER-side rather than only forgotten by the client.
+  app.post("/api/admin/logout", (req: Request, res: Response) => {
+    invalidateSession(getSessionToken(req));
+    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; Max-Age=0; Path=/`);
+    res.json({ success: true });
+  });
+
   // GET /admin/logout — invalidate session server-side and clear cookie
   app.get("/admin/logout", (req: Request, res: Response) => {
     invalidateSession(getSessionToken(req));
@@ -706,7 +766,8 @@ function configureExpoAndLanding(app: express.Application) {
   // GET /admin — protected
   app.get("/admin", (req: Request, res: Response) => {
     if (!isValidSession(req)) return res.redirect("/admin/login");
-    const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
+    // H-69: served from the copy loaded at startup; this used to be a 636KB
+    // synchronous read on every dashboard load.
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     // Defence-in-depth behind the output escaping: even if a new unescaped sink is
     // introduced, this blocks the highest-impact XSS payloads. The dashboard relies

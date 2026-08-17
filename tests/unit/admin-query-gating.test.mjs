@@ -42,6 +42,41 @@ const root = join(here, "../..");
 const SRC = readFileSync(join(root, "client/screens/AdminScreen.tsx"), "utf8");
 
 /**
+ * H-65 split every tab out of AdminScreen into client/screens/admin/*.tsx. The
+ * queries and the gates all still live in AdminScreen — only the JSX that reads
+ * them moved — so every gating assertion below is unchanged in intent. What had
+ * to change is where the test looks:
+ *
+ *   · gate/query structure        → AdminScreen alone (CODE)
+ *   · "does the panel still do X" → AdminScreen + the extracted tabs (PANEL)
+ *
+ * Reading a marker out of PANEL is not a weakening: a tab's markup is as much
+ * part of the shipped panel in its own file as it was inline.
+ */
+const EXTRACTED = {
+  Dashboard: "DashboardTab",
+  Orders: "OrdersTab",
+  Drivers: "DriversTab",
+  Users: "UsersTab",
+  Banners: "BannersTab",
+  Categories: "CategoriesTab",
+  Products: "ProductsTab",
+  Areas: "AreasTab",
+  PromoCodes: "PromoCodesTab",
+  Notifications: "NotificationsTab",
+  Vendors: "VendorsTab",
+  Settlements: "SettlementsTab",
+  Settings: "SettingsTab",
+  Storage: "StorageTab",
+};
+const EXTRACTED_SRC = Object.fromEntries(
+  Object.entries(EXTRACTED).map(([name, file]) => [
+    name,
+    readFileSync(join(root, `client/screens/admin/${file}.tsx`), "utf8"),
+  ]),
+);
+
+/**
  * Mask comments and string/template contents with spaces, character for character,
  * so offsets computed on the raw source stay valid on the masked copy.
  *
@@ -86,6 +121,11 @@ function maskNonCode(s) {
 }
 const CODE = maskNonCode(SRC);
 
+/** AdminScreen plus every tab lifted out of it — the panel as actually shipped. */
+const PANEL = [SRC, ...Object.values(EXTRACTED_SRC)]
+  .map(maskNonCode)
+  .join("\n");
+
 /** The balanced body that follows an arrow at `pos` — handles `=> (` and `=> {`. */
 function arrowBody(s, pos) {
   let i = pos;
@@ -103,11 +143,26 @@ function arrowBody(s, pos) {
   throw new Error("unbalanced arrow body");
 }
 
-/** Every `renderXxxTab` and the span it occupies. */
+/**
+ * Every tab and the span of source that only runs when that tab is open.
+ *
+ * For a tab still rendered inline that is its `renderXxxTab` arrow body. For a
+ * tab extracted by H-65 it is the `case "xxx": return (<XxxTab … />);` branch of
+ * `renderContent` — the props passed there are the reads, and the switch
+ * evaluates exactly one branch, so the scoping guarantee is identical.
+ */
 const TAB_SPANS = (() => {
   const spans = {};
   for (const m of SRC.matchAll(/const (render\w+Tab) = \(\) =>/g)) {
     spans[m[1]] = arrowBody(SRC, m.index + m[0].length);
+  }
+  for (const [name, file] of Object.entries(EXTRACTED)) {
+    const at = SRC.indexOf(`<${file}`);
+    assert.ok(at > 0, `${file} is not rendered by AdminScreen any more`);
+    // The element runs from `<XxxTab` to its self-closing `/>`.
+    const end = SRC.indexOf("/>", at);
+    assert.ok(end > at, `${file}'s element is not self-closing — re-check the span`);
+    spans[`render${name}Tab`] = [at, end + 2];
   }
   return spans;
 })();
@@ -158,6 +213,48 @@ function usedOutsideTabs(name) {
     hits.push({ line: SRC.slice(0, m.index).split("\n").length, text: line.trim() });
   }
   return hits;
+}
+
+/**
+ * Does `variable` end up as a tab-bar badge count?
+ *
+ * Before H-65 the TABS array held the scan inline (`badge: drivers.filter(…)`),
+ * so a regex for `badge:` on the same line was enough. H-65 moved each scan into
+ * its own `useMemo` and the array now reads `badge: pendingDriversBadge`, so the
+ * check follows that one hop. Resolving it — rather than relaxing the assertion
+ * to "is read somewhere outside a tab" — is what keeps this test able to catch a
+ * future edit that drops the badge and leaves the query needlessly ungated.
+ */
+function feedsTabBarBadge(variable) {
+  const direct = new RegExp(`badge:\\s*${variable}\\b`);
+  if (direct.test(CODE)) return true;
+  for (const m of CODE.matchAll(/badge:\s*([A-Za-z_$][\w$]*)\s*,/g)) {
+    const feeder = m[1];
+    const marker = `const ${feeder} = useMemo(`;
+    const decl = CODE.indexOf(marker);
+    if (decl < 0) continue;
+    // Balance the useMemo call itself. The body can be a bare expression
+    // (`() => xs.filter(…).length`), so an arrow-body scanner is no use here.
+    //
+    // Balance over SRC, not CODE: masking blanks parentheses that sit inside
+    // string literals, which leaves CODE unbalanced on purpose. Because masking
+    // replaces character-for-character, the offsets found in SRC address exactly
+    // the same code in CODE — so the span is taken from SRC and the identifier is
+    // then matched against CODE, where comments and strings cannot produce a hit.
+    const open = decl + marker.length - 1;
+    let depth = 0;
+    let close = -1;
+    for (let j = open; j < SRC.length; j += 1) {
+      if (SRC[j] === "(") depth += 1;
+      else if (SRC[j] === ")") {
+        depth -= 1;
+        if (depth === 0) { close = j; break; }
+      }
+    }
+    assert.ok(close > open, `could not find the end of ${feeder}'s useMemo call`);
+    if (new RegExp(`(?<![\\w.])${variable}\\b`).test(CODE.slice(open, close))) return true;
+  }
+  return false;
 }
 
 /** Variable name → tab keys whose render function reads it. */
@@ -250,7 +347,7 @@ describe("H-43 · the queries that stayed ungated had to", () => {
       const outside = usedOutsideTabs(variable);
       assert.ok(outside.length > 0,
         `${variable} is no longer read outside a tab — it could now be gated`);
-      assert.ok(outside.some((h) => /badge:/.test(h.text)),
+      assert.ok(feedsTabBarBadge(variable),
         `${variable}'s cross-tab use is no longer a badge — re-check the reason`);
     });
   }
@@ -363,8 +460,12 @@ describe("H-43 · the dashboard no longer downloads every user for one number", 
     assert.ok(q, "the aggregate query disappeared");
     assert.equal(q.enabled, 'activeTab === "dashboard"',
       "the aggregate is fetched outside the dashboard, or unconditionally");
-    assert.match(CODE, /value: dashboardStats\?\.users \?\? 0/,
+    // The tile itself now lives in DashboardTab.tsx (H-65), so this looks at the
+    // whole panel. The gate above is still read from AdminScreen, where it lives.
+    assert.match(PANEL, /value: dashboardStats\?\.users \?\? 0/,
       "the dashboard tile went back to counting the downloaded array");
+    assert.doesNotMatch(EXTRACTED_SRC.Dashboard, /adminUsers/,
+      "the dashboard tab reads the full user list again");
   });
 
   test("that endpoint counts server-side instead of streaming documents", () => {
@@ -391,9 +492,13 @@ describe("H-43 · the dashboard no longer downloads every user for one number", 
   test("the users tab still gets the whole list it needs", () => {
     assert.ok(tabsUsing("adminUsers").includes("Users"),
       "the users tab stopped reading the list");
+    // The two computations moved into UsersTab.tsx with the markup that shows
+    // them (H-65). They are asserted against that file so this keeps checking the
+    // computation itself rather than the file it happens to sit in.
     for (const marker of [/const filtered = adminUsers\.filter\(/,
       /adminUsers\.filter\(\(u\) => !!u\.pushToken\)\.length/]) {
-      assert.match(CODE, marker, "a users-tab computation lost its data");
+      assert.match(maskNonCode(EXTRACTED_SRC.Users), marker,
+        "a users-tab computation lost its data");
     }
   });
 });
@@ -476,10 +581,62 @@ describe("H-43 · the 'no useMemo' claim, decided by measurement", () => {
   });
 
   test("no cosmetic memoisation was added to satisfy the finding", () => {
-    // If a future change adds useMemo here it should be because a measurement
-    // demanded it — and this test should be updated with that measurement.
-    assert.equal((CODE.match(/\buseMemo\s*\(/g) ?? []).length, 0,
-      "useMemo appeared without a measurement justifying it; add the numbers here");
+    // H-43 measured this and left the count at zero: the poll path does not need
+    // memoisation, and the two tests above still prove why.
+    //
+    // H-65 then added memos for a different reason, and this assertion is updated
+    // rather than dropped. Each one exists to keep a `React.memo` boundary intact:
+    // AdminScreen re-renders on every keystroke in ~40 form inputs, and an unstable
+    // array or callback prop would defeat the memo on the tab bar and the five
+    // extracted tabs, making the split worthless. The badge memos additionally stop
+    // four full array scans running on each of those keystrokes.
+    //
+    // The allowlist is the guard: a memo that is not on it is unexplained, and the
+    // test fails until either the memo goes or its justification is written here.
+    const JUSTIFIED = {
+      vendorPartners: "pins the `?? []` fallback so the badge/list props stay stable",
+      approvedDrivers: "one scan per drivers change instead of one per render",
+      pendingOrdersBadge: "tab-bar badge scan",
+      pendingDriversBadge: "tab-bar badge scan",
+      pendingVendorsBadge: "tab-bar badge scan",
+      TABS: "stable `tabs` prop, without which React.memo(AdminTabBar) never hits",
+    };
+    const found = [...CODE.matchAll(/const (\w+)(?::[^=]+)? = useMemo\(/g)].map((m) => m[1]);
+    assert.deepEqual(found.slice().sort(), Object.keys(JUSTIFIED).sort(),
+      "a useMemo appeared or disappeared in AdminScreen without a measurement; " +
+      "add it to JUSTIFIED with the reason, or remove it");
+
+    // And the split itself must not have smuggled memoisation into the tabs.
+    for (const [name, src] of Object.entries(EXTRACTED_SRC)) {
+      assert.equal((maskNonCode(src).match(/\buseMemo\s*\(/g) ?? []).length, 0,
+        `${name}Tab gained a useMemo — H-65 was a move, not a rewrite`);
+    }
+  });
+
+  test("every extracted tab is memoised, or the split bought nothing", () => {
+    // The point of moving a tab out is that a keystroke elsewhere in AdminScreen
+    // stops re-rendering it. That only holds if the export is wrapped.
+    for (const [name, file] of Object.entries(EXTRACTED)) {
+      assert.match(EXTRACTED_SRC[name], new RegExp(`React\\.memo\\(\\s*${file}Inner`),
+        `${file} is exported unmemoised — it still re-renders with its parent`);
+    }
+    const bar = readFileSync(join(root, "client/screens/admin/AdminTabBar.tsx"), "utf8");
+    assert.match(bar, /React\.memo\(\s*AdminTabBarInner/,
+      "the tab bar is no longer memoised — it renders on every tab");
+  });
+
+  test("the tab bar's props are all stable, or its memo never hits", () => {
+    // `tabs` and `onSelect` are the two that a render would otherwise recreate.
+    assert.match(CODE, /const TABS: AdminTab<TabType>\[\] = useMemo\(/,
+      "TABS went back to being rebuilt on every render");
+    assert.match(CODE, /const handleSelectTab = useCallback\(/,
+      "the tab-select handler is a fresh closure again");
+    assert.match(CODE, /const resetForm = useCallback\(/,
+      "resetForm is unstable again, which makes handleSelectTab unstable too");
+    // `theme` comes from a module-level palette object, so it is stable already.
+    const useTheme = readFileSync(join(root, "client/hooks/useTheme.ts"), "utf8");
+    assert.match(useTheme, /const theme = Colors\[effectiveTheme\]/,
+      "useTheme started building a new theme object per render");
   });
 });
 
@@ -499,7 +656,12 @@ describe("H-43 · no timers, listeners or staleness introduced", () => {
   });
 
   test("the gates add no effects or listeners", () => {
-    assert.equal((CODE.match(/useEffect\s*\(/g) ?? []).length, 7,
+    // The count is a proxy for "the GATING fix is declarative". H-64 later added two
+    // effects to this screen that have nothing to do with gating: the admin session
+    // validity check and the central 401 handler. Neither reads a gated dataset —
+    // the test below ("no gated dataset is read outside the tab bodies") is what
+    // actually guards that, and it still passes.
+    assert.equal((CODE.match(/useEffect\s*\(/g) ?? []).length, 8,
       "the effect count changed — the fix was supposed to be declarative only");
     assert.equal((CODE.match(/addEventListener\s*\(/g) ?? []).length, 0,
       "an event listener appeared");

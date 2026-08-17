@@ -29,6 +29,7 @@ import {
   FontWeight,
 } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import { DHULUIYAH_CENTER } from "@/lib/geocoding";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
@@ -95,6 +96,35 @@ function calcDist(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/**
+ * Does this order carry a usable map pin? (H-58)
+ *
+ * Same validity rule the server already applies to store coordinates in
+ * vendor.ts:371 — finite numbers inside the real lat/lng ranges — rather than a
+ * new one invented here.
+ *
+ * An order legitimately has no pin: POST /api/orders only writes latitude and
+ * longitude when the customer actually set one (routes.ts:2912), and
+ * /api/driver/status then sends `order.latitude || null` (routes.ts:4332), so a
+ * missing field, an explicit null and a stored 0 all reach this screen as null.
+ * That `||` is also why a literal 0 cannot mean "a real pin on the equator" here.
+ */
+function hasPin(
+  order: BatchOrder,
+): order is BatchOrder & { latitude: number; longitude: number } {
+  const { latitude: lat, longitude: lng } = order;
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
 // ─── Nearest-Neighbor optimizer ───────────────────────────────────────────────
 function optimizeRoute(
   orders: BatchOrder[],
@@ -102,8 +132,23 @@ function optimizeRoute(
   startLng: number,
 ): BatchOrder[] {
   if (orders.length <= 1) return orders;
-  const remaining = [...orders];
-  const result: BatchOrder[] = [];
+
+  // H-58: coordinates used to be coerced with `?? 0`, so an order without a pin
+  // was routed as if it sat at (0,0) — 5,928 km from the Baghdad start point. Two
+  // consequences: the order was placed by a distance it never had, and once it was
+  // visited `curLat/curLng` became (0,0), measuring every later leg from the Gulf
+  // of Guinea. `??` also let NaN through untouched, and a NaN first element makes
+  // every `d < shortest` false, so that order is picked first and the optimiser
+  // collapses to input order from then on.
+  //
+  // An order with no usable pin simply cannot take part in a distance calculation,
+  // so it is kept out of one. It stays in the batch — the driver still has the
+  // address text — in its original relative order, after the routed ones.
+  const routable = orders.filter(hasPin);
+  const unlocated = orders.filter((order) => !hasPin(order));
+
+  const remaining = [...routable];
+  const result: (typeof routable)[number][] = [];
   let curLat = startLat,
     curLng = startLng;
   while (remaining.length > 0) {
@@ -111,15 +156,15 @@ function optimizeRoute(
     let shortest = calcDist(
       curLat,
       curLng,
-      remaining[0].latitude ?? 0,
-      remaining[0].longitude ?? 0,
+      remaining[0].latitude,
+      remaining[0].longitude,
     );
     for (let i = 1; i < remaining.length; i++) {
       const d = calcDist(
         curLat,
         curLng,
-        remaining[i].latitude ?? 0,
-        remaining[i].longitude ?? 0,
+        remaining[i].latitude,
+        remaining[i].longitude,
       );
       if (d < shortest) {
         shortest = d;
@@ -127,11 +172,15 @@ function optimizeRoute(
       }
     }
     const nearest = remaining.splice(nearestIdx, 1)[0];
-    result.push({ ...nearest, deliverySequence: result.length + 1 });
-    curLat = nearest.latitude ?? 0;
-    curLng = nearest.longitude ?? 0;
+    result.push(nearest);
+    curLat = nearest.latitude;
+    curLng = nearest.longitude;
   }
-  return result;
+
+  return [...result, ...unlocated].map((order, index) => ({
+    ...order,
+    deliverySequence: index + 1,
+  }));
 }
 
 // ─── Confirm Modal ────────────────────────────────────────────────────────────
@@ -331,8 +380,16 @@ export default function DriverOrdersScreen() {
   const handleOptimizeRoute = () => {
     if (!status?.currentBatch) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Use Baghdad center as fallback start point
-    const sorted = optimizeRoute(status.currentBatch.orders, 33.3152, 44.3661);
+    // H-59: the start point was hardcoded to Baghdad (33.3152, 44.3661) — 79 km
+    // from the only district OnWay actually serves, so the first leg of every
+    // optimised route was measured from a city the driver is never in. Use the
+    // service-area centre the app already defines and already falls back to on both
+    // map-picker screens; nothing new is invented here.
+    const sorted = optimizeRoute(
+      status.currentBatch.orders,
+      DHULUIYAH_CENTER.lat,
+      DHULUIYAH_CENTER.lng,
+    );
     setStatus((prev) =>
       prev
         ? {

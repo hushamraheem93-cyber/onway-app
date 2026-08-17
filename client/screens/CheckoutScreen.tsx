@@ -195,16 +195,15 @@ export default function CheckoutScreen() {
   // Derived values
   const subtotal = getTotal();
   const selectedAreaData = deliveryAreas.find((a) => a.id === selectedArea);
-  const isRestaurantOrder =
-    items.length > 0 &&
-    items.every((i) => i.product.categoryId === "restaurants");
-  // Precedence mirrors the server (#9): store override → restaurant flat fee → area fee.
+  // Precedence mirrors the server (#9): store override → the selected area's fee.
+  //
+  // D-3: there is no kind-dependent branch here any more, and no literal fee. The
+  // screen used to carry its own hardcoded 1000 for restaurant baskets behind a
+  // third `categoryId === "restaurants"` rule of its own, so what the customer was
+  // SHOWN could differ from what the server CHARGED. Both sides now read the same
+  // two sources — the store document and /api/delivery-areas.
   const deliveryFee =
-    vendorDeliveryFee != null
-      ? vendorDeliveryFee
-      : isRestaurantOrder
-        ? 1000
-        : selectedAreaData?.fee || 0;
+    vendorDeliveryFee != null ? vendorDeliveryFee : selectedAreaData?.fee || 0;
   const SERVICE_FEE = feesData?.serviceFee ?? 500;
   const isBelowMinOrder = vendorMinOrder > 0 && subtotal < vendorMinOrder;
 
@@ -552,8 +551,7 @@ export default function CheckoutScreen() {
           deliveryFee={deliveryFee}
           serviceFee={SERVICE_FEE}
           promoDiscount={promoDiscount}
-          isRestaurantOrder={isRestaurantOrder}
-          hasAreaSelected={!!selectedArea}
+          feeResolved={vendorDeliveryFee != null || !!selectedArea}
         />
 
         <Button

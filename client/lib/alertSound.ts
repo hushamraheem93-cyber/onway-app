@@ -24,16 +24,32 @@ async function ensureAudioMode() {
   }
 }
 
-// Pending repeat timers for playRepeatingAlert(); cleared by stopAlert().
+// Every timer this module schedules — the repeat pulses AND each tone's removal
+// timer. All of them are cleared by stopAlert(); nothing here may outlive it.
 let repeatTimers: ReturnType<typeof setTimeout>[] = [];
+
+/**
+ * Bumped by every stopAlert() (H-61).
+ *
+ * playLoudAlert awaits ensureAudioMode() before it creates a player, so a pulse
+ * whose timer had already fired could sail past a stopAlert() that landed inside
+ * that await and start a tone with no player reference left to silence it —
+ * clearing the timers alone cannot prevent that. Each play captures the generation
+ * it began in and abandons itself if a stop has happened since.
+ */
+let alertGeneration = 0;
 
 /**
  * Plays a loud, distinct alarm tone used to grab attention for new-order
  * events (driver batch offers, vendor new orders). Safe to call repeatedly.
  */
 export async function playLoudAlert() {
+  const generation = alertGeneration;
   try {
     await ensureAudioMode();
+    // A stop landed while we were awaiting — this pulse belongs to a sequence that
+    // no longer exists, so it must not start a tone.
+    if (generation !== alertGeneration) return;
 
     if (activePlayer) {
       try {
@@ -47,12 +63,14 @@ export async function playLoudAlert() {
     player.volume = 1.0;
     player.play();
 
-    setTimeout(() => {
-      try {
-        player.remove();
-      } catch {}
-      if (activePlayer === player) activePlayer = null;
-    }, 6000);
+    repeatTimers.push(
+      setTimeout(() => {
+        try {
+          player.remove();
+        } catch {}
+        if (activePlayer === player) activePlayer = null;
+      }, 6000),
+    );
   } catch {
     // silent — sound is a best-effort enhancement, never block the alert flow
   }
@@ -76,8 +94,14 @@ export function playRepeatingAlert(times = 4, gapMs = 5000) {
   }
 }
 
-/** Stops any repeating alert sequence and the currently-playing tone. */
+/**
+ * Stops any repeating alert sequence and the currently-playing tone.
+ *
+ * Safe to call from a React cleanup: it clears the real timers rather than merely
+ * flagging them, and invalidates any play that is mid-await.
+ */
 export function stopAlert() {
+  alertGeneration += 1;
   repeatTimers.forEach((t) => clearTimeout(t));
   repeatTimers = [];
   if (activePlayer) {

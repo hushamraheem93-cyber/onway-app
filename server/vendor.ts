@@ -2171,7 +2171,14 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
       [...containsSnap.docs, ...byVendorIdSnap.docs].map((d) => [d.id, d]),
     ).values()] };
 
-    const completedStatuses = new Set(["delivered", "picked_up", "delivering"]);
+    // C-2: this set decides which orders count toward the store's revenue. It
+    // named "delivering", a status the server has never written — the canonical
+    // one is `in_delivery` (firebase.ts state machine) — so every order currently
+    // OUT FOR DELIVERY silently dropped out of totalRevenue/totalOrders and
+    // reappeared on delivery. The vendor watched their revenue go down and back up
+    // with no explanation. `picked_up` shows the intent was to count in-flight
+    // orders; `in_delivery` is the rest of that same phase.
+    const completedStatuses = new Set(["delivered", "picked_up", "in_delivery"]);
 
     type SaleRecord = { id: string; date: string; subtotal: number; status: string; customerPhone: string; itemCount: number };
     const vendorOrders: SaleRecord[] = [];

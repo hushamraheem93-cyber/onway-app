@@ -153,7 +153,10 @@ const TABS = [
   {
     key: "done",
     label: "مكتمل",
-    statuses: ["delivered", "delivering", "cancelled"],
+    // C-1: "delivering" is a status the server never writes — the canonical one is
+    // `in_delivery`. Listing by the phantom meant an order out for delivery appeared
+    // in no tab at all until it was marked delivered.
+    statuses: ["delivered", "in_delivery", "cancelled"],
     icon: "check-all",
     color: AppColors.gray500,
   },
@@ -664,7 +667,7 @@ const TIMELINE_STEPS = [
   { key: "confirmed", label: "قُبل", icon: "check" },
   { key: "preparing", label: "يتحضر", icon: "chef-hat" },
   { key: "ready", label: "جاهز", icon: "package-variant-closed-check" },
-  { key: "delivering", label: "يُوصَّل", icon: "moped" },
+  { key: "in_delivery", label: "يُوصَّل", icon: "moped" },
   { key: "delivered", label: "وصل", icon: "check-all" },
 ];
 
@@ -754,7 +757,7 @@ const DriverSection = React.memo(({ order }: { order: VendorOrder }) => {
     );
   }
   if (
-    (order.status === "picked_up" || order.status === "delivering") &&
+    (order.status === "picked_up" || order.status === "in_delivery") &&
     order.driverName
   ) {
     return (
@@ -785,7 +788,7 @@ const DriverSection = React.memo(({ order }: { order: VendorOrder }) => {
       </View>
     );
   }
-  if (order.status === "picked_up" || order.status === "delivering") {
+  if (order.status === "picked_up" || order.status === "in_delivery") {
     return (
       <View style={[ds.banner, { backgroundColor: AppColors.infoLight }]}>
         <MaterialCommunityIcons

@@ -6,6 +6,11 @@ import React, {
   ReactNode,
 } from "react";
 import { getApiUrl } from "@/lib/query-client";
+import {
+  DEFAULT_DELIVERY_PRICING,
+  normalizeDeliveryPricing,
+  type DeliveryPricing,
+} from "@shared/deliveryPricing";
 
 export interface DriverPayoutRule {
   type: "flat" | "percent";
@@ -18,6 +23,14 @@ interface SystemSettings {
   onlinePaymentEnabled: boolean;
   driverPayoutRule: DriverPayoutRule;
   autoSuspendThreshold: number;
+  /**
+   * D-3: the platform's cut of the delivery fee, per order kind.
+   *
+   * No fee lives here. Delivery fees come from `/api/delivery-areas`, which is what
+   * both the checkout screen and the server price from, so the customer can never
+   * be shown one number and charged another.
+   */
+  deliveryPricing: DeliveryPricing;
   maxBatchSize: number;
 }
 
@@ -30,6 +43,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
     percent: 15,
   },
   autoSuspendThreshold: 100000,
+  deliveryPricing: DEFAULT_DELIVERY_PRICING,
   maxBatchSize: 3,
 };
 
@@ -63,6 +77,10 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
             data.driverPayoutRule ?? DEFAULT_SETTINGS.driverPayoutRule,
           autoSuspendThreshold:
             data.autoSuspendThreshold ?? DEFAULT_SETTINGS.autoSuspendThreshold,
+          // Normalised with the same function the server uses, so a server that has
+          // not shipped deliveryPricing yet degrades to the same neutral split
+          // rather than to a different guess.
+          deliveryPricing: normalizeDeliveryPricing(data.deliveryPricing),
           maxBatchSize: data.maxBatchSize ?? DEFAULT_SETTINGS.maxBatchSize,
         });
       }

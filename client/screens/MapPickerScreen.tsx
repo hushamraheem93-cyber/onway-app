@@ -195,6 +195,36 @@ export default function MapPickerScreen() {
   const { savedLocation, setSavedLocation } = useLocation();
   const webViewRef = useRef<WebView>(null);
 
+  // H-60: whether the Leaflet page is up, and a camera move waiting for it.
+  //
+  // getMyLocation() runs from the mount effect, while the page is still fetching
+  // Leaflet from a CDN. `ref.postMessage` dispatches a native command immediately
+  // and react-native-webview does not queue it, so a "moveTo" sent before the page
+  // registered its message listener is silently dropped — nothing retried it. The
+  // map then kept showing the district centre while selectedCoord already held the
+  // GPS fix, and confirming saved a point kilometres from the pin the user was
+  // looking at. Holding the move until onLoadEnd is what makes the camera and the
+  // saved coordinate agree.
+  const mapReadyRef = useRef(false);
+  const pendingMoveRef = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  const moveMapTo = (coords: { latitude: number; longitude: number }) => {
+    if (!mapReadyRef.current || !webViewRef.current) {
+      pendingMoveRef.current = coords;
+      return;
+    }
+    webViewRef.current.postMessage(
+      JSON.stringify({
+        type: "moveTo",
+        lat: coords.latitude,
+        lng: coords.longitude,
+      }),
+    );
+  };
+
   const initialLat =
     params?.initialLocation?.latitude ??
     savedLocation?.latitude ??
@@ -274,15 +304,7 @@ export default function MapPickerScreen() {
       setSelectedCoord(coords);
       fetchAddress(coords.latitude, coords.longitude);
 
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(
-          JSON.stringify({
-            type: "moveTo",
-            lat: coords.latitude,
-            lng: coords.longitude,
-          }),
-        );
-      }
+      moveMapTo(coords);
     } catch {}
   };
 
@@ -322,6 +344,13 @@ export default function MapPickerScreen() {
         source={{ html: getLeafletHTML(initialLat, initialLng) }}
         style={styles.map}
         onMessage={handleWebViewMessage}
+        onLoadEnd={() => {
+          // The page is up and listening; flush a camera move that arrived first.
+          mapReadyRef.current = true;
+          const pending = pendingMoveRef.current;
+          pendingMoveRef.current = null;
+          if (pending) moveMapTo(pending);
+        }}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState

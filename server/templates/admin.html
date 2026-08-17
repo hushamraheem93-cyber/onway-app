@@ -1834,6 +1834,8 @@
               <input type="text" id="medit-openTime" class="form-control" placeholder="09:00"></div>
               <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وقت الإغلاق</label>
               <input type="text" id="medit-closeTime" class="form-control" placeholder="23:00"></div>
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">مدة التوصيل (دقيقة)</label>
+              <input type="text" id="medit-deliveryTime" class="form-control" placeholder="30-45"></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">عمولة التطبيق %</label>
@@ -1873,6 +1875,10 @@
                 <input type="checkbox" id="medit-hasDelivery"> يوفّر توصيل</label>
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#374151;">
                 <input type="checkbox" id="medit-isOpen"> مفتوح الآن</label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#B45309;" title="يوقف استقبال الطلبات نهائياً">
+                <input type="checkbox" id="medit-isVacation"> إجازة (يوقف الطلبات)</label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#B45309;" title="يوقف استقبال الطلبات مؤقتاً">
+                <input type="checkbox" id="medit-isBusy"> مشغول مؤقتاً</label>
             </div>
             <div>
               <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:8px;">الأقسام المدعومة <span style="color:#9CA3AF;font-weight:400;">(يحدد في أي أقسام يظهر المتجر للمستخدمين)</span></label>
@@ -2925,7 +2931,8 @@
             <button class="btn btn-outline order-filter" data-status="confirmed" onclick="filterOrders('confirmed', this)">تم التأكيد</button>
             <button class="btn btn-outline order-filter" data-status="preparing" onclick="filterOrders('preparing', this)">جاري التحضير</button>
             <button class="btn btn-outline order-filter" data-status="ready" onclick="filterOrders('ready', this)" style="color:#059669;border-color:#059669;">جاهز</button>
-            <button class="btn btn-outline order-filter" data-status="delivering" onclick="filterOrders('delivering', this)">جاري التوصيل</button>
+            <button class="btn btn-outline order-filter" data-status="picked_up" onclick="filterOrders('picked_up', this)">تم الاستلام</button>
+            <button class="btn btn-outline order-filter" data-status="in_delivery" onclick="filterOrders('in_delivery', this)">جاري التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
             <button class="btn btn-outline order-filter" data-status="issue" onclick="filterOrders('issue', this)" style="color:#E86520;border-color:#E86520;">مشكلة</button>
@@ -3012,6 +3019,111 @@
                 <div id="current-service-fee-display" style="font-size:2rem;font-weight:800;color:#673AB7;">—</div>
                 <div style="font-size:0.78rem;color:var(--gray-500);margin-top:4px;">دينار / طلب</div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security: admin credentials (H-64 / 15) -->
+        <div class="card" style="border-right:4px solid #DC2626;margin-bottom:24px;">
+          <div class="card-header" style="border-bottom:1px solid var(--gray-200);">
+            <h3 style="display:flex;align-items:center;gap:8px;">
+              <i data-lucide="shield" style="width:18px;height:18px;color:#DC2626;"></i>
+              الأمان — بيانات دخول المدير
+            </h3>
+          </div>
+          <div class="card-body" style="padding:24px;">
+            <p style="font-size:0.82rem;color:var(--gray-500);margin-bottom:6px;">
+              المستخدم الحالي: <strong id="sec-current-username">—</strong>
+              <span id="sec-username-source" style="color:var(--gray-400);"></span>
+            </p>
+            <p style="font-size:0.8rem;color:#B45309;background:#FEF3C7;border-radius:8px;padding:8px 10px;margin-bottom:16px;">
+              ⚠ تغيير البيانات يُنهي <strong>كل الجلسات المفتوحة</strong> — بما فيها هذه — وسيُطلب منك تسجيل الدخول من جديد.
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">كلمة المرور الحالية</label>
+                <input type="password" id="sec-current-password" class="form-input" style="width:100%;" autocomplete="current-password" />
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">اسم المستخدم</label>
+                <input type="text" id="sec-new-username" class="form-input" style="width:100%;" autocomplete="username" />
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">كلمة المرور الجديدة</label>
+                <input type="password" id="sec-new-password" class="form-input" style="width:100%;" autocomplete="new-password" />
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">تأكيد كلمة المرور</label>
+                <input type="password" id="sec-confirm-password" class="form-input" style="width:100%;" autocomplete="new-password" />
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:20px;">
+              <button class="btn" style="background:#DC2626;color:white;border:none;" onclick="saveAdminCredentials()">
+                <i data-lucide="key"></i> حفظ بيانات الدخول
+              </button>
+              <div id="sec-status" style="font-size:0.82rem;display:none;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delivery Pricing Card (D-3) -->
+        <div class="card" style="border-right:4px solid #0891B2;margin-bottom:24px;">
+          <div class="card-header" style="border-bottom:1px solid var(--gray-200);">
+            <h3 style="display:flex;align-items:center;gap:8px;">
+              <i data-lucide="truck" style="width:18px;height:18px;color:#0891B2;"></i>
+              تقسيم أجرة التوصيل
+            </h3>
+          </div>
+          <div class="card-body" style="padding:24px;">
+            <p style="font-size:0.82rem;color:var(--gray-500);margin-bottom:20px;">
+              أجرة التوصيل تأتي دائماً من <strong>مناطق التوصيل</strong> — نفس الأجرة للمطاعم والتسوّق.
+              ما يختلف هنا هو نسبة حصة التطبيق فقط، وحصة السائق = 100٪ − حصة التطبيق فلا يمكن أن يختلّ المجموع.
+              يسري التغيير على الطلبات <strong>الجديدة</strong> فقط؛ الطلبات السابقة تحتفظ بما بيعت به.
+            </p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+              <div style="border:1px solid var(--gray-200);border-radius:12px;padding:18px;">
+                <div style="font-weight:800;margin-bottom:14px;color:#0891B2;">مطاعم</div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">حصة التطبيق (٪)</label>
+                <input type="number" id="dp-restaurant-share" min="0" max="100" step="1" class="form-input" style="width:100%;margin-bottom:12px;" oninput="renderDeliveryPricingPreview()" />
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-500);display:block;margin-bottom:5px;">حصة السائق (٪) — تُحسب تلقائياً</label>
+                <input type="number" id="dp-restaurant-driver" class="form-input" style="width:100%;background:var(--gray-100);" readonly disabled />
+              </div>
+
+              <div style="border:1px solid var(--gray-200);border-radius:12px;padding:18px;">
+                <div style="font-weight:800;margin-bottom:14px;color:#0891B2;">تسوّق</div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">حصة التطبيق (٪)</label>
+                <input type="number" id="dp-shopping-share" min="0" max="100" step="1" class="form-input" style="width:100%;margin-bottom:12px;" oninput="renderDeliveryPricingPreview()" />
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-500);display:block;margin-bottom:5px;">حصة السائق (٪) — تُحسب تلقائياً</label>
+                <input type="number" id="dp-shopping-driver" class="form-input" style="width:100%;background:var(--gray-100);" readonly disabled />
+              </div>
+            </div>
+
+            <!-- الأثر الفعلي لكل منطقة -->
+            <div style="margin-top:22px;">
+              <div style="font-weight:700;font-size:0.88rem;margin-bottom:10px;">الأثر على كل منطقة توصيل</div>
+              <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                  <thead>
+                    <tr style="background:var(--gray-100);">
+                      <th style="padding:8px;text-align:right;">المنطقة</th>
+                      <th style="padding:8px;text-align:right;">الأجرة</th>
+                      <th style="padding:8px;text-align:right;">مطاعم — التطبيق</th>
+                      <th style="padding:8px;text-align:right;">مطاعم — السائق</th>
+                      <th style="padding:8px;text-align:right;">تسوّق — التطبيق</th>
+                      <th style="padding:8px;text-align:right;">تسوّق — السائق</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dp-areas-preview"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:14px;margin-top:20px;">
+              <button class="btn" style="background:#0891B2;color:white;border:none;" onclick="saveDeliveryPricing()">
+                <i data-lucide="save"></i> حفظ تقسيم الأجرة
+              </button>
+              <div id="dp-status" style="font-size:0.82rem;display:none;"></div>
             </div>
           </div>
         </div>
@@ -3431,130 +3543,10 @@
     </div>
 
     <!-- ══════════════════════ ZONE MANAGEMENT ══════════════════════ -->
-    <div id="zoneManagement-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <i data-lucide="map" style="color:var(--primary);width:24px;height:24px;"></i>
-          <div><h2>إدارة المناطق الجغرافية</h2><p>محافظات / مدن / أقضية / أحياء — رسوم التوصيل والتفعيل</p></div>
-        </div>
-        <div class="header-actions">
-          <select id="zone-filter-type" onchange="renderZones()" class="form-control" style="width:140px;font-size:0.85rem;">
-            <option value="">الكل</option>
-            <option value="governorate">المحافظات</option>
-            <option value="city">المدن</option>
-            <option value="district">الأقضية</option>
-            <option value="neighborhood">الأحياء</option>
-          </select>
-          <button class="btn btn-primary" onclick="openZoneModal(null)">
-            <i data-lucide="plus"></i> إضافة منطقة
-          </button>
-        </div>
-      </header>
-      <div class="content">
-        <!-- Hierarchy tabs -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-          <button class="btn btn-sm" id="ztab-all" style="background:#E86520;color:#fff;" onclick="filterZoneTab('', this)">الكل</button>
-          <button class="btn btn-outline btn-sm" id="ztab-gov" onclick="filterZoneTab('governorate', this)">محافظات</button>
-          <button class="btn btn-outline btn-sm" id="ztab-city" onclick="filterZoneTab('city', this)">مدن</button>
-          <button class="btn btn-outline btn-sm" id="ztab-district" onclick="filterZoneTab('district', this)">أقضية</button>
-          <button class="btn btn-outline btn-sm" id="ztab-neighborhood" onclick="filterZoneTab('neighborhood', this)">أحياء</button>
-        </div>
-
-        <div class="card">
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>الاسم (عربي)</th>
-                  <th>الاسم (إنجليزي)</th>
-                  <th>النوع</th>
-                  <th>الأصل</th>
-                  <th>رسوم التوصيل</th>
-                  <th>الحالة</th>
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="zones-table-body">
-                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">جارٍ التحميل...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Zone Modal -->
-    <div id="zone-modal" class="modal-overlay">
-      <div class="modal" style="max-width:520px;">
-        <div class="modal-header">
-          <h3 id="zone-modal-title">إضافة منطقة جديدة</h3>
-          <button onclick="closeModal('zone-modal')" class="modal-close">&times;</button>
-        </div>
-        <form onsubmit="saveZone(event)">
-          <div class="modal-body">
-            <div class="form-row">
-              <div class="form-group">
-                <label>الاسم بالعربية <span class="required">*</span></label>
-                <input type="text" class="form-control" id="zone-name" required placeholder="مثال: الضلوعية">
-              </div>
-              <div class="form-group">
-                <label>الاسم بالإنجليزية</label>
-                <input type="text" class="form-control" id="zone-name-en" placeholder="e.g. Al-Diwaniyah">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>النوع <span class="required">*</span></label>
-                <select class="form-control" id="zone-type" onchange="updateZoneParentSelect()" required>
-                  <option value="governorate">محافظة</option>
-                  <option value="city">مدينة</option>
-                  <option value="district">قضاء</option>
-                  <option value="neighborhood">حي</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>المنطقة الأصل</label>
-                <select class="form-control" id="zone-parent">
-                  <option value="">— لا يوجد —</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>رسوم التوصيل (د.ع)</label>
-                <input type="number" class="form-control" id="zone-fee" min="0" step="250" placeholder="1000">
-              </div>
-              <div class="form-group">
-                <label>الترتيب</label>
-                <input type="number" class="form-control" id="zone-order" min="0" placeholder="0">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>الحالة</label>
-              <select class="form-control" id="zone-active">
-                <option value="true">مفعّلة</option>
-                <option value="false">معطّلة</option>
-              </select>
-            </div>
-            <input type="hidden" id="zone-edit-id">
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline" onclick="closeModal('zone-modal')">إلغاء</button>
-            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> حفظ المنطقة</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-  <!-- ══════════════════ WEBSITE CMS SECTION ══════════════════ -->
-  <div id="websiteCms-section" class="section">
-    <div class="section-header">
-      <div>
-        <h2 class="section-title"><i data-lucide="globe" style="width:22px;height:22px;vertical-align:middle;margin-left:8px;"></i>إدارة الموقع الإلكتروني</h2>
-        <p style="color:var(--text-muted);font-size:0.85rem;margin:4px 0 0;">التغييرات تظهر على الموقع خلال دقيقة واحدة تلقائياً</p>
-      </div>
-    </div>
-
+    <!-- Zone management removed (H-64 / 3): `deliveryAreas` is the single source
+         of regions. The `zones` collection had its own CRUD, its own tab and its own
+         delivery-fee column, but nothing read it and it held no documents — a second
+         editable region list that could only ever disagree with the real one. -->
     <!-- CMS Tabs -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;border-bottom:2px solid var(--border);padding-bottom:0;">
       <button class="cms-tab cms-tab-active" onclick="switchCmsTab('hero',this)">🏠 الرئيسية</button>
@@ -4370,10 +4362,54 @@
         }
         init.headers = headers;
       }
-      return _originalFetch(input, init);
+      return _originalFetch(input, init).then(function (res) {
+        // #14: a 401 anywhere means the admin session is gone. This file had ZERO
+        // handling for it, so an expired session produced empty tables and silent
+        // failures with no indication and no way back. One place, one behaviour:
+        // drop the stored token and return to the login page.
+        if (res && res.status === 401 && url.indexOf(API_BASE + '/admin') === 0) {
+          try { localStorage.removeItem('onway_admin_token'); } catch (e) {}
+          if (!window.__adminSessionExpired) {
+            window.__adminSessionExpired = true;
+            alert('انتهت صلاحية الجلسة — سيتم إرجاعك لتسجيل الدخول');
+            window.location.href = '/admin/login';
+          }
+        }
+        return res;
+      });
     };
 
     
+    // ── Orders: one fetch, shared (H-64 / D) ──────────────────────────────────
+    // Four independent call sites each requested /admin/orders — the bulk loader,
+    // the new-order poller, the orders tab and the settings stats — so opening the
+    // dashboard asked the server for the same collection four times. They now share
+    // one in-flight request and a short cache window, which removes the duplication
+    // without changing when any of them refreshes.
+    let _ordersCache = null;
+    let _ordersCacheAt = 0;
+    let _ordersInFlight = null;
+    const ORDERS_CACHE_MS = 3000;
+
+    async function fetchOrdersShared(force) {
+      const fresh = !force && _ordersCache && (Date.now() - _ordersCacheAt) < ORDERS_CACHE_MS;
+      if (fresh) return _ordersCache;
+      if (_ordersInFlight) return _ordersInFlight;
+      _ordersInFlight = (async () => {
+        try {
+          const res = await fetch(API_BASE + '/admin/orders');
+          if (!res.ok) throw new Error('orders request failed');
+          const data = await res.json();
+          _ordersCache = Array.isArray(data) ? data : (data.orders || []);
+          _ordersCacheAt = Date.now();
+          return _ordersCache;
+        } finally {
+          _ordersInFlight = null;
+        }
+      })();
+      return _ordersInFlight;
+    }
+
     let products = [];
     let categories = [];
     let banners = [];
@@ -4467,7 +4503,7 @@
       discounts: 'marketing', promoCodes: 'marketing',
       drivers: 'drivers', driverQueue: 'drivers', driverFinancial: 'drivers',
       categories: 'catalog', businessCategories: 'catalog',
-      delivery: 'delivery', zoneManagement: 'delivery',
+      delivery: 'delivery',
       ratingsManagement: 'ratings', storeRanking: 'ratings',
       supportChat: 'support', notifications: 'support',
     };
@@ -4486,7 +4522,13 @@
         { id: 'businessCategories', label: 'أنواع النشاط' },
       ],
       delivery: [
-        { id: 'delivery', label: 'مناطق التوصيل' }, { id: 'zoneManagement', label: 'الأقضية والمناطق' },
+        // H-64 / 3: `zoneManagement` is gone. It was a second, parallel region
+        // system — its own `zones` collection, CRUD and tab — with ZERO documents
+        // and, more importantly, zero readers anywhere in the server or the app.
+        // Delivery areas are the single source: name, fee, active state, and they
+        // are what POST /api/orders prices from. Keeping a second editable region
+        // list could only ever produce two answers to one question.
+        { id: 'delivery', label: 'مناطق التوصيل' },
       ],
       ratings: [
         { id: 'ratingsManagement', label: 'التقييمات' }, { id: 'storeRanking', label: 'ترتيب المتاجر' },
@@ -4532,11 +4574,10 @@
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'vendorPartners') loadVendorPartners();
       if (section === 'vendorProducts') loadVendorProductsAdmin();
-      if (section === 'settings') { loadSettingsStats(); loadServiceFee(); loadUrgencyThresholds(); loadSystemSettings(); }
+      if (section === 'settings') { loadSettingsStats(); loadServiceFee(); loadUrgencyThresholds(); loadSystemSettings(); loadDeliveryPricing(); loadAdminCredentialsInfo(); }
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'settlementRequests') loadSettlementRequests();
       if (section === 'financialDashboard') loadFinancialDashboard();
-      if (section === 'zoneManagement') loadZones();
       if (section === 'ratingsManagement') loadAdminRatings();
       if (section === 'storeRanking') loadStoreRanking();
       if (section === 'businessCategories') loadBusinessCategories();
@@ -4585,8 +4626,7 @@
         // Search filter
         if (search) {
           const name  = (driver.fullName || '').toLowerCase();
-          const phone = (driver.phoneNumber || '').toLowerCase();
-          if (!name.includes(search) && !phone.includes(search)) return false;
+          if (!name.includes(search) && !phoneMatches(driver.phoneNumber, search)) return false;
         }
         return true;
       });
@@ -5444,7 +5484,7 @@
       filteredAppUsers = allAppUsers.filter(u => {
         const matchSearch = !search ||
           (u.fullName  || '').toLowerCase().includes(search) ||
-          (u.phoneNumber || '').includes(search);
+          phoneMatches(u.phoneNumber, search);
         const matchGender = !gender || u.gender === gender;
         const matchRegion = !region || u.region === region;
         return matchSearch && matchGender && matchRegion;
@@ -5710,6 +5750,47 @@
     // these before being interpolated into an innerHTML template. Without this a
     // customer could store `<img src=x onerror=...>` in a rating comment and have it
     // execute inside the admin's authenticated session (stored XSS -> full takeover).
+    /**
+     * Any Iraqi phone variant → the canonical 07XXXXXXXXX (H-63).
+     *
+     * Mirrors shared/phone.ts `canonicalIraqiPhone`; the dashboard is a plain
+     * template with no bundler, so it cannot import it. A unit test lifts this
+     * function out of the HTML and runs it against the shared one over a corpus,
+     * so a divergence fails the suite instead of hiding an account.
+     */
+    function canonicalPhone(raw) {
+      const d = String(raw == null ? '' : raw).replace(/\D/g, '');
+      if (d.startsWith('00964')) return '0' + d.slice(5);
+      if (d.startsWith('964'))   return '0' + d.slice(3);
+      if (d.startsWith('07'))    return d;
+      if (d.startsWith('7'))     return '0' + d;
+      return d;
+    }
+
+    /**
+     * Does this stored phone match what the admin typed, whatever format either is in?
+     *
+     * Every phone search here was a raw substring test against the STORED string.
+     * Production holds the same person as `07701234567` in one document and
+     * `009647701234567` in another (`getDriverByPhone` documents the same split for
+     * drivers), and "07701234567" is NOT a substring of "009647701234567" — the
+     * leading 0 of the local form has no counterpart in the country-code form. So an
+     * admin searching a real customer's number simply got "لا توجد نتائج" and had no
+     * way to tell that from "this person does not exist".
+     *
+     * The literal test is kept and tried first, so nothing that used to be findable
+     * stops being findable; the canonical comparison is only an additional way to hit.
+     * The 3-digit floor keeps a non-numeric query (which canonicalises to "") from
+     * matching everyone.
+     */
+    function phoneMatches(stored, query) {
+      if (!query) return true;
+      const s = String(stored == null ? '' : stored);
+      if (s.includes(query)) return true;
+      const q = canonicalPhone(query);
+      return q.length >= 3 && canonicalPhone(s).includes(q);
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text || '';
@@ -5798,7 +5879,7 @@
           fetch(API_BASE + '/admin/categories'),
           fetch(API_BASE + '/admin/banners'),
           fetch(API_BASE + '/admin/delivery-areas'),
-          fetch(API_BASE + '/admin/orders'),
+          fetchOrdersShared(true),
           fetch(API_BASE + '/admin/driver-queue')
         ]);
         
@@ -5806,7 +5887,7 @@
         categories = await categoriesRes.json();
         banners = await bannersRes.json();
         deliveryAreas = await areasRes.json();
-        orders = await ordersRes.json();
+        orders = ordersRes; // already resolved by fetchOrdersShared
         const queueData = await queueRes.json().catch(() => ({ queue: [] }));
         
         updateStats();
@@ -6233,9 +6314,7 @@
       // Poll the orders API
       async poll() {
         try {
-          const res = await fetch(API_BASE + '/admin/orders');
-          if (!res.ok) return;
-          const fetched = await res.json();
+          const fetched = await fetchOrdersShared();
           this.processOrders(Array.isArray(fetched) ? fetched : []);
         } catch (_e) {}
         this.purgeExpired();
@@ -6259,7 +6338,7 @@
       // Search in orders
       const found = orders.filter(o =>
         (o.id||'').toLowerCase().includes(q) ||
-        (o.phoneNumber||'').includes(q) ||
+        phoneMatches(o.phoneNumber, q) ||
         (o.region||'').includes(q) ||
         (o.address||'').toLowerCase().includes(q) ||
         (o.driverName||'').toLowerCase().includes(q)
@@ -7376,15 +7455,28 @@
       document.getElementById('medit-type').value       = v.categoryType || v.businessType || 'other';
       document.getElementById('medit-location').value   = v.location || v.address || '';
       document.getElementById('medit-whatsapp').value   = v.whatsappNumber || '';
-      document.getElementById('medit-openTime').value   = v.openTime || '';
-      document.getElementById('medit-closeTime').value  = v.closeTime || '';
-      document.getElementById('medit-commission').value = v.commissionPercent || '';
+      // D-6: read the hours the CUSTOMER app uses. `v.openTime`/`v.closeTime` were
+      // admin-only strings nothing consumed; workingHours is the real field, and the
+      // server folds the legacy pair into it, so this shows the effective hours.
+      document.getElementById('medit-openTime').value   = v.workingHours?.openTime || v.openTime || '';
+      document.getElementById('medit-closeTime').value  = v.workingHours?.closeTime || v.closeTime || '';
+      document.getElementById('medit-deliveryTime').value = v.deliveryTime || '';
+      // D-3: `v.commissionPercent || ''` blanked a contracted 0%, and saveMerchantEdit
+      // then read the blank back as 0 — so a store on 0 stayed on 0 by luck, while a
+      // store with NO stored rate (two of the three live stores) was written to 0 the
+      // first time an admin opened this dialog and pressed save, silently ending its
+      // commission. Only an actual number is shown; anything else leaves the field
+      // empty and the save path leaves the stored value alone.
+      document.getElementById('medit-commission').value =
+        (typeof v.commissionPercent === 'number' && isFinite(v.commissionPercent)) ? v.commissionPercent : '';
       document.getElementById('medit-minOrder').value   = v.minOrder || '';
       // #9: blank when no store-specific override is set (null/undefined).
       document.getElementById('medit-deliveryFee').value = (typeof v.deliveryFee === 'number') ? v.deliveryFee : '';
-      document.getElementById('medit-description').value= v.description || '';
+      document.getElementById('medit-description').value= v.bio || v.description || '';
       document.getElementById('medit-hasDelivery').checked = v.hasDelivery !== false;
       document.getElementById('medit-isOpen').checked   = !!v.isOpen;
+      document.getElementById('medit-isVacation').checked = v.isVacation === true;
+      document.getElementById('medit-isBusy').checked     = v.isBusy === true;
       const sc = Array.isArray(v.supportedCategories) ? v.supportedCategories : [];
       document.querySelectorAll('#medit-supported-cats input[type=checkbox]').forEach(cb => {
         cb.checked = sc.includes(cb.value);
@@ -7409,12 +7501,15 @@
       document.getElementById('medit-whatsapp').value    = '';
       document.getElementById('medit-openTime').value    = '';
       document.getElementById('medit-closeTime').value   = '';
+      document.getElementById('medit-deliveryTime').value = '';
       document.getElementById('medit-commission').value  = '';
       document.getElementById('medit-minOrder').value    = '';
       document.getElementById('medit-deliveryFee').value = '';
       document.getElementById('medit-description').value = '';
       document.getElementById('medit-hasDelivery').checked = true;
       document.getElementById('medit-isOpen').checked      = true;
+      document.getElementById('medit-isVacation').checked  = false;
+      document.getElementById('medit-isBusy').checked      = false;
       document.querySelectorAll('#medit-supported-cats input[type=checkbox]').forEach(cb => { cb.checked = false; });
       document.getElementById('medit-title').textContent = 'إضافة متجر جديد';
       document.getElementById('medit-save-btn').innerHTML = '<i data-lucide="plus" style="width:14px;height:14px;"></i> إنشاء المتجر';
@@ -7546,13 +7641,27 @@
         whatsappNumber:    document.getElementById('medit-whatsapp').value.trim(),
         openTime:          document.getElementById('medit-openTime').value,
         closeTime:         document.getElementById('medit-closeTime').value,
-        commissionPercent: parseFloat(document.getElementById('medit-commission').value) || 0,
+        // Same field the vendor app writes — one value, both surfaces.
+        deliveryTime:      document.getElementById('medit-deliveryTime').value.trim(),
+        // D-3: `parseFloat(...) || 0` turned an untouched blank field into an explicit
+        // 0% commission. Blank now means "do not change it" — the key is omitted, and
+        // PUT /api/admin/vendors only writes commissionPercent when it is present.
+        // A typed 0 is still a real 0.
+        ...(function(){
+          const raw = document.getElementById('medit-commission').value.trim();
+          if (raw === '') return {};
+          const n = parseFloat(raw);
+          return isFinite(n) ? { commissionPercent: n } : {};
+        })(),
         minOrder:          parseFloat(document.getElementById('medit-minOrder').value) || 0,
         // #9: blank ⇒ null (clears the override, back to default fee).
         deliveryFee:       (function(){ const s = document.getElementById('medit-deliveryFee').value.trim(); return s === '' ? null : (parseFloat(s) || 0); })(),
         description:       document.getElementById('medit-description').value.trim(),
         hasDelivery:       document.getElementById('medit-hasDelivery').checked,
         isOpen:            document.getElementById('medit-isOpen').checked,
+        // Same two flags the vendor app sets and POST /api/orders already refuses on.
+        isVacation:        document.getElementById('medit-isVacation').checked,
+        isBusy:            document.getElementById('medit-isBusy').checked,
         supportedCategories: Array.from(document.querySelectorAll('#medit-supported-cats input[type=checkbox]:checked')).map(cb => cb.value),
         // Store coordinates from the map picker (blank ⇒ null clears them server-side).
         latitude:          (function(){ const s = document.getElementById('medit-latitude').value; return s === '' ? null : parseFloat(s); })(),
@@ -8307,8 +8416,7 @@
 
     async function loadOrders(silent = false) {
       try {
-        const response = await fetch(API_BASE + '/admin/orders');
-        const newOrders = await response.json();
+        const newOrders = await fetchOrdersShared(true);
         
         // Detect new orders
         const newIds = new Set(newOrders.map(o => o.id));
@@ -8365,7 +8473,7 @@
       const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
       const pendingOrders = orders.filter(o => o.status === 'pending').length;
       const preparingOrders = orders.filter(o => ['preparing', 'confirmed', 'ready', 'picked_up', 'in_delivery'].includes(o.status)).length;
-      const deliveringOrders = orders.filter(o => ['delivering', 'in_delivery'].includes(o.status)).length;
+      const deliveringOrders = orders.filter(o => ['picked_up', 'in_delivery'].includes(o.status)).length;
       const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
       const totalRevenue = orders
         .filter(o => o.status !== 'cancelled')
@@ -8468,8 +8576,12 @@
         if (!['delivered', 'cancelled'].includes(order.status)) {
           actionButtons += `<button class="btn btn-sm" style="background:#7C3AED;color:white;margin-left:4px;" onclick="event.stopPropagation();openAssignDriverModal('${order.id}')"><i data-lucide="user-check"></i> تحويل</button>`;
         }
-        // Track driver button (only for "delivering" orders with a driver)
-        if (order.status === 'delivering' && order.driverPhone) {
+        // Track driver button. C-1: this was gated on `delivering`, a status the
+        // server never writes, so the button NEVER rendered and live tracking was
+        // unreachable from the dashboard even though the endpoint and the map modal
+        // both exist. The driver is holding the order in `picked_up` and
+        // `in_delivery` alike, which is exactly when tracking is useful.
+        if (['picked_up', 'in_delivery'].includes(order.status) && order.driverPhone) {
           actionButtons += `<button class="btn btn-sm" style="background:#1a1a2e;color:white;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${escapeJsInAttr(order.driverPhone)}','${escapeJsInAttr(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
         }
         // WhatsApp button
@@ -9653,6 +9765,187 @@
       }
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  SECURITY — admin credentials (H-64 / 15)
+    // ══════════════════════════════════════════════════════════════
+    // Uses the EXISTING POST /api/admin/change-credentials: current password is
+    // verified server-side, the new one is bcrypt-hashed, and setCustomCredentials
+    // invalidates every session. No second authentication system is introduced —
+    // this only gives the endpoint the surface it never had.
+
+    async function loadAdminCredentialsInfo() {
+      try {
+        const res = await fetch(`${API_BASE}/admin/credentials-info`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const u = document.getElementById('sec-current-username');
+        const src = document.getElementById('sec-username-source');
+        if (u) u.textContent = data.username || '—';
+        if (src) src.textContent = data.isCustom ? '' : ' (من إعدادات الخادم)';
+        const nu = document.getElementById('sec-new-username');
+        if (nu && !nu.value) nu.value = data.username || '';
+      } catch (err) {
+        console.error('loadAdminCredentialsInfo error', err);
+      }
+    }
+
+    async function saveAdminCredentials() {
+      const status = document.getElementById('sec-status');
+      const show = (msg, color) => {
+        if (!status) return;
+        status.textContent = msg; status.style.color = color; status.style.display = 'block';
+      };
+      const currentPassword = document.getElementById('sec-current-password')?.value || '';
+      const newUsername     = (document.getElementById('sec-new-username')?.value || '').trim();
+      const newPassword     = document.getElementById('sec-new-password')?.value || '';
+      const confirmPassword = document.getElementById('sec-confirm-password')?.value || '';
+
+      // Mirrors the server's own rules so the admin is told before the round trip.
+      // The server re-checks every one of them — this is not the guard.
+      if (!currentPassword) return show('كلمة المرور الحالية مطلوبة', '#EF4444');
+      if (newUsername.length < 3) return show('اسم المستخدم يجب أن يكون 3 أحرف على الأقل', '#EF4444');
+      if (newPassword.length < 6) return show('كلمة المرور يجب أن تكون 6 أحرف على الأقل', '#EF4444');
+      if (newPassword !== confirmPassword) return show('كلمتا المرور غير متطابقتين', '#EF4444');
+      if (!confirm('سيتم إنهاء كل الجلسات المفتوحة وسيُطلب منك تسجيل الدخول من جديد. متابعة؟')) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/change-credentials`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, newUsername, newPassword, confirmPassword }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+        show('تم الحفظ — سيتم تسجيل خروجك الآن', '#10B981');
+        // The session this page holds was invalidated by the change itself.
+        try { localStorage.removeItem('onway_admin_token'); } catch (e) {}
+        setTimeout(() => { window.location.href = '/admin/login'; }, 1500);
+      } catch (err) {
+        show(err.message, '#EF4444');
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  DELIVERY PRICING + REVENUE SPLIT (D-3)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * The split, computed exactly as shared/deliveryPricing.ts computes it.
+     *
+     * The driver's half is the EXACT COMPLEMENT of the platform's, not a second
+     * rounding of `100 - percent`: two independent roundings of the same fee can
+     * differ by a dinar, and this preview must show the figures the server will
+     * actually book. A unit test runs this function against the shared one.
+     */
+    function dpSplit(fee, appSharePercent) {
+      const f = Math.max(0, Math.round(Number(fee) || 0));
+      const p = Math.min(100, Math.max(0, Math.round(Number(appSharePercent) || 0)));
+      const app = Math.min(f, Math.max(0, Math.round((f * p) / 100)));
+      return { fee: f, app, driver: f - app };
+    }
+
+    function dpReadInputs() {
+      return {
+        restaurant: {
+          appSharePercent: parseInt(document.getElementById('dp-restaurant-share')?.value, 10),
+        },
+        shopping: {
+          appSharePercent: parseInt(document.getElementById('dp-shopping-share')?.value, 10),
+        },
+      };
+    }
+
+    function renderDeliveryPricingPreview() {
+      const v = dpReadInputs();
+      const iq = (n) => n.toLocaleString('ar-IQ') + ' \u062f.\u0639';
+      const ok = (p) => isFinite(p) && p >= 0 && p <= 100;
+
+      for (const kind of ['restaurant', 'shopping']) {
+        const share = v[kind].appSharePercent;
+        const el = document.getElementById(`dp-${kind}-driver`);
+        if (el) el.value = ok(share) ? (100 - share) : '';
+      }
+
+      const tbody = document.getElementById('dp-areas-preview');
+      if (!tbody) return;
+      const r = v.restaurant.appSharePercent;
+      const sh = v.shopping.appSharePercent;
+      if (!ok(r) || !ok(sh)) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px;color:#EF4444;">أدخل نسبة بين 0 و100 للنوعين</td></tr>';
+        return;
+      }
+      if (!Array.isArray(window._dpAreas) || window._dpAreas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px;color:var(--gray-400);">لا توجد مناطق توصيل</td></tr>';
+        return;
+      }
+      tbody.innerHTML = window._dpAreas.map((a) => {
+        const sr = dpSplit(a.fee, r);
+        const ss = dpSplit(a.fee, sh);
+        return `<tr style="border-top:1px solid var(--gray-200);">
+          <td style="padding:8px;">${escapeHtml(a.name)}</td>
+          <td style="padding:8px;font-weight:700;">${iq(sr.fee)}</td>
+          <td style="padding:8px;color:#0891B2;font-weight:700;">${iq(sr.app)}</td>
+          <td style="padding:8px;">${iq(sr.driver)}</td>
+          <td style="padding:8px;color:#0891B2;font-weight:700;">${iq(ss.app)}</td>
+          <td style="padding:8px;">${iq(ss.driver)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadDeliveryPricing() {
+      try {
+        const [sRes, aRes] = await Promise.all([
+          fetch(`${API_BASE}/settings/public`),
+          fetch(`${API_BASE}/delivery-areas`),
+        ]);
+        const data = await sRes.json();
+        const areas = await aRes.json();
+        // The SAME collection the server prices from — changing a fee here changes
+        // both kinds at once, which is the whole point of removing per-kind fees.
+        window._dpAreas = (Array.isArray(areas) ? areas : (areas.areas || []))
+          .filter(a => typeof a.fee === 'number')
+          .sort((x, y) => x.fee - y.fee);
+
+        const dp = data.deliveryPricing || {};
+        const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+        set('dp-restaurant-share', dp.restaurant?.appSharePercent ?? 0);
+        set('dp-shopping-share', dp.shopping?.appSharePercent ?? 0);
+        renderDeliveryPricingPreview();
+      } catch (err) {
+        console.error('loadDeliveryPricing error', err);
+      }
+    }
+
+    async function saveDeliveryPricing() {
+      const status = document.getElementById('dp-status');
+      const show = (msg, color) => {
+        if (!status) return;
+        status.textContent = msg; status.style.color = color; status.style.display = 'block';
+      };
+      const v = dpReadInputs();
+      for (const kind of ['restaurant', 'shopping']) {
+        const p = v[kind].appSharePercent;
+        if (!isFinite(p) || p < 0 || p > 100) {
+          return show('حصة التطبيق يجب أن تكون بين 0 و100', '#EF4444');
+        }
+      }
+      try {
+        const res = await fetch(`${API_BASE}/admin/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deliveryPricing: v }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'failed');
+        }
+        show('تم الحفظ بنجاح — يسري على الطلبات الجديدة', '#10B981');
+        setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+      } catch (err) {
+        show(err.message === 'failed' ? 'فشل الحفظ، حاول مجدداً' : err.message, '#EF4444');
+      }
+    }
+
     async function loadUrgencyThresholds() {
       try {
         const res = await fetch(`${API_BASE}/settings/urgency-thresholds`);
@@ -9824,14 +10117,15 @@
       try {
         const res = await fetch(`${API_BASE}/admin/owner-earnings`);
         const data = await res.json();
-        const allOrdersRes = await fetch(`${API_BASE}/admin/orders`);
-        const allOrdersData = await allOrdersRes.json();
-        const allOrds = allOrdersData.orders || allOrdersData || [];
-        const totalRev = allOrds.reduce((s, o) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
-        const deliveredCount = allOrds.filter(o => o.status === 'delivered').length;
-
+        // H-64 / C: the revenue figure was recomputed in the browser from the
+        // orders list. That list is now bounded (#19), so summing it would report a
+        // number that quietly shrinks as the business grows. Money comes from the
+        // server's own aggregate — the same endpoint the driver/owner splits come
+        // from — so the dashboard never invents a total from a partial page.
         const el = (id) => document.getElementById(id);
+        const totalRev = (data.totalDeliveryFees || 0) + (data.totalOwnerEarnings || 0) + (data.totalDriverEarnings || 0);
         if (el('settings-total-revenue')) el('settings-total-revenue').textContent = totalRev.toLocaleString('ar-IQ') + ' د.ع';
+        const deliveredCount = data.totalDeliveredOrders || 0;
         if (el('settings-owner-earnings')) el('settings-owner-earnings').textContent = (data.totalOwnerEarnings || 0).toLocaleString('ar-IQ') + ' د.ع';
         if (el('settings-driver-earnings')) el('settings-driver-earnings').textContent = (data.totalDriverEarnings || 0).toLocaleString('ar-IQ') + ' د.ع';
         if (el('settings-delivered-count')) el('settings-delivered-count').textContent = deliveredCount.toLocaleString('ar-IQ');
@@ -10666,7 +10960,7 @@ function filterSupportChats() {
   const q = document.getElementById('support-search').value.toLowerCase();
   const filtered = supportChats.filter(c =>
     (c.userName || '').toLowerCase().includes(q) ||
-    (c.phoneNumber || '').includes(q)
+    phoneMatches(c.phoneNumber, q)
   );
   renderSupportChatsList(filtered);
 }
@@ -10937,7 +11231,7 @@ function renderAssignDriverList() {
   if (search) {
     drivers = drivers.filter(d => {
       const name = ([d.firstName, d.secondName].filter(Boolean).join(' ') || d.fullName || '').toLowerCase();
-      return name.includes(search) || (d.phoneNumber || '').includes(search);
+      return name.includes(search) || phoneMatches(d.phoneNumber, search);
     });
   }
 
@@ -11106,138 +11400,6 @@ function renderFrDailyChart(dailySales) {
 // ═══════════════════════════════════════════════════════════════════════
 //  ZONE MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════════
-let _zonesData = [];
-let _zoneTypeFilter = '';
-
-async function loadZones() {
-  try {
-    const res = await fetch(API_BASE + '/admin/zones');
-    _zonesData = await res.json();
-    const badge = document.getElementById('zones-count');
-    if (badge) badge.textContent = _zonesData.length;
-    renderZones();
-  } catch { showToast('error', 'خطأ', 'تعذّر تحميل المناطق'); }
-}
-
-function filterZoneTab(type, btn) {
-  _zoneTypeFilter = type;
-  document.getElementById('zone-filter-type').value = type;
-  document.querySelectorAll('[id^="ztab-"]').forEach(b => {
-    b.className = 'btn btn-outline btn-sm';
-    b.style.background = ''; b.style.color = '';
-  });
-  if (btn) { btn.style.background = '#E86520'; btn.style.color = '#fff'; btn.className = 'btn btn-sm'; }
-  renderZones();
-}
-
-function renderZones() {
-  const typeFilter = _zoneTypeFilter || document.getElementById('zone-filter-type')?.value || '';
-  const tbody = document.getElementById('zones-table-body');
-  if (!tbody) return;
-  const typeLabels = { governorate: 'محافظة', city: 'مدينة', district: 'قضاء', neighborhood: 'حي' };
-  const typeColors = { governorate: '#E86520', city: '#3b82f6', district: '#10b981', neighborhood: '#8b5cf6' };
-  const filtered = _zonesData.filter(z => !typeFilter || z.type === typeFilter);
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">لا توجد مناطق. أضف منطقة جديدة.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.map(z => {
-    const parent = _zonesData.find(p => p.id === z.parentId);
-    const clr = typeColors[z.type] || '#9ca3af';
-    return `<tr>
-      <td style="font-weight:600;">${escapeHtml(z.name || '')}</td>
-      <td style="color:var(--gray-500);font-size:0.85rem;">${escapeHtml(z.nameEn || '—')}</td>
-      <td><span style="background:${clr}20;color:${clr};padding:2px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;">${typeLabels[z.type] || z.type}</span></td>
-      <td style="font-size:0.85rem;">${parent ? escapeHtml(parent.name) : '—'}</td>
-      <td style="font-weight:600;color:#10b981;">${(z.deliveryFee||0).toLocaleString('ar-IQ')} د.ع</td>
-      <td>
-        <span onclick="toggleZone('${z.id}', ${!z.isActive})" style="cursor:pointer;padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;${z.isActive !== false ? 'background:#d1fae5;color:#10b981;' : 'background:#fee2e2;color:#ef4444;'}">
-          ${z.isActive !== false ? 'مفعّلة' : 'معطّلة'}
-        </span>
-      </td>
-      <td>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-outline btn-sm" onclick="openZoneModal(${JSON.stringify(z).replace(/"/g, '&quot;')})">
-            <i data-lucide="pencil" style="width:14px;height:14px;"></i>
-          </button>
-          <button class="btn btn-sm" style="background:#ef444420;color:#ef4444;border:1px solid #ef444440;" onclick="deleteZone('${z.id}')">
-            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
-          </button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-  if (window.lucide) lucide.createIcons();
-}
-
-function openZoneModal(zone) {
-  const isEdit = !!zone;
-  document.getElementById('zone-modal-title').textContent = isEdit ? 'تعديل المنطقة' : 'إضافة منطقة جديدة';
-  document.getElementById('zone-edit-id').value = zone?.id || '';
-  document.getElementById('zone-name').value = zone?.name || '';
-  document.getElementById('zone-name-en').value = zone?.nameEn || '';
-  document.getElementById('zone-type').value = zone?.type || 'governorate';
-  document.getElementById('zone-fee').value = zone?.deliveryFee ?? '';
-  document.getElementById('zone-order').value = zone?.order ?? 0;
-  document.getElementById('zone-active').value = String(zone?.isActive !== false);
-  updateZoneParentSelect(zone?.parentId);
-  openModal('zone-modal');
-}
-
-function updateZoneParentSelect(selectedParentId) {
-  const type = document.getElementById('zone-type')?.value;
-  const parentTypes = { city: ['governorate'], district: ['governorate','city'], neighborhood: ['city','district'], governorate: [] };
-  const allowed = parentTypes[type] || [];
-  const select = document.getElementById('zone-parent');
-  if (!select) return;
-  const parents = _zonesData.filter(z => allowed.includes(z.type));
-  select.innerHTML = '<option value="">— لا يوجد —</option>' + parents.map(p => `<option value="${p.id}" ${p.id === selectedParentId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
-}
-
-async function saveZone(event) {
-  event.preventDefault();
-  const editId = document.getElementById('zone-edit-id').value;
-  const payload = {
-    name: document.getElementById('zone-name').value.trim(),
-    nameEn: document.getElementById('zone-name-en').value.trim(),
-    type: document.getElementById('zone-type').value,
-    parentId: document.getElementById('zone-parent').value || null,
-    deliveryFee: Number(document.getElementById('zone-fee').value) || 0,
-    order: Number(document.getElementById('zone-order').value) || 0,
-    isActive: document.getElementById('zone-active').value === 'true',
-  };
-  try {
-    const url = editId ? `${API_BASE}/admin/zones/${editId}` : `${API_BASE}/admin/zones`;
-    const method = editId ? 'PUT' : 'POST';
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error();
-    closeModal('zone-modal');
-    await loadZones();
-    showToast('success', 'تم الحفظ', editId ? 'تم تحديث المنطقة' : 'تمت الإضافة بنجاح');
-  } catch { showToast('error', 'خطأ', 'تعذّر حفظ المنطقة'); }
-}
-
-async function toggleZone(id, newState) {
-  try {
-    await fetch(`${API_BASE}/admin/zones/${id}/toggle`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' } });
-    await loadZones();
-  } catch { showToast('error', 'خطأ', 'تعذّر تغيير حالة المنطقة'); }
-}
-
-async function deleteZone(id) {
-  if (!confirm('هل أنت متأكد من حذف هذه المنطقة؟')) return;
-  try {
-    const res = await fetch(`${API_BASE}/admin/zones/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error();
-    await loadZones();
-    showToast('success', 'تم الحذف', 'تم حذف المنطقة');
-  } catch { showToast('error', 'خطأ', 'تعذّر حذف المنطقة'); }
-}
-
-// ══════════════════════════════════════════════════════════════
-// RATINGS MANAGEMENT
 // ══════════════════════════════════════════════════════════════
 let _ratingsPage = 1;
 let _ratingsData = [];
@@ -11456,7 +11618,8 @@ function filterRanking() {
 // Renamed from BUSINESS_LABELS_AR to avoid a top-level const clash with the
 // identically-named declaration in the first <script> block — the duplicate made
 // this entire (second) script fail to load in the browser, which silently broke
-// support chat, the assign-driver modal, zones, ratings, store ranking, business
+// this entire (second) script fail to load in the browser, which silently broke
+// support chat, the assign-driver modal, ratings, store ranking, business
 // categories and the website CMS.
 const STORE_TYPE_LABELS_AR = {
   restaurant: 'مطعم', supermarket: 'سوبرماركت', pharmacy: 'صيدلية',

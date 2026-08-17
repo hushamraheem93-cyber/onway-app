@@ -497,7 +497,17 @@ describe("H12 — inline item images must not blow the 1MB document limit", () =
 
   test("the order route applies the cap", () => {
     const body = handlerBody(ROUTES, 'app.post("/api/orders"');
-    assert.match(body, /items: capOrderItemImages\(items\)/);
+    // H-66 stopped persisting the request's own array: the lines are rebuilt from
+    // the catalogue first, and the cap is applied to those. What this test is for —
+    // that the write goes through capOrderItemImages and cannot exceed Firestore's
+    // 1MB limit — is unchanged, so it now matches the call rather than the name of
+    // the variable being capped.
+    assert.match(body, /items: capOrderItemImages\(verifiedItems\)/);
+    assert.doesNotMatch(
+      body,
+      /items: capOrderItemImages\(items\)/,
+      "REGRESSION: the client's raw item array is being stored again (H-66)",
+    );
   });
 
   test("limitImageSize is no longer a no-op that only looks like a guard", () => {

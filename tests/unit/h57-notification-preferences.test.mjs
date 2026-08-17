@@ -28,6 +28,10 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { stripComments } from "./_source.mjs";
+import {
+  canonicalIraqiPhone,
+  IRAQ_CANONICAL_PHONE_RE,
+} from "../../shared/phone.ts";
 
 import {
   DEFAULT_NOTIFICATION_PREFS,
@@ -171,6 +175,12 @@ const quietConsole = { log() {}, error() {}, warn() {} };
 function serverFirebase(db) {
   const code = [
     lift(FIREBASE, "export function pushTokenDocId"),
+    // H-63 put the id derivation behind a canonicaliser and gave the accessors a
+    // legacy-document fallback. These two are lifted for the same reason the rest
+    // are: so the preference accessors below run the real resolution, not a copy.
+    lift(FIREBASE, "export function legacyPushTokenDocIds"),
+    lift(FIREBASE, "async function pushTokenDocRef"),
+    liftFn(FIREBASE, "updateUserPushToken"),
     liftFn(FIREBASE, "getAllUserPushTokens"),
     liftFn(FIREBASE, "getMarketingPushTokens"),
     liftFn(FIREBASE, "getUserNotificationPrefs"),
@@ -184,9 +194,14 @@ function serverFirebase(db) {
       admin,
       allowsMarketingPush,
       normalizeNotificationPrefs,
+      canonicalIraqiPhone,
+      IRAQ_CANONICAL_PHONE_RE,
     },
     [
       "pushTokenDocId",
+      "legacyPushTokenDocIds",
+      "pushTokenDocRef",
+      "updateUserPushToken",
       "getAllUserPushTokens",
       "getMarketingPushTokens",
       "getUserNotificationPrefs",
@@ -561,18 +576,45 @@ describe("H-57 · the preference endpoints", () => {
     assert.deepEqual(await fb.getMarketingPushTokens(), []);
   });
 
-  test("the doc id matches the one updateUserPushToken writes", () => {
-    const { db } = makeDb([]);
-    const { pushTokenDocId } = serverFirebase(db);
-    // The expression lifted from updateUserPushToken itself.
-    const inline = (p) => p.replace(/[^a-zA-Z0-9]/g, "_");
+  test("the doc id matches the one updateUserPushToken writes", async () => {
+    // H-57's point is that the token and the consent share one document. It used
+    // to be checked by comparing pushTokenDocId against the raw expression that
+    // updateUserPushToken had inline. H-63 removed that duplicate expression — both
+    // writers now resolve the document through pushTokenDocRef — so the property is
+    // checked where it actually lives: write a token, write a preference, and
+    // require that exactly one document exists holding both.
+    const { db, written } = makeDb([]);
+    const fb = serverFirebase(db);
+
     for (const p of ["07700000001", "+964 770 000 0001", "07-70-000-0001"]) {
-      assert.equal(pushTokenDocId(p), inline(p));
+      assert.equal(
+        fb.pushTokenDocId(p),
+        "07700000001",
+        "one person's three spellings must not become three documents",
+      );
     }
-    assert.match(
-      stripComments(FIREBASE),
-      /const safeId = pushTokenDocId\(phoneNumber\)/,
-      "updateUserPushToken must use the shared id helper",
+
+    await fb.updateUserPushToken("07700000001", "ExponentPushToken[shared]");
+    await fb.setUserNotificationPrefs("07700000001", {
+      orders: true,
+      offers: false,
+      driver: true,
+      chat: true,
+    });
+
+    const touched = new Set(written.map((w) => w.id));
+    assert.equal(
+      touched.size,
+      1,
+      `the two writers used ${touched.size} documents`,
+    );
+    assert.equal([...touched][0], fb.pushTokenDocId("07700000001"));
+
+    const stored = await fb.getUserNotificationPrefs("07700000001");
+    assert.equal(
+      stored.offers,
+      false,
+      "the preference did not survive beside the token",
     );
   });
 

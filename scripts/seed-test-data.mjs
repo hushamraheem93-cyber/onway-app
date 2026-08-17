@@ -10,6 +10,30 @@
  */
 import admin from "firebase-admin";
 
+import {
+  DEMO_SEED_OPT_IN,
+  demoSeedDenialReason,
+} from "../shared/seedGuard.mjs";
+
+// H-68: this script had NO environment guard at all — it wrote demo vendors,
+// products and banners into whichever Firestore project FIREBASE_SERVICE_ACCOUNT
+// pointed at, production included. It now runs the SAME guard the server does,
+// imported rather than re-spelled, so the two cannot drift apart.
+//
+// The check is deliberately above the Firebase credential read: nothing connects
+// to Firestore until the environment has been cleared.
+const seedDenial = demoSeedDenialReason();
+if (seedDenial) {
+  console.error(
+    "⛔ رُفض التشغيل: سكربت بيانات تجريبية ولا يعمل خارج بيئة التطوير.",
+  );
+  console.error(`   السبب: ${seedDenial}`);
+  console.error(
+    `   للتشغيل في التطوير: ${DEMO_SEED_OPT_IN}=true NODE_ENV=development node scripts/seed-test-data.mjs`,
+  );
+  process.exit(1);
+}
+
 const svc = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!svc) {
   console.error("✗ FIREBASE_SERVICE_ACCOUNT غير مضبوط — أضِفه في Secrets ثم أعد المحاولة.");

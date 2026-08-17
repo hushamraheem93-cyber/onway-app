@@ -7,6 +7,7 @@ import {
   allowsMarketingPush,
   normalizeNotificationPrefs,
 } from "../shared/notificationPrefs";
+import { canonicalIraqiPhone, IRAQ_CANONICAL_PHONE_RE } from "../shared/phone";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -119,6 +120,22 @@ function phoneVariants(raw: string): string[] {
     set.add("00964" + local.slice(1)); // 009647XXXXXXXXX
     set.add("964" + local.slice(1));   // 9647XXXXXXXXX
     set.add(local.slice(1));           // 7XXXXXXXXX (no leading zero)
+
+    // H-63: the pre-H-52 login screen sent `00964${typed}` — country code
+    // prepended, the local leading zero never removed. Someone who typed the
+    // ordinary 07… form was therefore stored as 00964 + 07XXXXXXXXX, sixteen
+    // digits that none of the four forms above can produce. Ten live user
+    // documents look exactly like this, and every one of them was invisible to
+    // its own owner: the login mints a canonical 07… JWT, the lookup missed, and
+    // the app offered to create the profile again — which is how four of those
+    // people now hold two documents each.
+    //
+    // Added LAST so a correctly-formed document always wins when both exist.
+    // This only widens what a read can find; nothing here writes, renames or
+    // merges anything, and consolidating the duplicate pairs stays an operator
+    // decision (see server/scripts/phone-identity-dryrun.ts).
+    set.add("00964" + local);          // 009640 7XXXXXXXXX
+    set.add("964" + local);            // 9640 7XXXXXXXXX
   }
   return [...set];
 }
@@ -302,20 +319,98 @@ export async function setUserAddresses(
  *
  * The push token and the notification preferences live on the SAME document, so
  * both writers have to derive the id identically or a customer's consent would be
- * stored beside a different device's token. Extracted from updateUserPushToken
- * unchanged — same expression, one definition.
+ * stored beside a different device's token.
+ *
+ * H-63: the id is now derived from the CANONICAL phone, not from whatever string
+ * the caller happened to hold. Every current caller already passes the canonical
+ * form — the JWT carries it and POST /api/users/push-token rejects a body phone
+ * that differs from it — so this changes no behaviour today. It makes that an
+ * enforced property rather than an accident of three call sites: one future caller
+ * passing `00964…` would otherwise open a second document for a person who already
+ * has one, which is precisely how the 9 non-canonical ids now in the collection
+ * came to exist (they predate H-52 canonicalising the client).
  */
 export function pushTokenDocId(phoneNumber: string): string {
-  return phoneNumber.replace(/[^a-zA-Z0-9]/g, "_");
+  return canonicalIraqiPhone(phoneNumber).replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+/**
+ * Every id this identity's document could ALREADY be stored under (H-63).
+ *
+ * `pushTokens` is an exact-key collection, so unlike `users` it gets no help from
+ * `phoneVariants` — a lookup either names the right id or sees nothing. Nine of the
+ * documents in production are keyed by the raw string the pre-H-52 client sent
+ * (`009647…`), and their owners now authenticate with a canonical `07…` JWT. Deriving
+ * the id from the caller's own string was not enough to reach them: the caller's
+ * string IS canonical, so it never named the legacy id.
+ *
+ * These are therefore derived from the IDENTITY rather than from the caller's
+ * spelling — the same four formats `phoneVariants` covers, plus the one `+964…`
+ * used to produce once the non-alphanumeric characters were replaced.
+ *
+ * The canonical id is excluded: it is always tried first and separately.
+ */
+export function legacyPushTokenDocIds(phoneNumber: string): string[] {
+  const canonicalId = pushTokenDocId(phoneNumber);
+  const ids = new Set<string>([String(phoneNumber ?? "").replace(/[^a-zA-Z0-9]/g, "_")]);
+
+  const canonical = canonicalIraqiPhone(phoneNumber);
+  if (IRAQ_CANONICAL_PHONE_RE.test(canonical)) {
+    const subscriber = canonical.slice(1); // 7XXXXXXXXX
+    ids.add("00964" + subscriber);
+    ids.add("964" + subscriber);
+    ids.add(subscriber);
+    ids.add("_964" + subscriber); // what "+9647…" became
+  }
+
+  ids.delete(canonicalId);
+  return [...ids];
+}
+
+/**
+ * The pushTokens document for an identity: the canonical one, or the legacy one it
+ * already lives in.
+ *
+ * Both the reader and the writer go through this, and that pairing is the point.
+ * If reads fell back but writes always went canonical, the first token refresh
+ * after this deploy would create a canonical document beside the legacy one, and
+ * the customer's saved notification consent (H-57), still sitting on the legacy
+ * document, would read as "never chose" — an opt-out silently becoming an opt-in,
+ * while the stale token on the legacy document kept receiving the broadcasts it
+ * had opted out of. Keeping token and consent on one document is the invariant
+ * this collection is built on.
+ *
+ * Nothing here renames, copies or deletes anything: consolidating the two
+ * documents is a migration decision, and `server/scripts/phone-identity-dryrun.ts`
+ * sizes it without performing it.
+ *
+ * Cost: one extra read for a customer who already has a canonical document (the
+ * common path), and up to four more only for one who has none — after which their
+ * canonical document exists and the common path applies.
+ */
+async function pushTokenDocRef(phoneNumber: string) {
+  const tokens = db!.collection("pushTokens");
+  const canonicalRef = tokens.doc(pushTokenDocId(phoneNumber));
+  if ((await canonicalRef.get()).exists) return canonicalRef;
+
+  for (const legacyId of legacyPushTokenDocIds(phoneNumber)) {
+    const legacyRef = tokens.doc(legacyId);
+    if ((await legacyRef.get()).exists) return legacyRef;
+  }
+  return canonicalRef;
 }
 
 export async function updateUserPushToken(phoneNumber: string, pushToken: string): Promise<boolean> {
   if (!db) return false;
 
   try {
-    // Always save to dedicated pushTokens collection (phoneNumber as doc ID)
-    const safeId = pushTokenDocId(phoneNumber);
-    await db.collection("pushTokens").doc(safeId).set(
+    // Save to the dedicated pushTokens collection, on the SAME document the
+    // preference readers use (H-63). Writing straight to the canonical id would
+    // leave a legacy-keyed customer with their token on one document and the
+    // consent they gave on another: `getAllUserPushTokens` reads the whole
+    // collection, so the stale legacy token would keep receiving broadcasts the
+    // canonical document had opted out of, and the opt-out would look ignored.
+    await (await pushTokenDocRef(phoneNumber)).set(
       { phoneNumber, pushToken, updatedAt: admin.firestore.Timestamp.now() },
       { merge: true }
     );
@@ -445,7 +540,7 @@ export async function getAllUserPushTokens(): Promise<string[]> {
  */
 export async function getUserNotificationPrefs(phoneNumber: string): Promise<NotificationPrefs | null> {
   if (!db) throw new Error("Firestore is not configured");
-  const doc = await db.collection("pushTokens").doc(pushTokenDocId(phoneNumber)).get();
+  const doc = await (await pushTokenDocRef(phoneNumber)).get();
   if (!doc.exists) return null;
   const raw = (doc.data() as { notificationPrefs?: unknown } | undefined)?.notificationPrefs;
   return raw == null ? null : normalizeNotificationPrefs(raw);
@@ -464,7 +559,7 @@ export async function setUserNotificationPrefs(
   prefs: NotificationPrefs,
 ): Promise<void> {
   if (!db) throw new Error("Firestore is not configured");
-  await db.collection("pushTokens").doc(pushTokenDocId(phoneNumber)).set(
+  await (await pushTokenDocRef(phoneNumber)).set(
     { phoneNumber, notificationPrefs: prefs, updatedAt: admin.firestore.Timestamp.now() },
     { merge: true }
   );
@@ -659,11 +754,21 @@ export interface FirestoreOrder {
   courierDetails?: any;
 }
 
-export async function getOrders(): Promise<(FirestoreOrder & { id: string })[]> {
+/**
+ * Orders, newest first.
+ *
+ * `limit` bounds the read (H-64 / #19). This was an unbounded collection scan and
+ * the admin dashboard calls it FOUR times per page load, so the cost of opening the
+ * panel grew with the lifetime order count — invisible today at one order,
+ * unaffordable at ten thousand. The default is generous enough that no existing
+ * caller loses rows it was actually rendering.
+ */
+export async function getOrders(limit = 500): Promise<(FirestoreOrder & { id: string })[]> {
   if (!db) return [];
   
   try {
-    const snapshot = await db.collection("orders").orderBy("createdAt", "desc").get();
+    const capped = Math.min(2000, Math.max(1, Math.round(Number(limit) || 500)));
+    const snapshot = await db.collection("orders").orderBy("createdAt", "desc").limit(capped).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreOrder }));
   } catch (error) {
     console.error("Error getting orders:", error);

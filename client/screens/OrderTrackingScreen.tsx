@@ -83,8 +83,6 @@ function getStepIndex(status: Order["status"]): number {
       return 3;
     case "in_delivery":
       return 3;
-    case "delivering":
-      return 3;
     case "delivered":
       return 4;
     case "cancelled":
@@ -391,9 +389,7 @@ export default function OrderTrackingScreen() {
   // Socket.io: real-time driver location updates
   useEffect(() => {
     const tracking =
-      order?.status === "in_delivery" ||
-      order?.status === "picked_up" ||
-      order?.status === "delivering";
+      order?.status === "in_delivery" || order?.status === "picked_up";
     if (!tracking || !orderId) {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -466,9 +462,7 @@ export default function OrderTrackingScreen() {
   // HTTP Polling fallback: activates only when socket is disconnected
   useEffect(() => {
     const tracking =
-      order?.status === "in_delivery" ||
-      order?.status === "picked_up" ||
-      order?.status === "delivering";
+      order?.status === "in_delivery" || order?.status === "picked_up";
     // H-42: also gated on AppState now. Backgrounded, the map is not rendered, so
     // polling the driver's GPS bought nothing; the socket stays connected and
     // remains the primary channel. Returning to foreground re-runs this effect,
@@ -503,8 +497,7 @@ export default function OrderTrackingScreen() {
     await refreshOrders();
     if (
       order?.status === "in_delivery" ||
-      order?.status === "picked_up" ||
-      order?.status === "delivering"
+      order?.status === "picked_up"
     )
       await fetchDriverLocation();
     setRefreshing(false);
@@ -529,9 +522,7 @@ export default function OrderTrackingScreen() {
   const currentStepIndex = getStepIndex(order.status);
   const isCancelled = order.status === "cancelled" || order.status === "issue";
   const isDelivering =
-    order.status === "in_delivery" ||
-    order.status === "picked_up" ||
-    order.status === "delivering";
+    order.status === "in_delivery" || order.status === "picked_up";
 
   return (
     <View style={{ flex: 1 }}>

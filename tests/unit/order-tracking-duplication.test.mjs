@@ -389,9 +389,15 @@ describe("H-42 · behaviour that must not have changed", () => {
   });
 
   test("the tracking statuses that open the socket are unchanged", () => {
+    // C-1 dropped "delivering" from the list. It was an inert third alternative:
+    // the server has never written that status, and every condition already tested
+    // `in_delivery` alongside it, so no order could reach tracking through it. The
+    // two statuses that actually occur are asserted here, unchanged.
     const socketEffect = effectContaining(SCREEN_CLEAN, 'sock.emit("order:watch"');
-    for (const s of ["in_delivery", "picked_up", "delivering"]) {
+    for (const s of ["in_delivery", "picked_up"]) {
       assert.ok(socketEffect.includes(`"${s}"`), `${s} no longer counts as tracking`);
     }
+    assert.ok(!socketEffect.includes('"delivering"'),
+      "the phantom status is back in the tracking gate");
   });
 });

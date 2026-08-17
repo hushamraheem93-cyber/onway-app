@@ -23,29 +23,29 @@
  * (`toLocalPhone`), so the client and the server cannot disagree about which
  * identity a typed number belongs to. A unit test executes both and compares
  * them over a corpus rather than trusting this comment.
- */
-
-/** The canonical stored/compared form: a local Iraqi mobile number. */
-export const IRAQ_LOCAL_PHONE_RE = /^07\d{9}$/;
-
-/**
- * Any Iraqi variant → the canonical `07XXXXXXXXX`.
+ *
+ * H-63: they used to be written out here a second time. They now come from
+ * `@shared/phone`, which is also what `server/firebase.ts` derives phone-shaped
+ * document keys from — so "the client and the server cannot disagree" is a fact
+ * about the module graph, not a promise maintained by hand. The names below are
+ * unchanged and re-exported, so every existing import keeps working.
  *
  * Accepts `07XXXXXXXXX`, `7XXXXXXXXX`, `9647XXXXXXXXX`, `+9647XXXXXXXXX`,
  * `009647XXXXXXXXX`, with or without spaces, dashes or parentheses. Anything
  * else is returned as its digits so the caller's validation can reject it —
- * this function never invents a number it cannot derive.
+ * it never invents a number it cannot derive.
  */
-export function toLocalIraqiPhone(raw: string): string {
-  const d = String(raw ?? "").replace(/\D/g, "");
-  if (d.startsWith("00964")) return "0" + d.slice(5);
-  if (d.startsWith("964")) return "0" + d.slice(3);
-  if (d.startsWith("07")) return d;
-  if (d.startsWith("7")) return "0" + d;
-  return d;
-}
+import {
+  canonicalIraqiPhone,
+  isValidIraqiPhone as isValidIraqiPhoneShared,
+  IRAQ_CANONICAL_PHONE_RE,
+} from "@shared/phone";
+
+/** The canonical stored/compared form: a local Iraqi mobile number. */
+export const IRAQ_LOCAL_PHONE_RE = IRAQ_CANONICAL_PHONE_RE;
+
+/** Any Iraqi variant → the canonical `07XXXXXXXXX`. */
+export const toLocalIraqiPhone = canonicalIraqiPhone;
 
 /** Does this input resolve to a well-formed Iraqi mobile number? */
-export function isValidIraqiPhone(raw: string): boolean {
-  return IRAQ_LOCAL_PHONE_RE.test(toLocalIraqiPhone(raw));
-}
+export const isValidIraqiPhone = isValidIraqiPhoneShared;

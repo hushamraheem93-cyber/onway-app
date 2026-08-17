@@ -24,18 +24,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
+import { isStoreOpenNow, type WorkingHours } from "@shared/storeHours";
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, "StoresList">;
 
 const COVER_H = 150;
 const AVATAR_SIZE = 62;
-
-interface WorkingHours {
-  openTime: string;
-  closeTime: string;
-  openDays: number[];
-}
 
 interface VendorStore {
   id: string;
@@ -49,7 +44,10 @@ interface VendorStore {
   coverImageUrl?: string;
   rating?: number;
   deliveryTime?: string;
+  /** Vendor-set, display-only. Not what checkout charges — see the card below. */
   deliveryPrice?: number;
+  /** The store's own flat delivery fee override, when set. This IS the real price. */
+  deliveryFee?: number | null;
   workingHours?: WorkingHours | null;
 }
 
@@ -94,17 +92,6 @@ const BUSINESS_CONFIG: Record<string, BizConfig> = {
     gradient: [AppColors.driverBlue, AppColors.info],
   },
 };
-
-function isStoreOpen(wh: WorkingHours | null | undefined): boolean {
-  if (!wh) return true;
-  const now = new Date();
-  const day = now.getDay();
-  if (!wh.openDays?.includes(day)) return false;
-  const cur = now.getHours() * 60 + now.getMinutes();
-  const [oh, om] = (wh.openTime || "00:00").split(":").map(Number);
-  const [ch, cm] = (wh.closeTime || "23:59").split(":").map(Number);
-  return cur >= oh * 60 + om && cur < ch * 60 + cm;
-}
 
 function resolveUrl(path?: string): string | null {
   if (!path) return null;
@@ -162,10 +149,18 @@ function StoreCard({
   const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
   const avatarUrl = resolveUrl(store.profileImageUrl);
   const coverUrl = resolveUrl(store.coverImageUrl);
-  const open = isStoreOpen(store.workingHours);
+  const open = isStoreOpenNow(store.workingHours);
   const rating = store.rating ?? null;
   const deliveryTime = store.deliveryTime || "30-45";
-  const deliveryPrice = store.deliveryPrice ?? 0;
+  // D-3: the badge used to print `store.deliveryPrice` — a number the VENDOR sets
+  // for display only, which the checkout never charges. With every three live stores
+  // leaving it unset the card advertised "توصيل مجاني" while checkout billed the
+  // area fee. The real price is the store's own `deliveryFee` override when it has
+  // one, and otherwise the selected delivery area's fee — which is per-region and
+  // cannot be shown as one number on a card. `deliveryPrice` is left in the schema;
+  // it is simply no longer presented as a price.
+  const deliveryOverride: number | null =
+    typeof store.deliveryFee === "number" ? store.deliveryFee : null;
 
   return (
     <Pressable
@@ -248,9 +243,11 @@ function StoreCard({
               color={AppColors.white}
             />
             <ThemedText style={cardStyles.deliveryText}>
-              {deliveryPrice === 0
-                ? "توصيل مجاني"
-                : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
+              {deliveryOverride == null
+                ? "حسب المنطقة"
+                : deliveryOverride === 0
+                  ? "توصيل مجاني"
+                  : `${deliveryOverride.toLocaleString("ar-IQ")} د.ع`}
             </ThemedText>
           </View>
         </View>

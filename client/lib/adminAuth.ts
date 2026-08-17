@@ -50,6 +50,67 @@ export async function clearAdminToken(): Promise<void> {
   }
 }
 
+/**
+ * Sign out (H-64 / A-1).
+ *
+ * Invalidates the session on the SERVER first, then drops the local token. The
+ * order matters: clearing locally alone would leave a session the server still
+ * accepts, so a leaked token would outlive the logout. The local token is removed
+ * even when the network call fails — the admin asked to be signed out on this
+ * device, and that part must not depend on connectivity.
+ */
+export async function logoutAdmin(): Promise<void> {
+  try {
+    await fetch(new URL("/api/admin/logout", getApiUrl()).toString(), {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    /* the local token is cleared regardless */
+  }
+  await clearAdminToken();
+}
+
+/**
+ * Is the stored session still accepted by the server? (H-64 / A-2)
+ *
+ * The panel used to open on the mere PRESENCE of a token, so an expired or revoked
+ * one rendered the entire dashboard and then failed every query with 401 — with no
+ * route back to the login screen. `null` means "could not tell" (the request never
+ * reached the server); the caller keeps the session rather than signing the admin
+ * out because the phone was briefly offline.
+ */
+export async function isAdminSessionValid(): Promise<boolean | null> {
+  const token = await getAdminToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(
+      new URL("/api/admin/session", getApiUrl()).toString(),
+      { credentials: "include" },
+    );
+    if (res.status === 401) return false;
+    return res.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Called whenever an admin API answers 401 (H-64 / #14).
+ *
+ * One central place: the interceptor below fires it for ANY admin request, so a
+ * revoked session cannot leave the panel rendered and repeatedly alerting with no
+ * way out. The listener (AdminScreen) clears the session and returns to login.
+ */
+type UnauthorizedListener = () => void;
+let onUnauthorized: UnauthorizedListener | null = null;
+
+export function setAdminUnauthorizedHandler(
+  fn: UnauthorizedListener | null,
+): void {
+  onUnauthorized = fn;
+}
+
 let installed = false;
 
 /**
@@ -103,6 +164,24 @@ export function installAdminAuthInterceptor(): void {
     } catch {
       /* never let auth wiring break the request */
     }
-    return orig(input, init);
+    const res = await orig(input, init);
+    // Central 401 handling: every admin request passes through here, so the
+    // session can be torn down once instead of at ~90 call sites — none of which
+    // did it, which is why an expired session produced an empty panel and a loop
+    // of "انتهت صلاحية الجلسة" alerts with no way back to the login screen.
+    try {
+      const url = typeof input === "string" ? input : (input?.url ?? "");
+      if (
+        res?.status === 401 &&
+        typeof url === "string" &&
+        isAdminApiUrl(url)
+      ) {
+        await clearAdminToken();
+        onUnauthorized?.();
+      }
+    } catch {
+      /* never let auth wiring break the response */
+    }
+    return res;
   };
 }

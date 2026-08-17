@@ -8,6 +8,8 @@
 
 import admin from "firebase-admin";
 import * as dotenv from "dotenv";
+
+import { isDemoSeedAllowed, demoSeedDenialReason } from "./env";
 dotenv.config();
 
 // ── Firebase init ──────────────────────────────────────────────────────────────
@@ -3270,10 +3272,22 @@ async function seedPromotionalSections() {
 async function main() {
   // Safety guard: this script seeds DEMO data — test vendors and working promo
   // codes (e.g. SAVE10000). Running it against production would inject live
-  // discount codes and fake stores. Refuse to run in production unless the
-  // operator explicitly opts in with ALLOW_SEED=true.
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED !== "true") {
+  // discount codes and fake stores.
+  //
+  // H-68: the previous guard was `NODE_ENV === "production" && ALLOW_SEED !== "true"`,
+  // which denied only when NODE_ENV was that exact string. With NODE_ENV unset —
+  // the state `.replit`'s published deployment actually runs in — the condition was
+  // false and the script seeded whatever database FIREBASE_SERVICE_ACCOUNT pointed
+  // at, with no opt-in required at all.
+  //
+  // It now denies by default: the environment must positively identify itself as
+  // development or test AND carry the opt-in. ALLOW_SEED=true remains as the
+  // deliberate operator override, because unlike the admin endpoint this path
+  // requires shell access on the host — but it is now an override of a closed door
+  // rather than the only thing that was ever checked.
+  if (!isDemoSeedAllowed() && process.env.ALLOW_SEED !== "true") {
     console.error("⛔ رُفض التشغيل: سكربت بيانات تجريبية ولا يعمل في بيئة الإنتاج.");
+    console.error(`   السبب: ${demoSeedDenialReason()}`);
     console.error("   للتشغيل المتعمّد فقط: ALLOW_SEED=true npx tsx server/seed-data.ts");
     process.exit(1);
   }

@@ -263,7 +263,9 @@ describe("H-04 — the fee calculations were not touched", () => {
   test("the delivery fee is still server-authoritative", () => {
     assert.match(ORDERS, /let verifiedDeliveryFee: number \| null = null/);
     assert.match(ORDERS, /verifiedDeliveryFee = vendorDeliveryFeeOverride/);
-    assert.match(ORDERS, /verifiedDeliveryFee = sysSettings\.restaurantDeliveryFee/);
+    // D-3 removed the per-kind flat fee that used to sit between these two; the fee
+    // is now the delivery AREA's for every kind. order-fees.test.mjs owns that
+    // contract — what matters here is only that H-04's promo work never touched it.
     assert.match(ORDERS, /verifiedDeliveryFee = Math\.round\(areaFee\)/);
   });
 

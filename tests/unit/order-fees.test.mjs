@@ -94,17 +94,32 @@ describe("H-02 — the delivery fee never comes from the request body", () => {
     assert.match(ORDERS, /منطقة التوصيل غير مدعومة/);
   });
 
-  test("all three authoritative sources are still consulted, in order", () => {
+  test("both authoritative sources are still consulted, in order", () => {
+    // D-3 removed the middle source. It was a flat per-kind fee
+    // (`sysSettings.restaurantDeliveryFee`) sitting behind `allItemsAreRestaurant`,
+    // a condition requiring every basket line to be in the legacy `products`
+    // collection — which holds no documents — so the branch was unreachable and the
+    // setting inert. Delivery is now priced by AREA for every kind of order, and the
+    // order kind only decides how the fee is SPLIT.
+    //
+    // What H-02 guards is unchanged and still asserted here: the fee comes only from
+    // server-side sources, in a documented order.
     const i1 = ORDERS.indexOf("verifiedDeliveryFee = vendorDeliveryFeeOverride");
-    const i2 = ORDERS.indexOf("verifiedDeliveryFee = sysSettings.restaurantDeliveryFee");
-    const i3 = ORDERS.indexOf("verifiedDeliveryFee = Math.round(areaFee);");
-    assert.ok(i1 > -1 && i2 > -1 && i3 > -1, "a fee source was dropped");
-    assert.ok(i1 < i2 && i2 < i3, "the documented precedence changed");
+    const i2 = ORDERS.indexOf("verifiedDeliveryFee = Math.round(areaFee);");
+    assert.ok(i1 > -1 && i2 > -1, "a fee source was dropped");
+    assert.ok(i1 < i2, "the documented precedence changed");
+    assert.doesNotMatch(ORDERS, /verifiedDeliveryFee = sysSettings\./,
+      "a system-settings flat fee is back in the chain");
   });
 
   test("the driver's payout still keys off the stored delivery fee", () => {
     // This is why free delivery also silently zeroed the driver's earnings.
-    assert.match(ROUTES, /computeDriverPayout\(isRestaurantOrder, order\.deliveryFee \|\| 0\)/);
+    //
+    // D-3 added a third argument — the split percentage frozen onto the order at
+    // checkout — so the call no longer ends after the fee. The guarded property is
+    // unchanged and still asserted: the fee this payout is computed from is the one
+    // stored on the ORDER, never one supplied by a caller.
+    assert.match(ROUTES, /computeDriverPayout\(isRestaurantOrder, order\.deliveryFee \|\| 0,/);
   });
 
   // ── behaviour ────────────────────────────────────────────────────────────

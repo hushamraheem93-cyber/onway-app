@@ -127,7 +127,11 @@ describe("H-35 · pricing behaviour is unchanged", () => {
     ["variant adjustments still apply", /realPrice \+= Number\(variant\.priceAdjustment\) \|\| 0;/],
     ["add-on prices still apply", /realPrice \+= Number\(dbAddon\.price\) \|\| 0;/],
     ["add-ons are matched by id", /vp\.addons\.find\(\(a: any\) => a\.id === orderAddon\.id\)/],
-    ["out-of-stock still blocks", /if \(vp\?\.inStock === false\) available = false;/],
+    // H-64 / G-1 widened this: the guard tested `inStock === false` only, while
+    // vendors maintain the numeric `stock` — four live products were on sale at
+    // zero. The property H-35 guards (an unavailable item still blocks the order)
+    // is unchanged and stricter; only the predicate's name moved.
+    ["out-of-stock still blocks", /if \(!isProductAvailable\(vp\)\) available = false;/],
     ["unknown products are rejected", /unknownProductIds\.push\(it\.productId\)/],
     ["the subtotal uses the verified price", /verifiedSubtotal \+= realPrice \* quantity;/],
   ]) {

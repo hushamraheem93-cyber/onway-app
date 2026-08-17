@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -280,6 +280,14 @@ const rStyles = StyleSheet.create({
   modalImage: { width: "90%", height: "70%" },
 });
 
+/**
+ * How long the user must stop typing before the search reaches the server (H-62).
+ *
+ * Long enough that a normal word is one request rather than one per letter, short
+ * enough that the wait is not noticeable after the last keystroke.
+ */
+const SEARCH_DEBOUNCE_MS = 350;
+
 const FILTER_TABS: { key: FilterType; label: string }[] = [
   { key: "newest", label: "الأحدث" },
   { key: "highest", label: "الأعلى" },
@@ -295,17 +303,46 @@ export default function StoreRatingsScreen() {
   const { theme } = useTheme();
 
   const [filter, setFilter] = useState<FilterType>("newest");
+  // `search` is what the box shows; `committedSearch` is what the query uses. They
+  // are separate so typing stays instant while the network does not.
   const [search, setSearch] = useState("");
+  const [committedSearch, setCommittedSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const queryKey = [`/api/stores/${storeId}/ratings`, filter, search, page];
+  // H-62: the query key held `search` directly, so every keystroke was a new key
+  // and therefore a new request — typing "مطعم" hit the endpoint four times.
+  //
+  // The commit deliberately moves `committedSearch` and `page` together in one
+  // update. Debouncing only the value while leaving the page reset on the
+  // keystroke would step through (previous search, page 1) for the whole debounce
+  // window, showing page 1 of the OLD search while the user is still typing.
+  //
+  // No cancellation logic is needed for out-of-order replies: react-query stores
+  // each result under its own serialized key, so a late response for an earlier
+  // search updates that key's cache entry and never the one being rendered.
+  useEffect(() => {
+    if (search === committedSearch) return;
+    const timer = setTimeout(() => {
+      setCommittedSearch(search);
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search, committedSearch]);
+
+  const queryKey = [
+    `/api/stores/${storeId}/ratings`,
+    filter,
+    committedSearch,
+    page,
+  ];
   const { data, isLoading, isRefetching, refetch } = useQuery<RatingSummary>({
     queryKey,
     queryFn: async () => {
       const url = new URL(`/api/stores/${storeId}/ratings`, getApiUrl());
       url.searchParams.set("filter", filter);
       url.searchParams.set("page", String(page));
-      if (search.trim()) url.searchParams.set("q", search.trim());
+      if (committedSearch.trim())
+        url.searchParams.set("q", committedSearch.trim());
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("failed");
       return res.json();
@@ -376,16 +413,20 @@ export default function StoreRatingsScreen() {
             placeholder="ابحث في التعليقات..."
             placeholderTextColor={theme.textSecondary}
             value={search}
-            onChangeText={(t) => {
-              setSearch(t);
-              setPage(1);
-            }}
+            // The page reset rides with the debounced commit above, so that the
+            // list never shows page 1 of the previous search mid-typing.
+            onChangeText={setSearch}
             textAlign="right"
           />
           {search.length > 0 ? (
             <Pressable
+              // Clearing is a deliberate, discrete action — commit it immediately
+              // rather than making the user wait out the debounce. Setting all
+              // three together keeps it to a single re-render and a single request,
+              // and leaves search === committedSearch so no timer is armed.
               onPress={() => {
                 setSearch("");
+                setCommittedSearch("");
                 setPage(1);
               }}
               accessibilityRole="button"

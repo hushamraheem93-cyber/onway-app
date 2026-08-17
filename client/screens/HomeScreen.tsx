@@ -39,6 +39,7 @@ import { resolveImageUrl, getProductThumb } from "@/utils/imageUtils";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
 import { HeaderTitle, HEADER_BAR_HEIGHT } from "@/components/HeaderTitle";
 import { getApiUrl } from "@/lib/query-client";
+import { isStoreOpenNow } from "@shared/storeHours";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -621,20 +622,18 @@ export default function HomeScreen() {
       VENDOR_BIZ_CONFIG[store.businessType] || VENDOR_BIZ_CONFIG.other;
     const avatarUrl = resolveStoreUrl(store.profileImageUrl);
     const coverUrl = resolveStoreUrl(store.coverImageUrl);
-    const open = (() => {
-      const wh = (store as any).workingHours;
-      if (!wh) return true;
-      const now = new Date();
-      const day = now.getDay();
-      if (!wh.openDays?.includes(day)) return false;
-      const cur = now.getHours() * 60 + now.getMinutes();
-      const [oh, om] = (wh.openTime || "00:00").split(":").map(Number);
-      const [ch, cm] = (wh.closeTime || "23:59").split(":").map(Number);
-      return cur >= oh * 60 + om && cur < ch * 60 + cm;
-    })();
+    // D-6: the same predicate the stores list uses, from the shared module. These
+    // two screens each carried their own copy of this arithmetic.
+    const open = isStoreOpenNow((store as any).workingHours);
     const rating: number | null = (store as any).rating ?? null;
     const deliveryTime = (store as any).deliveryTime || "30-45";
-    const deliveryPrice = (store as any).deliveryPrice ?? 0;
+    // D-3: see StoresListScreen — the vendor-set `deliveryPrice` is not what the
+    // customer is charged. Only a store's own `deliveryFee` override is a real
+    // price; otherwise the fee depends on the delivery area chosen at checkout.
+    const deliveryOverride: number | null =
+      typeof (store as any).deliveryFee === "number"
+        ? (store as any).deliveryFee
+        : null;
     return (
       <Pressable
         key={store.id}
@@ -795,9 +794,11 @@ export default function HomeScreen() {
                   color: AppColors.white,
                 }}
               >
-                {deliveryPrice === 0
-                  ? "مجاني"
-                  : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
+                {deliveryOverride == null
+                  ? "حسب المنطقة"
+                  : deliveryOverride === 0
+                    ? "مجاني"
+                    : `${deliveryOverride.toLocaleString("ar-IQ")} د.ع`}
               </ThemedText>
             </View>
           </View>

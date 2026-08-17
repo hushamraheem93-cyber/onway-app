@@ -186,6 +186,22 @@ export function VendorNotificationsProvider({
     };
   }, [vendorToken, checkNewOrders]);
 
+  // H-61: silence the new-order alarm when this provider goes away.
+  //
+  // playRepeatingAlert() schedules its pulses as module-level timers inside
+  // alertSound.ts, so they are not owned by React and survive this component. The
+  // only route to stopAlert() was dismissNewOrderPopup — a button on the popup,
+  // which unmounts along with the provider. A vendor who left the store screen mid
+  // sequence therefore kept hearing the alarm for the rest of the ~21s window with
+  // nothing left on screen to silence it. Clearing the timers here is what actually
+  // ends them; the generation guard in alertSound.ts covers a pulse that had
+  // already fired and was awaiting the audio mode at that moment.
+  useEffect(() => {
+    return () => {
+      stopAlert();
+    };
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === "web") return;
     Notifications.setBadgeCountAsync(unreadCount).catch(() => {});

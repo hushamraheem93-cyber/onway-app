@@ -29,40 +29,56 @@ const ADMIN_SCREEN = read("client/screens/AdminScreen.tsx");
 const NAVIGATOR = read("client/navigation/RootStackNavigator.tsx");
 
 describe("H-12 — the admin panel does not render without an admin token", () => {
-  test("the screen reads the stored token on mount", () => {
-    assert.match(ADMIN_SCREEN, /import \{ getAdminToken \} from "@\/lib\/adminAuth";/);
+  test("the screen verifies the session on mount", () => {
+    // H-64 / A-2 made this stricter: checking that a token EXISTS let an expired or
+    // revoked one open the whole panel, which then failed every query with 401. The
+    // server is now asked whether the session is still accepted. H-12's property —
+    // nothing renders until the check passes — is unchanged and better served.
+    assert.match(ADMIN_SCREEN, /from "@\/lib\/adminAuth";/);
     assert.match(
       ADMIN_SCREEN,
-      /const token = await getAdminToken\(\);/,
-      "REGRESSION: the screen mounts without checking for a token",
+      /const valid = await isAdminSessionValid\(\);/,
+      "REGRESSION: the screen mounts without verifying the session",
     );
   });
 
-  test("no token sends the user to the login screen, with no way back", () => {
+  test("an invalid session sends the user to the login screen, with no way back", () => {
     // replace(), not navigate() — otherwise the panel stays on the back stack.
-    assert.match(ADMIN_SCREEN, /else navigation\.replace\("AdminLogin"\);/);
+    assert.match(ADMIN_SCREEN, /navigation\.replace\("AdminLogin"\)/);
     assert.doesNotMatch(ADMIN_SCREEN, /navigation\.navigate\("AdminLogin"\)/);
+    // …and a 401 from any admin request does the same, centrally (H-64 / #14).
+    assert.match(ADMIN_SCREEN, /setAdminUnauthorizedHandler\(/);
   });
 
   test("nothing of the panel is rendered while the check is pending", () => {
     const gate = ADMIN_SCREEN.indexOf('if (adminAuthState === "checking")');
-    const panel = ADMIN_SCREEN.indexOf("{/* Sticky tab bar */}");
+    // H-65 moved the tab bar into <AdminTabBar/>. Anchoring on the element rather
+    // than on the comment above it keeps this pinned to the markup itself, which
+    // is the thing that must not render before the gate.
+    const panel = ADMIN_SCREEN.indexOf("<AdminTabBar");
     assert.ok(gate > -1, "REGRESSION: the render gate is gone");
+    assert.ok(panel > -1, "REGRESSION: the panel's first markup is gone");
     assert.ok(gate < panel, "the gate must come before the panel markup");
   });
 
   test("the gate starts closed", () => {
     assert.match(
       ADMIN_SCREEN,
-      /useState<"checking" \| "ok">\("checking"\)/,
+      // Prettier wraps this declaration across lines once the initialiser no
+      // longer fits, so the whitespace between the generic and "checking" is
+      // allowed to vary. The initial value itself is what this asserts.
+      /useState<"checking" \| "ok">\(\s*"checking",?\s*\)/,
       "REGRESSION: the panel renders first and checks afterwards",
     );
   });
 
   test("the check is not left hanging on unmount", () => {
-    const eff = ADMIN_SCREEN.slice(ADMIN_SCREEN.indexOf("let cancelled = false;"));
-    assert.match(eff.slice(0, 500), /if \(cancelled\) return;/);
-    assert.match(eff.slice(0, 500), /cancelled = true;/);
+    // The window is measured from the guard's declaration to the end of its effect,
+    // rather than a fixed byte count that comments can push the cleanup out of.
+    const from = ADMIN_SCREEN.indexOf("let cancelled = false;");
+    const eff = ADMIN_SCREEN.slice(from, ADMIN_SCREEN.indexOf("}, [navigation]);", from));
+    assert.match(eff, /if \(cancelled\) return;/);
+    assert.match(eff, /cancelled = true;/);
   });
 
   test("the routes are still reachable for a legitimate admin", () => {
