@@ -34,8 +34,13 @@ import { formatDateTime } from "@/lib/dateUtils";
 
 interface OrderCardProps {
   order: Order;
-  onPress?: () => void;
-  onStorePress?: () => void;
+  // H-82: these two took no argument, so the screen had to build a closure over
+  // the row's order for every card on every render — four fresh function
+  // identities per card, which is precisely what stopped React.memo below from
+  // ever skipping a render. Passing the order back, the way onRate and onReorder
+  // already did, lets the screen hand down ONE stable handler for the whole list.
+  onPress?: (order: Order) => void;
+  onStorePress?: (order: Order) => void;
   onRate?: (
     orderId: string,
     rating: number,
@@ -167,9 +172,13 @@ function OrderCardComponent({
     .slice(-6)
     .toUpperCase()}`;
 
+  // Built below the memo boundary: this closure is only recreated when the card
+  // itself actually re-renders, which is the whole point of the change.
+  const handleCardPress = onPress ? () => onPress(order) : undefined;
+
   return (
     <AnimatedPressable
-      onPress={onPress}
+      onPress={handleCardPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={[
@@ -224,7 +233,7 @@ function OrderCardComponent({
           return storeName ? (
             <View style={[styles.infoRow, styles.storeRow]}>
               <Pressable
-                onPress={canNavigate ? onStorePress : undefined}
+                onPress={canNavigate ? () => onStorePress!(order) : undefined}
                 style={[
                   styles.storeBadge,
                   { backgroundColor: AppColors.primary + "12" },

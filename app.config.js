@@ -41,11 +41,50 @@ if (IS_BINARY_BUILD) {
   }
 }
 
+/**
+ * H-77: the EAS project id. Declared once because it is used twice — as
+ * `extra.eas.projectId` and inside the updates URL. If those two ever disagree,
+ * the app asks a DIFFERENT project for its updates than the one EAS publishes
+ * to: updates silently never arrive, and the rollback path is dead when it is
+ * needed most. Deriving one from the other makes that impossible.
+ */
+const EAS_PROJECT_ID = "31018b2b-d742-4f09-8d17-48d00575216c";
+
 module.exports = {
   expo: {
     name: "Onway",
     slug: "onway",
+    // Kept at the value the project already ships. Native build numbers are NOT
+    // derived from this — see `cli.appVersionSource: "remote"` in eas.json.
     version: "1.0.0",
+
+    /**
+     * H-77 — over-the-air updates.
+     *
+     * The project had no expo-updates at all: every fix, however small, needed a
+     * full store review, and there was no way to pull a bad release back.
+     *
+     * `runtimeVersion.policy: "fingerprint"` is the safety property that makes
+     * this usable rather than merely enabled. The fingerprint is computed from
+     * the native project itself, so ANY change to native code, native
+     * dependencies, or the config that generates them produces a different
+     * runtime version. An OTA bundle is only ever delivered to a binary whose
+     * fingerprint matches the one it was built from, which means a JS bundle
+     * that expects a native module the installed binary does not contain can
+     * never be handed to it. A policy like "appVersion" would not give that:
+     * adding a native dependency without touching `version` would let an
+     * incompatible bundle reach an old binary and crash it on launch.
+     */
+    updates: {
+      url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+      // Launch from the embedded/cached bundle and fetch in the background.
+      // A blocking fetch would make a slow Iraqi mobile connection look like a
+      // frozen splash screen.
+      fallbackToCacheTimeout: 0,
+    },
+    runtimeVersion: {
+      policy: "fingerprint",
+    },
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "tawseeli",
@@ -126,7 +165,7 @@ module.exports = {
     extra: {
       supportsRTL: true,
       eas: {
-        projectId: "31018b2b-d742-4f09-8d17-48d00575216c",
+        projectId: EAS_PROJECT_ID,
       },
     },
   },

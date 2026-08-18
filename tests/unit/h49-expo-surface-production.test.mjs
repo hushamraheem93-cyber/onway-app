@@ -334,11 +334,27 @@ describe("H-49 · the source keeps both doors gated", () => {
       "the gate runs after the path is built — production could still touch the filesystem");
   });
 
-  test("no OTA channel was added as part of this fix", () => {
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-    assert.ok(!("expo-updates" in deps), "expo-updates was added — out of scope for H-49");
+  test("OTA and the Expo Go surface stay separate concerns", () => {
+    // This began as a scope guard: H-49 must not quietly introduce OTA while
+    // closing the unsigned Expo Go surface. H-77 has since added expo-updates
+    // deliberately — the finding was "no expo-updates, so no remote update and
+    // no rollback" — so the assertion is no longer "OTA must not exist".
+    //
+    // What still has to hold is that the two never became the same door: OTA is
+    // served by Expo's endpoint against a signed, fingerprinted runtime, while
+    // the static Expo Go manifest is unsigned and must stay gated out of
+    // production. Neither may be used to reach the other.
     const cfg = readFileSync(join(root, "app.config.js"), "utf8");
-    assert.doesNotMatch(cfg, /\bupdates\s*:/, "an updates block was added to app.config.js");
+
+    // The update endpoint is Expo's, not this server's static-build surface.
+    assert.match(cfg, /url: `https:\/\/u\.expo\.dev\/\$\{EAS_PROJECT_ID\}`/,
+      "updates are served from somewhere other than Expo's endpoint");
+    assert.ok(!/static-build/.test(cfg),
+      "app.config.js points updates at the unsigned static-build surface");
+
+    // And H-49's own gate is still the thing standing between production and
+    // that surface — OTA did not become an excuse to open it.
+    assert.match(INDEX, /isExpoGoSurfaceEnabled/,
+      "the Expo Go surface gate disappeared once OTA arrived");
   });
 });

@@ -263,7 +263,10 @@ describe("H-33 · the settlement read helpers must not answer a failure with emp
   test("the deliberate call-site fallbacks are left alone", () => {
     const ROUTES = strip(readFileSync(join(here, "../../server/routes.ts"), "utf8"));
     // Two call sites opt out on purpose; a sweep must not have removed them.
-    assert.match(ROUTES, /getSettlementLedger\("driver", driverPhone\)\.catch\(\(\) => null\)/,
+    // H-72 re-addressed this read to the account the accrual was just written to
+    // (taken from the accrual itself, so the two cannot drift). The `.catch(() =>
+    // null)` opt-out this test guards is unchanged.
+    assert.match(ROUTES, /getSettlementLedger\("driver", driverInput\.accountId\)\.catch\(\(\) => null\)/,
       "the deliberate accrual-path fallback was removed");
     assert.match(ROUTES, /listSettlementAccounts\("vendor"\)\.catch\(\(\) => \[\] as any\[\]\)/,
       "the deliberate dashboard fallback was removed");

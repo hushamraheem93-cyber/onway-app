@@ -16,7 +16,7 @@ import {
   JWT_VERIFY_OPTS,
 } from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
-import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
+import { createSettlementRequest, getAccountSettlementView, getSettlementHistory, settlementId } from "./settlement";
 import { getAccountStatement } from "./financialLedger";
 import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
@@ -2171,21 +2171,42 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
       [...containsSnap.docs, ...byVendorIdSnap.docs].map((d) => [d.id, d]),
     ).values()] };
 
-    // C-2: this set decides which orders count toward the store's revenue. It
-    // named "delivering", a status the server has never written — the canonical
-    // one is `in_delivery` (firebase.ts state machine) — so every order currently
-    // OUT FOR DELIVERY silently dropped out of totalRevenue/totalOrders and
-    // reappeared on delivery. The vendor watched their revenue go down and back up
-    // with no explanation. `picked_up` shows the intent was to count in-flight
-    // orders; `in_delivery` is the rest of that same phase.
-    const completedStatuses = new Set(["delivered", "picked_up", "in_delivery"]);
+    // Which statuses mean what, for money.
+    //
+    // C-2: this used to name "delivering", a status the server has never written —
+    // the canonical one is `in_delivery` (firebase.ts state machine) — so every
+    // order currently OUT FOR DELIVERY silently dropped out of the totals and
+    // reappeared on delivery. The vendor watched their revenue go down and back
+    // up with no explanation.
+    //
+    // H-74: C-2 fixed the disappearing act by counting `picked_up` and
+    // `in_delivery` as revenue. That over-corrected. An order that is still on a
+    // motorbike is not money the store has earned — the settlement engine accrues
+    // on DELIVERY only (accrueDeliveredOrderSettlements), and both the admin
+    // statement and /api/admin/financial-reports filter on `delivered`. This
+    // endpoint was the one place claiming otherwise, so the wallet disagreed with
+    // the ledger the store is actually paid from.
+    //
+    // The two facts are now reported separately instead of merged: EARNED is
+    // delivered, IN-FLIGHT is the picked_up/in_delivery phase. Nothing vanishes
+    // from the vendor's view — which was C-2's real complaint — it is simply no
+    // longer counted as earned.
+    const EARNED_STATUSES = new Set(["delivered"]);
+    const IN_FLIGHT_STATUSES = new Set(["picked_up", "in_delivery"]);
+    const countedStatuses = new Set([...EARNED_STATUSES, ...IN_FLIGHT_STATUSES]);
 
-    type SaleRecord = { id: string; date: string; subtotal: number; status: string; customerPhone: string; itemCount: number };
+    type SaleRecord = {
+      id: string; date: string; subtotal: number; status: string;
+      customerPhone: string; itemCount: number; earned: boolean;
+      // H-74: the commission the order itself carries, frozen when it was placed.
+      // Stripped from the response below; only used to price the line.
+      frozenPercent?: number; frozenAmount?: number;
+    };
     const vendorOrders: SaleRecord[] = [];
 
     for (const doc of snap.docs) {
       const data = doc.data() as any;
-      if (!completedStatuses.has(data.status)) continue;
+      if (!countedStatuses.has(data.status)) continue;
 
       const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
       if (startDate && createdAt < startDate) continue;
@@ -2207,16 +2228,30 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
         status: data.status,
         customerPhone: data.phoneNumber || "",
         itemCount: vendorItems.reduce((s: number, i: any) => s + (Number(i.quantity) || 1), 0),
+        earned: EARNED_STATUSES.has(data.status),
+        // Only meaningful when this order belongs to a single store — for a
+        // multi-vendor order the per-vendor truth is the settlement record.
+        frozenPercent: data.vendorId === vid ? data.vendorCommissionPercent : undefined,
+        frozenAmount: data.vendorId === vid ? data.vendorCommissionAmount : undefined,
       });
     }
 
-    const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
-    const totalOrders = vendorOrders.length;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    // H-74: earned revenue is delivered orders only — the same rule the ledger,
+    // the admin statement and the financial report already use.
+    const earnedOrders = vendorOrders.filter((o) => o.earned);
+    const inFlightOrders = vendorOrders.filter((o) => !o.earned);
 
-    // Daily breakdown (last 14 days)
+    const totalRevenue = earnedOrders.reduce((s, o) => s + o.subtotal, 0);
+    const totalOrders = earnedOrders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    // Reported alongside, so an order out for delivery is visible without being
+    // counted as money the store has made.
+    const inFlightRevenue = inFlightOrders.reduce((s, o) => s + o.subtotal, 0);
+    const inFlightOrderCount = inFlightOrders.length;
+
+    // Daily breakdown (last 14 days) — earned only, so the chart and the total agree.
     const dailyMap: Record<string, number> = {};
-    vendorOrders.forEach((o) => {
+    earnedOrders.forEach((o) => {
       const day = o.date.substring(0, 10);
       dailyMap[day] = (dailyMap[day] || 0) + o.subtotal;
     });
@@ -2237,17 +2272,84 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
     // H-06: this defaulted to 0 while the settlement engine defaults to 10, so a
     // store with no rate of its own saw "0% commission" on this screen and was then
     // billed 10% at settlement. Same resolver, same default, both sides.
-    const commissionRate = commissionPercentOf(
+    //
+    // H-74: this is the store's rate TODAY. It is the right answer for an order
+    // that has not been billed yet, and the wrong answer for one that has.
+    const currentCommissionRate = commissionPercentOf(
       vendorDoc.exists ? (vendorDoc.data() as any)?.commissionPercent : undefined,
     );
 
-    const recentSales = vendorOrders.slice(0, 20).map((o) => ({
-      ...o,
-      commissionRate,
-      netEarning: Math.round(o.subtotal * (1 - commissionRate / 100)),
-    }));
+    // H-74 — the past must not be re-priced.
+    //
+    // Every recent sale used to be shown at `currentCommissionRate`, so raising
+    // the store's rate from 10% to 15% silently rewrote what it had already
+    // earned on orders delivered months earlier. The store's own history changed
+    // under it, and disagreed with the settlement it was actually paid.
+    //
+    // The rate is now resolved per order, newest source of truth first:
+    //
+    //   1. the settlement record — `settlements/{orderId}__vendor`, written by
+    //      accrueDeliveredOrderSettlements at DELIVERY with the commission the
+    //      store was really billed. Authoritative, per vendor (so it is also
+    //      correct for an order split across several stores), and immutable.
+    //   2. the order's own `vendorCommissionPercent` / `vendorCommissionAmount`,
+    //      frozen at order creation for restaurant orders (routes.ts).
+    //   3. the current rate — ONLY for an order that carries neither, i.e. one
+    //      placed before either snapshot existed, or one not yet delivered.
+    //
+    // `rateSource` travels with each sale so the wallet can never claim a
+    // historical figure is frozen when it was in fact recomputed.
+    const recent = vendorOrders.slice(0, 20);
+    const settlementDocs = await Promise.all(
+      recent.map((o) =>
+        db.collection("settlements").doc(settlementId(o.id, "vendor")).get().catch(() => null),
+      ),
+    );
 
-    res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales, period, commissionRate });
+    const recentSales = recent.map((o, i) => {
+      const s = settlementDocs[i];
+      const sData = s?.exists ? (s.data() as any) : null;
+      // Guard the vendor split: a settlement filed for a different store must
+      // never price this store's line.
+      const settled = sData && sData.accountId === vid ? sData : null;
+
+      let commissionAmount: number | null = null;
+      let commissionRate = currentCommissionRate;
+      let rateSource: "settlement" | "order" | "current" = "current";
+
+      if (settled && Number.isFinite(Number(settled.commission))) {
+        commissionAmount = Math.round(Number(settled.commission));
+        const base = Number(settled.grossAmount);
+        commissionRate = base > 0 ? Math.round((commissionAmount / base) * 1000) / 10 : 0;
+        rateSource = "settlement";
+      } else if (Number.isFinite(Number(o.frozenPercent))) {
+        commissionRate = Number(o.frozenPercent);
+        commissionAmount = Math.round(o.subtotal * (commissionRate / 100));
+        rateSource = "order";
+      } else if (Number.isFinite(Number(o.frozenAmount))) {
+        commissionAmount = Math.round(Number(o.frozenAmount));
+        commissionRate = o.subtotal > 0 ? Math.round((commissionAmount / o.subtotal) * 1000) / 10 : 0;
+        rateSource = "order";
+      } else {
+        commissionAmount = Math.round(o.subtotal * (currentCommissionRate / 100));
+      }
+
+      const { frozenPercent: _fp, frozenAmount: _fa, ...sale } = o as any;
+      return {
+        ...sale,
+        commissionRate,
+        commissionAmount,
+        rateSource,
+        netEarning: Math.max(0, o.subtotal - (commissionAmount ?? 0)),
+      };
+    });
+
+    res.json({
+      totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales, period,
+      // Kept for the client, which shows the store its present rate.
+      commissionRate: currentCommissionRate,
+      inFlightRevenue, inFlightOrders: inFlightOrderCount,
+    });
   } catch (err) {
     console.error("vendor wallet:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

@@ -42,7 +42,7 @@ import {
   updateDeliveryArea as updateFirestoreDeliveryArea, deleteDeliveryArea as deleteFirestoreDeliveryArea,
   initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
-  getDrivers, getDriverByPhone, getVendorByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
+  getDrivers, getDriverByPhone, findDriverDocByPhone, getVendorByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
@@ -87,9 +87,11 @@ import {
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
   listSettlementAccounts, getSettlementPayments, getSettlementLedger,
   adminAdjustLedger, retryOrderSettlements, vendorCommissionBase,
-  transitionSettlementRequest,
+  transitionSettlementRequest, markLedgerOwnerDeleted,
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
+// H-72: a driver's money is keyed by their walletId, never by their phone.
+import { driverWalletIdOf, resolveDriverAccountId } from "./walletIdentity";
 import {
   recordLedgerEntries, orderEntryId, getAccountStatement, listAuditLog, getLedgerBalance,
 } from "./financialLedger";
@@ -444,6 +446,12 @@ async function requireDriverAuth(req: Request, res: Response, next: express.Next
 
     (req as any).driverPhone = driverPhone;
     (req as any).driver = driver;
+    // H-72: resolved once, here, from the driver document this middleware has
+    // already loaded — so every /api/driver route keys money by walletId at no
+    // extra read. The token's phone is the fallback for pre-H-72 drivers, and it
+    // must be the TOKEN's, not the document's: legacy ledgers were created from
+    // the token phone and the two spellings differ in production.
+    (req as any).driverWalletId = driverWalletIdOf(driver, driverPhone);
     // Authoritative identity — override anything the client sent in the body.
     if (req.body && typeof req.body === "object") (req.body as any).phoneNumber = driverPhone;
     next();
@@ -2145,10 +2153,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Driver — cash-collection settlement (only when a driver delivered it).
       if (driverPhone) {
+        // H-72: the accrual has to land on the SAME account the driver's own
+        // wallet reads, so it resolves through the driver document exactly as
+        // requireDriverAuth does. For a driver registered before walletId
+        // existed this returns `driverPhone` unchanged, which is the id their
+        // existing ledger already uses — legacy accruals are untouched.
+        const driverAccountId = await resolveDriverAccountId(driverPhone, getDriverByPhone);
         const cashCollected = order.total || 0;
         settlementInputs.push({
           accountType: "driver",
-          accountId: driverPhone,
+          accountId: driverAccountId,
           accountName: (order as any).driverName || driverPhone,
           orderId,
           storeId: order.vendorId ?? null,
@@ -2221,8 +2235,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (driverPhone) {
-        const ledger = await getSettlementLedger("driver", driverPhone).catch(() => null);
-        driverOutstanding = ledger?.outstandingTotal ?? 0;
+        // H-72: read back the account the accrual was just written to, taken from
+        // the accrual itself rather than resolved a second time, so the balance
+        // returned here can never address a different ledger than the one credited.
+        const driverInput = settlementInputs.find((i) => i.accountType === "driver");
+        if (driverInput) {
+          const ledger = await getSettlementLedger("driver", driverInput.accountId).catch(() => null);
+          driverOutstanding = ledger?.outstandingTotal ?? 0;
+        }
       }
 
       // ── Financial ledger (append-only, auditable) — best-effort, never blocks ──
@@ -2603,6 +2623,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
+      // H-72: same rule as the driver delete — the store's financial history is
+      // preserved and stamped with a deleted owner, never orphaned and never
+      // erased. A vendor's account id is the Firestore document id, which is
+      // never reissued, so a new store cannot inherit this ledger; the problem
+      // on this side is purely that the balance stopped being attributable.
+      const vendorSnap = await getFirestore()?.collection("vendors").doc(id).get();
+      const vendorData = vendorSnap?.exists ? (vendorSnap.data() as any) : null;
+      if (vendorData) {
+        await markLedgerOwnerDeleted("vendor", id, {
+          name: vendorData.storeName ?? vendorData.name ?? null,
+          phoneNumber: vendorData.phoneNumber ?? null,
+          ownerDocId: id,
+        }).catch(() => false);
+      }
+
       await deleteFirestoreVendor(id);
       invalidateVendorsCache();
       invalidateStoresCache();
@@ -2617,8 +2652,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { id } = req.params;
     const db = getFirestore();
     const vendors = await getVendorList();
-    const vendor = vendors.find(v => v.id === id);
-    if (!vendor) return res.status(404).json({ error: "المطعم غير موجود" });
+    const liveVendor = vendors.find(v => v.id === id);
+
     // H-33: an unavailable database used to answer 200 with zeroed money, which the
     // admin reads as "this store sold nothing". "No sales" and "the statement could
     // not be loaded" are different facts and must not share a response.
@@ -2627,6 +2662,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(503).json({ error: "قاعدة البيانات غير متاحة، تعذّر تحميل كشف الحساب" });
     }
     try {
+      // H-72: a deleted store used to answer 404 here while its settlements, its
+      // ledger and its delivered orders all remained in Firestore — the money was
+      // still owed and no longer inspectable. If the store is gone but its ledger
+      // is not, the statement is served from the archived owner instead, flagged
+      // `deleted` so the panel can label it. A store that never had a ledger has
+      // no financial history to show and still answers 404.
+      //
+      // This sits inside the try on purpose. The read must not swallow its own
+      // errors: answering "store not found" because Firestore was briefly
+      // unreachable would be the H-33 lie in a new place, so a failure falls
+      // through to the catch below and answers 500 like every other read here.
+      let vendor = liveVendor as any;
+      if (!vendor) {
+        const archived = await getSettlementLedger("vendor", String(id));
+        if (!archived) return res.status(404).json({ error: "المطعم غير موجود" });
+        vendor = {
+          id,
+          deleted: true,
+          deletedAt: archived.ownerDeletedAt ?? null,
+          storeName: archived.ownerSnapshot?.name ?? archived.accountName ?? id,
+          name: archived.ownerSnapshot?.name ?? archived.accountName ?? id,
+          // Never set on the archived record. commissionPercentOf falls back to the
+          // project default, exactly as it does for a live store that has no rate.
+          commissionPercent: undefined,
+        };
+      }
       const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
       // Financial totals must count ONLY delivered orders — the same rule the
       // settlement ledger uses. Previously this summed EVERY order (pending,
@@ -3847,9 +3908,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (order.driverRated) return res.status(409).json({ error: "تم التقييم مسبقاً" });
       const driverPhone = order.driverPhone;
       if (!driverPhone) return res.status(400).json({ error: "لا يوجد سائق لهذا الطلب" });
-      const snap = await db.collection("drivers").where("phoneNumber", "==", String(driverPhone)).limit(1).get();
-      if (snap.empty) return res.status(404).json({ error: "السائق غير موجود" });
-      const driverRef = snap.docs[0].ref;
+      // H-73: this matched the order's stored driverPhone against the driver
+      // document exactly. The two are written by different paths and production
+      // holds several spellings of the same number, so rating a real, delivered
+      // order could answer "السائق غير موجود" and the rating was simply lost.
+      const driverDoc = await findDriverDocByPhone(String(driverPhone));
+      if (!driverDoc) return res.status(404).json({ error: "السائق غير موجود" });
+      const driverRef = driverDoc.ref;
       const orderRef = db.collection("orders").doc(orderId);
       await db.runTransaction(async (tx) => {
         const [dSnap, oSnap] = await Promise.all([tx.get(driverRef), tx.get(orderRef)]);
@@ -4292,7 +4357,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!IRAQ_PHONE_RE.test(phoneNumber)) {
       return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
     }
-    const code = generateOtp(phoneNumber);
+    // H-75: the code is now stored in Firestore, so this can fail. A code that
+    // was never persisted can never be verified — telling the user "sent" would
+    // strand them on the verification screen with a code that cannot work.
+    let code: string;
+    try {
+      code = await generateOtp(phoneNumber);
+    } catch {
+      console.error("[OTP] could not store the code — not sending");
+      return res.status(503).json({ error: "تعذّر إرسال رمز التحقق، حاول لاحقاً" });
+    }
 
     // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
     if (isDevMode()) {
@@ -4322,7 +4396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Normalise to match the key used by generateOtp in send-otp
     const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
 
-    if (!verifyOtpCode(phoneNumber, code)) {
+    if (!(await verifyOtpCode(phoneNumber, code))) {
       return res.status(400).json({ error: "رمز التحقق غير صحيح أو انتهت صلاحيته" });
     }
 
@@ -4577,9 +4651,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Capture the phone BEFORE deleting so we can evict the driver from live state.
       const dbForDriver = getFirestore();
       let phoneNumber: string | undefined;
+      let deletedDriver: any = null;
       if (dbForDriver) {
         const doc = await dbForDriver.collection("drivers").doc(driverId).get();
-        if (doc.exists) phoneNumber = (doc.data() as any).phoneNumber;
+        if (doc.exists) {
+          deletedDriver = doc.data();
+          phoneNumber = deletedDriver.phoneNumber;
+        }
+      }
+
+      // H-72: stamp the financial record BEFORE the owner document disappears —
+      // afterwards there is nothing left to read a name or a walletId from. The
+      // ledger, its settlements, requests, payments and adjustments are all kept:
+      // this is money that was really collected, and deleting the trail would
+      // make an outstanding balance impossible to reconcile or dispute. The
+      // account stays listed and settleable in the admin panel, now marked as
+      // having no owner. Best-effort — a failed stamp must not block the delete.
+      if (deletedDriver) {
+        await markLedgerOwnerDeleted(
+          "driver",
+          driverWalletIdOf(deletedDriver, phoneNumber),
+          { name: deletedDriver.fullName ?? null, phoneNumber: phoneNumber ?? null, ownerDocId: driverId },
+        ).catch(() => false);
       }
 
       const success = await deleteDriverFn(driverId);
@@ -4715,9 +4808,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition = availableDriversBefore.length;
       }
 
-      // Run ledger and completed orders in parallel
+      // Run ledger and completed orders in parallel.
+      // H-72: the ledger is addressed by walletId; getCompletedOrders is a
+      // delivery-history lookup keyed by phone and is not a money account.
       const [ledger, completed] = await Promise.all([
-        getSettlementLedger("driver", phoneNumber),
+        getSettlementLedger("driver", (req as any).driverWalletId as string),
         getCompletedOrders(phoneNumber),
       ]);
       const now = new Date();
@@ -4842,7 +4937,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (goOnline) {
         // Block on the settlement threshold — settlementLedger is the single source of truth.
-        const threshold = await isOverSettlementThreshold("driver", phoneNumber);
+        // H-72: by walletId, so a driver is never held back by a debt that
+        // belongs to whoever used this phone number before them.
+        const threshold = await isOverSettlementThreshold("driver", (req as any).driverWalletId as string);
         if (threshold.thresholdEnabled && threshold.outstanding >= threshold.thresholdAmount) {
           return res.status(400).json({
             error: `المبلغ المستحق (${threshold.outstanding.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${threshold.thresholdAmount.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
@@ -5349,7 +5446,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (qd) qd.currentBatchId = undefined;
             // Check settlementLedger outstanding balance before assigning next batch.
             // Block the driver only once debt exceeds the configured threshold.
-            const settlementThreshold = await isOverSettlementThreshold("driver", phoneNumber);
+            // H-72: by walletId — see the toggle-online gate.
+            const settlementThreshold = await isOverSettlementThreshold("driver", (req as any).driverWalletId as string);
             const exceedsThreshold = settlementThreshold.thresholdEnabled &&
               newSettlementBalance >= settlementThreshold.thresholdAmount;
             if (!exceedsThreshold) {
@@ -5511,10 +5609,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
+      // H-72: every one of these is money, so all three take the walletId.
+      const walletId = (req as any).driverWalletId as string;
       const [ledger, payments, history] = await Promise.all([
-        getSettlementLedger("driver", phoneNumber),
-        getSettlementPayments("driver", phoneNumber, 50),
-        getSettlementHistory("driver", phoneNumber, 50),
+        getSettlementLedger("driver", walletId),
+        getSettlementPayments("driver", walletId, 50),
+        getSettlementHistory("driver", walletId, 50),
       ]);
       // Return in a shape compatible with the legacy wallet response
       const account = {
@@ -5554,7 +5654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      res.json(await getAccountSettlementView("driver", phoneNumber));
+      res.json(await getAccountSettlementView("driver", (req as any).driverWalletId as string));
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
@@ -5565,7 +5665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      res.json(await getSettlementHistory("driver", phoneNumber));
+      res.json(await getSettlementHistory("driver", (req as any).driverWalletId as string));
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
@@ -5577,7 +5677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      res.json(await getAccountStatement("driver", phoneNumber));
+      res.json(await getAccountStatement("driver", (req as any).driverWalletId as string));
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
@@ -5590,7 +5690,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const driver = await getDriverByPhone(phoneNumber).catch(() => null);
       const name = driver?.fullName || phoneNumber;
-      const result = await createSettlementRequest("driver", phoneNumber, name);
+      // H-72: the request is filed against the wallet account, so it lands in the
+      // same accountKey bucket as the accruals it is asking to settle.
+      const walletId = (req as any).driverWalletId as string;
+      const result = await createSettlementRequest("driver", walletId, name);
       if (!result.ok) {
         if (result.reason === "already_requested")
           return res.status(409).json({ error: "لديك طلب تسوية قيد المراجعة بالفعل" });
@@ -5598,7 +5701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       // Real-time to admin panel + push (reuses the orderEvents → socket forwarder).
       orderEvents.emit("settlement:request", {
-        requestId: result.requestId, accountType: "driver", accountId: phoneNumber,
+        requestId: result.requestId, accountType: "driver", accountId: walletId,
         accountName: name, outstanding: result.outstanding, pendingOrderCount: result.pendingOrderCount,
       });
       const adminToken = await getAdminPushToken().catch(() => null);
@@ -5930,8 +6033,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const adminName = getSessionUsername(req) || "admin";
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
+      // H-72: the panel sends a phone; the money lives under a walletId. Passing an
+      // account id straight through also works, which is how a deleted driver's
+      // outstanding balance can still be settled from the accounts list.
+      const accountId = await resolveDriverAccountId(String(phoneNumber), getDriverByPhone);
       const result = await completeSettlement({
-        accountType: "driver", accountId: phoneNumber, amount: Number(amount),
+        accountType: "driver", accountId, amount: Number(amount),
         notes: notes || "دفعة من الإدارة", method: "cash", adminName,
       });
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
@@ -5951,8 +6058,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const adminName = getSessionUsername(req) || "admin";
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
+      // H-72: see the recharge endpoint — resolve the phone to the wallet account.
+      const accountId = await resolveDriverAccountId(String(phoneNumber), getDriverByPhone);
       const result = await completeSettlement({
-        accountType: "driver", accountId: phoneNumber, amount: Number(amount),
+        accountType: "driver", accountId, amount: Number(amount),
         notes: notes || "", method: paymentMethod || "cash", adminName,
       });
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
@@ -5981,7 +6090,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "المبلغ غير صالح" });
     }
     try {
-      const result = await adminAdjustLedger("driver", phoneNumber, amountNum, type as "add" | "deduct", notes || "", adminName);
+      // H-72: adjustments are ledger writes, so they resolve to the wallet account too.
+      const accountId = await resolveDriverAccountId(String(phoneNumber), getDriverByPhone);
+      const result = await adminAdjustLedger("driver", accountId, amountNum, type as "add" | "deduct", notes || "", adminName);
       if (!result.ok) return res.status(400).json({ error: result.reason || "فشل التعديل" });
       res.json({ success: true, outstandingBefore: result.outstandingBefore, outstandingAfter: result.outstandingAfter });
     } catch (error: any) {
@@ -5996,8 +6107,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // completedOrders has driverEarning and ownerEarning (OnWay's commission per order)
       // settlementPayments has the admin-recorded payments
+      // H-72: payments come from the wallet account; completedOrders is delivery
+      // history keyed by phone and is not a money account.
+      const accountId = await resolveDriverAccountId(phoneNumber, getDriverByPhone);
       const [payments, completed] = await Promise.all([
-        getSettlementPayments("driver", phoneNumber, 2000),
+        getSettlementPayments("driver", accountId, 2000),
         getCompletedOrders(phoneNumber),
       ]);
       const now = new Date();
@@ -6040,11 +6154,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/driver-financial/:phone/statement", async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phone as string);
     try {
-      const [driver, ledger, history, payments] = await Promise.all([
-        getDriverByPhone(phoneNumber),
-        getSettlementLedger("driver", phoneNumber),
-        getSettlementHistory("driver", phoneNumber, 200),
-        getSettlementPayments("driver", phoneNumber, 200),
+      // H-72: the driver document is fetched first because it carries the walletId
+      // the three financial reads are addressed by. A deleted driver resolves to
+      // the id the caller passed, so the accounts list can still open their
+      // statement and the balance stays auditable after the owner is gone.
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const accountId = driver
+        ? driverWalletIdOf(driver, phoneNumber)
+        : await resolveDriverAccountId(phoneNumber, async () => null);
+      const [ledger, history, payments] = await Promise.all([
+        getSettlementLedger("driver", accountId),
+        getSettlementHistory("driver", accountId, 200),
+        getSettlementPayments("driver", accountId, 200),
       ]);
       // Map ledger to a shape compatible with legacy account format
       const account = {
@@ -6083,8 +6204,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const drivers = await getDrivers();
       const accounts = await Promise.all(
         drivers.filter(d => d.status === "approved").map(async d => {
+          // H-72: the driver document is already in hand, so the walletId costs
+          // nothing to read here.
           const [ledger, completed] = await Promise.all([
-            getSettlementLedger("driver", d.phoneNumber),
+            getSettlementLedger("driver", driverWalletIdOf(d, d.phoneNumber)),
             getCompletedOrders(d.phoneNumber),
           ]);
           const now = new Date();
@@ -6782,9 +6905,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const batch = drivers.slice(i, i + DRIVER_STATS_CONCURRENCY);
         const rows = await Promise.all(batch.map(async (driver) => {
           const phone = driver.phoneNumber;
+          // H-72: driver document in hand — address the ledger by walletId.
           const [completed, ledger] = await Promise.all([
             getCompletedOrders(phone),
-            getSettlementLedger("driver", phone),
+            getSettlementLedger("driver", driverWalletIdOf(driver, phone)),
           ]);
           const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
           return [phone, {

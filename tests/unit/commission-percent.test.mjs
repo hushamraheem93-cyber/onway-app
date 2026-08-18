@@ -176,7 +176,11 @@ describe("H-06 — every read path resolves the rate the same way", () => {
       /Number\(\(vendorDoc\.data\(\) as any\)\?\.commissionPercent \?\? 0\) \|\| 0/,
       "REGRESSION: the store sees 0% while it is billed 10%",
     );
-    assert.match(VENDOR, /const commissionRate = commissionPercentOf\(/);
+    // H-74 renamed this to `currentCommissionRate`, because the wallet now also
+    // carries per-order FROZEN rates and the two must not be confused. What this
+    // test is about — that the rate is resolved through commissionPercentOf, so
+    // the wallet and the ledger share one resolver and one default — is unchanged.
+    assert.match(VENDOR, /const currentCommissionRate = commissionPercentOf\(/);
   });
 
   test("the wallet and the ledger cannot disagree for the same stored value", () => {

@@ -159,7 +159,11 @@ describe("H-10 — the design keeps the hot path free", () => {
 
 describe("H-11 — the admin token is cleared on logout", () => {
   test("clearAdminToken is imported into AuthContext", () => {
-    assert.match(AUTH_CTX, /import \{ clearAdminToken, installAdminAuthInterceptor \} from "@\/lib\/adminAuth";/);
+    // H-80 moved installAdminAuthInterceptor out of this import: the interceptors
+    // are no longer installed as a side effect of importing AuthContext, they are
+    // installed once by authBootstrap. What this test is about — that
+    // clearAdminToken is available here so logout can call it — is unchanged.
+    assert.match(AUTH_CTX, /import \{[^}]*\bclearAdminToken\b[^}]*\} from "@\/lib\/adminAuth";/);
   });
 
   test("logout clears it alongside the other credentials", () => {

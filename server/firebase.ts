@@ -8,6 +8,8 @@ import {
   normalizeNotificationPrefs,
 } from "../shared/notificationPrefs";
 import { canonicalIraqiPhone, IRAQ_CANONICAL_PHONE_RE } from "../shared/phone";
+import { mintDriverWalletId } from "./walletIdentity";
+import { issueOtp, consumeOtp } from "./otpStore";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -120,6 +122,18 @@ function phoneVariants(raw: string): string[] {
     set.add("00964" + local.slice(1)); // 009647XXXXXXXXX
     set.add("964" + local.slice(1));   // 9647XXXXXXXXX
     set.add(local.slice(1));           // 7XXXXXXXXX (no leading zero)
+
+    // H-73: the E.164 form was missing. `digits` strips the "+", so a document
+    // stored as "+9647XXXXXXXXX" could only ever be found by a caller passing
+    // that exact string back — every other spelling of the same person missed
+    // it. It is the form the international dialer, the contacts app and most
+    // SMS gateways hand back, so it reaches Firestore through several paths.
+    //
+    // Exactly ONE variant is added. The "+9640 7…" shape (the H-63 mistake with
+    // a plus in front) is NOT generated: nothing in this project is known to
+    // produce it, and each speculative variant costs one more Firestore read on
+    // every lookup that misses.
+    set.add("+964" + local.slice(1));  // +9647XXXXXXXXX
 
     // H-63: the pre-H-52 login screen sent `00964${typed}` — country code
     // prepended, the local leading zero never removed. Someone who typed the
@@ -1140,6 +1154,15 @@ export async function deleteCategory(id: string): Promise<boolean> {
 
 // Driver Functions
 export interface FirestoreDriver {
+  /**
+   * H-72: the key to this driver's money, minted once at registration and never
+   * changed. The phone number used to play this role, so deleting a driver and
+   * registering another person on the same number handed the newcomer the old
+   * driver's ledger and debt. Optional because every driver created before this
+   * field existed has none; walletIdentity.driverWalletIdOf falls back to the
+   * caller's phone for those, leaving their existing ledger exactly where it is.
+   */
+  walletId?: string;
   phoneNumber: string;
   fullName: string;
   firstName: string;
@@ -1179,25 +1202,53 @@ export async function getDrivers(): Promise<(FirestoreDriver & { id: string })[]
   }
 }
 
+/**
+ * H-73 — the ONE way to find a driver document from a phone number.
+ *
+ * `getDriverByPhone` already matched every Iraqi format (009647…, 9647…, 07…,
+ * 7…, and the sixteen-digit 00964+07… the pre-H-52 client wrote), because
+ * production genuinely holds the same person under different spellings. Four
+ * other driver functions did a single exact-string match instead:
+ * updateDriverOnlineStatus, saveDriverPushToken, getDriverPushToken and
+ * updateDriverLastLocation — plus the driver-rating route in routes.ts.
+ *
+ * For a driver whose stored document uses a different spelling than their token,
+ * that split was invisible and total: login worked (variant match), so they were
+ * approved and dispatchable, but `snapshot.empty` was true in all five of the
+ * others. Their push token was never saved and never read, so batches were
+ * assigned and never announced; `isOnline` never flipped; their GPS was never
+ * stored, so they were missing from the live map and from customer tracking; and
+ * a customer could not rate them ("السائق غير موجود").
+ *
+ * Every driver-document lookup now goes through here, so there is exactly one
+ * matching rule and it cannot drift between call sites.
+ *
+ * Returns the raw snapshot rather than the data, because most callers need
+ * `.ref` to update the document (one of them inside a transaction).
+ *
+ * NOTE — this is identity RESOLUTION only, never financial ownership. H-72 moved
+ * a driver's money onto `walletId`; the phone is how you find the person, not
+ * how you find their balance. Nothing here builds an account id.
+ */
+export async function findDriverDocByPhone(
+  phoneNumber: string,
+): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
+  if (!db) return null;
+  for (const phone of phoneVariants(phoneNumber)) {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phone).limit(1).get();
+    if (!snapshot.empty) return snapshot.docs[0];
+  }
+  return null;
+}
+
 export async function getDriverByPhone(phoneNumber: string): Promise<(FirestoreDriver & { id: string }) | null> {
   if (!db) return null;
   try {
-    // Match across every Iraqi phone-format variant (009647…, 9647…, 07…, 7…), exactly
-    // like getUserByPhone / getVendorByPhone. This was the ONE driver lookup still doing
-    // a single exact-string match, so a driver whose stored doc used one format (real
-    // production data holds both "009647702891104" and "07837527840") could not be found
-    // when the login/token carried a different format: /api/driver/status then read the
-    // null driver as `driver?.status || "pending"` and an ALREADY-APPROVED driver stayed
-    // frozen on "قيد المراجعة". Variant-matching fixes login, the status poll and every
-    // other caller consistently.
-    for (const phone of phoneVariants(phoneNumber)) {
-      const snapshot = await db.collection("drivers").where("phoneNumber", "==", phone).limit(1).get();
-      if (!snapshot.empty) {
-        const doc = snapshot.docs[0];
-        return { id: doc.id, ...doc.data() as FirestoreDriver };
-      }
-    }
-    return null;
+    // Variant matching lives in findDriverDocByPhone (H-73) so that this lookup
+    // and the four that used to match exactly cannot disagree about who a phone
+    // number belongs to.
+    const doc = await findDriverDocByPhone(phoneNumber);
+    return doc ? { id: doc.id, ...(doc.data() as FirestoreDriver) } : null;
   } catch (error) {
     console.error("Error getting driver:", error);
     return null;
@@ -1237,6 +1288,11 @@ export async function createDriver(data: {
     const now = admin.firestore.Timestamp.now();
     const driverDoc: Record<string, any> = {
       ...data,
+      // H-72: minted here, before the document exists, so there is no window in
+      // which a driver has a phone but no financial identity. This is what makes
+      // re-registration on a recycled number a NEW account: the ledger of the
+      // person who held the number before stays under its own id, untouched.
+      walletId: mintDriverWalletId(),
       status: "pending",
       createdAt: now,
       updatedAt: now,
@@ -1277,9 +1333,11 @@ export async function deleteDriver(id: string): Promise<boolean> {
 export async function updateDriverOnlineStatus(phoneNumber: string, isOnline: boolean): Promise<void> {
   if (!db) return;
   try {
-    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) return;
-    const docRef = snapshot.docs[0].ref;
+    // H-73: was an exact-string match, so a driver stored under a different
+    // format never came online no matter how many times they toggled it.
+    const doc = await findDriverDocByPhone(phoneNumber);
+    if (!doc) return;
+    const docRef = doc.ref;
     await docRef.update({
       isOnline,
       onlineAt: isOnline ? Date.now() : null,
@@ -1293,9 +1351,11 @@ export async function updateDriverOnlineStatus(phoneNumber: string, isOnline: bo
 export async function saveDriverPushToken(phoneNumber: string, pushToken: string): Promise<void> {
   if (!db) return;
   try {
-    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) return;
-    await snapshot.docs[0].ref.update({
+    // H-73: was an exact-string match. The token was silently dropped, which is
+    // the first half of "assigned a batch and never told about it".
+    const doc = await findDriverDocByPhone(phoneNumber);
+    if (!doc) return;
+    await doc.ref.update({
       pushToken,
       updatedAt: admin.firestore.Timestamp.now(),
     });
@@ -1307,9 +1367,12 @@ export async function saveDriverPushToken(phoneNumber: string, pushToken: string
 export async function getDriverPushToken(phoneNumber: string): Promise<string | null> {
   if (!db) return null;
   try {
-    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) return null;
-    const data = snapshot.docs[0].data() as FirestoreDriver;
+    // H-73: was an exact-string match — the second half of "assigned a batch and
+    // never told about it". Dispatch found the driver (variant match) and then
+    // failed to find the same driver here, so the notification was never sent.
+    const doc = await findDriverDocByPhone(phoneNumber);
+    if (!doc) return null;
+    const data = doc.data() as FirestoreDriver;
     return (data as any).pushToken || null;
   } catch (error) {
     console.error("Error getting driver push token:", error);
@@ -1603,56 +1666,28 @@ export async function initializeDefaultDeliveryAreas(defaultAreas: any[]): Promi
 }
 
 // OTP Functions
-const OTP_TTL_MS = 5 * 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5; // wrong tries before the code is invalidated (brute-force guard)
-const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+//
+// H-75: the code used to live in `const otpStore = new Map()` here — process
+// memory. It was lost on every restart, invisible to any second instance (so the
+// platform could not be scaled at all without breaking login), and grew without
+// limit because an abandoned code was never removed. The state now lives in
+// Firestore; see server/otpStore.ts for the design, the hashing and the TTL.
+//
+// These two wrappers keep the call sites' vocabulary and add the development
+// bypass, which is a routing concern rather than a storage one.
+export { OTP_LENGTH } from "./otpStore";
 
-export const OTP_LENGTH = 6;
-
-export function generateOtp(phoneNumber: string): string {
-  // C-04: this was a 4-digit code — 9,000 possibilities. That is the root of trust
-  // for EVERY identity in the system (customer, and through the customer token the
-  // driver and vendor registrations too). With OTP_MAX_ATTEMPTS = 5 an attacker
-  // needed only ~1,800 resend cycles to walk the whole space, which the finding
-  // rightly called "guessable within hours".
-  //
-  // Six digits is 900,000 possibilities — a 100× larger space, so the same attack
-  // needs ~180,000 cycles against a send-otp endpoint capped at 5 requests per
-  // minute per IP. Randomness stays crypto.randomInt (never Math.random, whose
-  // output is predictable from observed values).
-  //
-  // randomInt(100000, 1000000) never returns a leading-zero code, so the string is
-  // always exactly OTP_LENGTH characters and the client's fixed-width input matches.
-  const code = crypto.randomInt(100000, 1000000).toString();
-  otpStore.set(phoneNumber, {
-    code,
-    expiresAt: Date.now() + OTP_TTL_MS,
-    attempts: 0,
-  });
-  return code;
+export async function generateOtp(phoneNumber: string): Promise<string> {
+  return issueOtp(phoneNumber);
 }
 
-export function verifyOtp(phoneNumber: string, code: string): boolean {
+export async function verifyOtp(phoneNumber: string, code: string): Promise<boolean> {
   // Development-only bypass: the fixed code "0000" is always accepted in dev mode.
   // In production this branch is inert, so only a real OTPIQ-delivered code works.
   if (code === "0000" && isDevMode()) {
     return true;
   }
-  const stored = otpStore.get(phoneNumber);
-  if (!stored) return false;
-  if (Date.now() > stored.expiresAt) {
-    otpStore.delete(phoneNumber);
-    return false;
-  }
-  if (stored.code !== code) {
-    // Invalidate the code after too many wrong attempts so it can't be brute-forced
-    // within its validity window; the user must request a fresh code.
-    stored.attempts += 1;
-    if (stored.attempts >= OTP_MAX_ATTEMPTS) otpStore.delete(phoneNumber);
-    return false;
-  }
-  otpStore.delete(phoneNumber);
-  return true;
+  return (await consumeOtp(phoneNumber, code)) === "verified";
 }
 
 // Promo Code Functions
@@ -1948,13 +1983,11 @@ export async function updateDriverLastLocation(
 ): Promise<void> {
   if (!db) return;
   try {
-    const snapshot = await db
-      .collection("drivers")
-      .where("phoneNumber", "==", phoneNumber)
-      .limit(1)
-      .get();
-    if (!snapshot.empty) {
-      await snapshot.docs[0].ref.update({
+    // H-73: was an exact-string match, so the driver's GPS was never persisted —
+    // they were absent from the admin's live map and from customer tracking.
+    const doc = await findDriverDocByPhone(phoneNumber);
+    if (doc) {
+      await doc.ref.update({
         lastLat: lat,
         lastLng: lng,
         lastLocationAt: admin.firestore.Timestamp.now(),

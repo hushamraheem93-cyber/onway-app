@@ -455,6 +455,8 @@ import {
   loadRevocationState,
 } from "./adminAuth";
 import { loadCustomerRevocationState } from "./customerRevocation";
+import { startOtpSweeper } from "./otpStore";
+import { createAdminBoundary } from "./adminBoundary";
 
 function parseCookies(req: Request): void {
   const header = req.headers.cookie || "";
@@ -1171,6 +1173,20 @@ process.on("exit", (code) => {
   // untouched; see requireAdminCsrf.
   app.use("/api/admin", requireAdminCsrf);
 
+  // H-79 — the administrative boundary.
+  //
+  // The auth guard used to be mounted inside registerRoutes(), which runs LAST.
+  // Express matches in registration order, so the sixteen /api/admin/* routes
+  // registered below — five in configureExpoAndLanding, eleven in vendorRouter —
+  // never reached it. Each carried its own inline session check, so nothing was
+  // actually exposed, but protection was a convention rather than a boundary:
+  // the next admin route added to either file would have been public by default.
+  //
+  // Mounted HERE, before any module registers anything, an /api/admin/* path is
+  // guarded because of its path — wherever its handler is declared, and whatever
+  // is added later.
+  app.use("/api/admin", createAdminBoundary(isValidSession));
+
   configureExpoAndLanding(app);
 
   // Vendor partner portal routes
@@ -1214,6 +1230,13 @@ process.on("exit", (code) => {
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);
+      // H-75: bounded safety-net sweep for expired OTP records. The primary
+      // mechanism is a Firestore TTL policy on otpCodes.expiresAt, applied
+      // server-side by Google regardless of how many instances run — see the
+      // H-75 report for that one-off setup step. This keeps the collection from
+      // growing until the policy exists, deletes at most OTP_SWEEP_LIMIT records
+      // per pass, and is harmless to run from several instances at once.
+      startOtpSweeper();
       // GOOGLE_MAPS_API_KEY is REQUIRED in production: the customer, vendor and driver
       // apps all depend on maps/addresses, and without it /api/reverse-geocode returns
       // raw "lat, lng" (the apps then show a placeholder, never a real address). We do

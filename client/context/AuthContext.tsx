@@ -12,21 +12,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
 import { reportCrash } from "@/lib/crashReporting";
-import {
-  issueDriverToken,
-  clearDriverToken,
-  installDriverAuthInterceptor,
-} from "@/lib/driverAuth";
-import { clearAdminToken, installAdminAuthInterceptor } from "@/lib/adminAuth";
+import { issueDriverToken, clearDriverToken } from "@/lib/driverAuth";
+import { clearAdminToken } from "@/lib/adminAuth";
+import { installAuthInterceptors } from "@/lib/authBootstrap";
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 
-// Attach the driver Bearer token to every /api/driver/* request (installed once).
-installDriverAuthInterceptor();
-// Attach the admin Bearer token to every /api/admin/* request (installed once).
-installAdminAuthInterceptor();
+// H-80: the interceptors used to be installed HERE, at module scope — patching
+// global.fetch as a side effect of importing this file. Installation is now an
+// explicit, idempotent step performed once by AuthProvider below, so importing
+// this module no longer changes global state and a second evaluation of it
+// cannot add a second layer to the fetch chain.
 
 export type UserType = "customer" | "driver" | "vendor";
 
@@ -227,6 +225,14 @@ async function saveVendorPushTokenToServer(
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // H-80: installed here, not on import, and before any child can issue a
+  // request. Synchronous and idempotent — the flag lives in authBootstrap, so a
+  // re-render, a re-mount, or React StrictMode's double invocation all reach an
+  // already-installed interceptor and do nothing. It is deliberately NOT in an
+  // effect: effects run after the first render, and a child that fetches on
+  // mount would then send its first request unauthenticated.
+  installAuthInterceptors();
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [pendingPhone, setPendingPhone] = useState<string | null>(null);

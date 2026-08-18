@@ -251,6 +251,66 @@ export async function getSettlementLedger(
   }
 }
 
+/**
+ * H-72 — record that the human or store behind a ledger is gone.
+ *
+ * Deleting a driver or a vendor removed only their own document. Everything
+ * financial — the ledger aggregate, the per-order settlements, the requests,
+ * payments and adjustments filed under the same accountKey — stayed in
+ * Firestore with no owner and no marker, so an outstanding balance simply
+ * stopped being attached to anybody.
+ *
+ * Deleting that history instead would be worse: these records are the audit
+ * trail for money that was actually collected or owed, and a settlement that
+ * disappears cannot be reconciled or disputed. So nothing is deleted here. The
+ * ledger is STAMPED, and it keeps its id, its totals and its accountKey, which
+ * means every existing query — listSettlementAccounts, getSettlementHistory,
+ * getSettlementPayments, the statements — keeps returning it unchanged.
+ *
+ * The snapshot exists because the owner document is about to vanish: without a
+ * name captured at this moment, an admin reviewing the balance later has an
+ * account id and nothing else. It is deliberately minimal — a display name and,
+ * for a driver, the phone the account was reached by, which the ledger id
+ * already contains for every pre-H-72 account.
+ *
+ * Returns false when there is no ledger, which is the common case: a driver who
+ * never completed a delivery has no financial history to preserve.
+ */
+export async function markLedgerOwnerDeleted(
+  accountType: SettlementAccountType,
+  accountId: string,
+  snapshot: { name?: string | null; phoneNumber?: string | null; ownerDocId?: string | null } = {},
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+  const ref = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
+  try {
+    const snap = await ref.get();
+    if (!snap.exists) return false;
+    await ref.update({
+      ownerStatus: "deleted",
+      ownerDeletedAt: admin.firestore.Timestamp.now(),
+      ownerSnapshot: {
+        name: snapshot.name ?? (snap.data() as any)?.accountName ?? null,
+        phoneNumber: snapshot.phoneNumber ?? null,
+        ownerDocId: snapshot.ownerDocId ?? null,
+      },
+      // Ordered by updatedAt, so the admin sees the account surface at the
+      // moment it lost its owner rather than sinking out of the 500-row window.
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    // The caller has already deleted, or is about to delete, the owner document.
+    // Losing this stamp leaves the balance readable but unlabelled, which is bad
+    // enough to shout about and not bad enough to fail the request over.
+    console.error(
+      `[SETTLEMENT] failed to stamp deleted owner type=${accountType} account=${accountId}: ${(error as any)?.message ?? error}`,
+    );
+    return false;
+  }
+}
+
 export interface CreateRequestResult {
   ok: boolean;
   reason?: "nothing_due" | "already_requested";
@@ -1068,6 +1128,12 @@ export async function listSettlementAccounts(accountType: SettlementAccountType)
           totalSettled: l.totalSettled ?? 0,
           lastSettlementAt: l.lastSettlementAt ?? null,
           status,
+          // H-72: an account whose driver or store was deleted stays listed and
+          // stays settleable — the balance is still owed — but the admin has to
+          // be able to see that there is nobody left to collect it from.
+          ownerStatus: l.ownerStatus ?? "active",
+          ownerDeletedAt: l.ownerDeletedAt ?? null,
+          ownerSnapshot: l.ownerSnapshot ?? null,
         };
       })
       .sort((a, b) => b.outstanding - a.outstanding);

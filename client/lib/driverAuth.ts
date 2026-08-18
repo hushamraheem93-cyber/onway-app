@@ -5,7 +5,10 @@
  * /api/driver/* request so no individual call site can forget it.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
+import { getToken } from "@/lib/secureTokenStorage";
+// H-80: driver-token reads/writes go through the in-memory cache so the
+// interceptor stops hitting the Keychain on every /api/driver/* request.
+import { readToken, rememberToken, forgetToken } from "@/lib/authTokenCache";
 import { getApiUrl } from "@/lib/query-client";
 
 export const DRIVER_TOKEN_KEY = "@onway_driver_token";
@@ -34,7 +37,7 @@ export async function issueDriverToken(
     if (!res.ok) return null;
     const data = await res.json();
     if (data?.token) {
-      await setToken(DRIVER_TOKEN_KEY, data.token);
+      await rememberToken(DRIVER_TOKEN_KEY, data.token);
       return data.token as string;
     }
   } catch {
@@ -45,7 +48,7 @@ export async function issueDriverToken(
 
 export async function clearDriverToken(): Promise<void> {
   try {
-    await removeToken(DRIVER_TOKEN_KEY);
+    await forgetToken(DRIVER_TOKEN_KEY);
   } catch {
     /* ignore */
   }
@@ -118,7 +121,7 @@ export function installDriverAuthInterceptor(): void {
       const url = typeof input === "string" ? input : (input?.url ?? "");
       isDriverCall = typeof url === "string" && isDriverApiUrl(url);
       if (isDriverCall) {
-        const token = await getToken(DRIVER_TOKEN_KEY);
+        const token = await readToken(DRIVER_TOKEN_KEY);
         if (token) {
           const headers = new Headers(
             (init && init.headers) ||

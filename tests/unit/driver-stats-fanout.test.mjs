@@ -87,7 +87,12 @@ describe("H-36 · the numbers this endpoint reports are unchanged", () => {
 
   test("the same two reads are still made per driver", () => {
     assert.match(BODY, /getCompletedOrders\(phone\)/);
-    assert.match(BODY, /getSettlementLedger\("driver", phone\)/);
+    // Still exactly two reads per driver, which is what this fan-out test guards.
+    // H-72 only changed the ledger's ADDRESS: a driver's money is keyed by their
+    // walletId, so a recycled phone number cannot resolve to someone else's
+    // balance. The driver document is already in hand here, so it costs no
+    // extra read.
+    assert.match(BODY, /getSettlementLedger\("driver", driverWalletIdOf\(driver, phone\)\)/);
   });
 
   test("the response shape is unchanged", () => {

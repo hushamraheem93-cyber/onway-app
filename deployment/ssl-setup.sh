@@ -29,8 +29,10 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # and mv would replace it with the temp file's ownership and permissions.
 #
 # NOTE: server-setup.sh carries a byte-identical copy of this function. Neither
-# script can source the other — server-setup.sh is run through `curl | bash`, so
-# it has no sibling files on disk. A unit test asserts the two copies stay equal.
+# script can source the other: this one is run standalone on a server that may
+# predate the checkout. (H-78 removed the `curl | bash` entry point, so the
+# duplication is now only about ssl-setup.sh staying independently runnable.)
+# A unit test asserts the two copies stay equal.
 merge_allowed_origins() {
   local env_file="$1"; shift
   local current entry seen=""
@@ -86,7 +88,12 @@ certbot --nginx \
   --redirect
 
 # Add this domain to ALLOWED_ORIGINS in .env — WITHOUT dropping what is there.
-APP_DIR="/var/www/onway"
+# H-78: derived from this script's own location (…/deployment/x.sh → the parent is
+# the app root), the same rule update.sh already uses. It was hardcoded to
+# /var/www/onway while server-setup.sh installs to /var/www/onway-app, so this
+# wrote to a directory that does not exist on a real install. ONWAY_APP_DIR still
+# overrides.
+APP_DIR="${ONWAY_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 if [[ -f "${APP_DIR}/.env" ]]; then
   BEFORE="$(sed -n 's/^ALLOWED_ORIGINS=//p' "${APP_DIR}/.env" | head -1)"
   AFTER="$(merge_allowed_origins "${APP_DIR}/.env" "https://${DOMAIN}")"

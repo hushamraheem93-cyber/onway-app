@@ -32,8 +32,11 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # and mv would replace it with the temp file's ownership and permissions.
 #
 # NOTE: ssl-setup.sh carries a byte-identical copy of this function. Neither
-# script can source the other — server-setup.sh is run through `curl | bash`, so
-# it has no sibling files on disk. A unit test asserts the two copies stay equal.
+# script can source the other: ssl-setup.sh is run standalone on a server that may
+# predate this checkout. (H-78 removed the `curl | bash` entry point, so this
+# script now DOES have its siblings on disk — the duplication is kept only so
+# ssl-setup.sh stays independently runnable.) A unit test asserts the two copies
+# stay equal.
 merge_allowed_origins() {
   local env_file="$1"; shift
   local current entry seen=""
@@ -129,6 +132,12 @@ success "System packages updated"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d 'v') -lt 20 ]]; then
   info "Installing Node.js ${NODE_VERSION}..."
+  # H-78: the ONE remaining pipe-into-shell, and a deliberate exception. This is
+  # NodeSource's own signed apt-repository installer over TLS from their domain —
+  # the vendor-documented way to add the repo, and the same trust decision as
+  # `apt-get install` itself. What H-78 removed was piping OUR deployment script
+  # from a raw file host into a root shell, unread. A test pins this as the only
+  # occurrence so a second one cannot appear unnoticed.
   curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - -q
   apt-get install -y -qq nodejs
   success "Node.js $(node -v) installed"
@@ -153,17 +162,81 @@ fi
 info "Setting up project directory at ${APP_DIR}..."
 mkdir -p "$APP_DIR"
 
-CLONE_URL="https://github.com/${GITHUB_REPO}.git"
+# ── Repository authentication (H-78) ──────────────────────────────────────────
+#
+# The README promised "you will be asked for your GitHub PAT" while this script
+# had exactly one prompt — for the domain — and cloned a PRIVATE repository over
+# anonymous HTTPS. It could only ever fail here. Worse, the documented entry
+# point was `curl … | bash`, which leaves the script no terminal to prompt on, so
+# even adding a prompt would not have helped.
+#
+# The token is taken from the environment (`sudo -E`), and only falls back to an
+# interactive prompt when a terminal is actually attached.
+#
+# It is NEVER written into the clone URL. That form is persisted verbatim into
+# .git/config and then leaks from every `git remote -v`, every `git pull` error
+# and every backup of the server. GIT_ASKPASS hands the credential to git for the
+# duration of this process and nothing else.
+CLONE_METHOD="${ONWAY_CLONE_METHOD:-https}"
+
+if [[ "$CLONE_METHOD" == "ssh" ]]; then
+  CLONE_URL="git@github.com:${GITHUB_REPO}.git"
+  info "Cloning over SSH — expecting a deploy key on this server."
+else
+  CLONE_URL="https://github.com/${GITHUB_REPO}.git"
+
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    if [[ -t 0 ]]; then
+      # -s: never echoed to the screen or captured in scrollback.
+      read -rsp "$(echo -e "${YELLOW}GitHub PAT${NC} (repo scope, input hidden): ")" GITHUB_TOKEN
+      echo ""
+    fi
+  fi
+
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    err "GITHUB_TOKEN is not set and there is no terminal to prompt on.
+       ${GITHUB_REPO} is private, so an anonymous clone cannot succeed.
+       Export a token first:  read -rsp 'GitHub PAT: ' GITHUB_TOKEN && export GITHUB_TOKEN
+       then re-run with:      sudo -E bash deployment/server-setup.sh
+       Or use a deploy key:   ONWAY_CLONE_METHOD=ssh sudo -E bash deployment/server-setup.sh"
+  fi
+
+  # Hands the token to git without it touching the URL, the disk copy of the
+  # repo config, or the process list. Removed on exit, however the script ends.
+  GIT_ASKPASS_FILE="$(mktemp)"
+  trap 'rm -f "$GIT_ASKPASS_FILE"' EXIT
+  chmod 700 "$GIT_ASKPASS_FILE"
+  cat > "$GIT_ASKPASS_FILE" <<'ASKPASS'
+#!/usr/bin/env bash
+case "$1" in
+  Username*) echo "x-access-token" ;;
+  Password*) echo "${GITHUB_TOKEN}" ;;
+esac
+ASKPASS
+  export GIT_ASKPASS="$GIT_ASKPASS_FILE"
+  export GIT_TERMINAL_PROMPT=0   # fail instead of hanging on a hidden prompt
+fi
 
 if [[ -d "${APP_DIR}/.git" ]]; then
   info "Repository already exists — pulling latest..."
   cd "$APP_DIR"
-  git pull origin main
+  # `set -e` covers this, but the message an operator sees matters: a failed pull
+  # here otherwise looks like a build failure three steps later.
+  git pull origin main \
+    || err "git pull failed. Check the token's 'repo' scope and that ${GITHUB_REPO} is reachable."
 else
   info "Cloning repository..."
-  git clone "$CLONE_URL" "$APP_DIR"
+  git clone "$CLONE_URL" "$APP_DIR" \
+    || err "git clone failed for ${GITHUB_REPO}.
+       Most likely the token is missing the 'repo' scope, has expired, or the
+       repository name is wrong. Nothing was installed."
   cd "$APP_DIR"
 fi
+
+# Prove the working tree is real before anything is built from it.
+git rev-parse --verify HEAD >/dev/null 2>&1 \
+  || err "no commit checked out at ${APP_DIR} — the clone did not complete."
+info "Deploying commit: $(git log -1 --format='%h %s')"
 success "Repository ready at ${APP_DIR}"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

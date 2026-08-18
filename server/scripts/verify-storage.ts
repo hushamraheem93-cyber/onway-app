@@ -17,11 +17,16 @@
 import admin from "firebase-admin";
 import * as dotenv from "dotenv";
 import {
+  initializeFirebase,
   getFirestore,
   uploadToFirebaseStorage,
   deleteFromFirebaseStorage,
 } from "../firebase";
 
+// Must run before initializeFirebase() reads FIREBASE_SERVICE_ACCOUNT. It does:
+// this executes while the module is being evaluated, and initializeFirebase() is
+// called from main(), afterwards. Importing ../firebase has no side effect of its
+// own — that is precisely why the initialisation below has to be explicit.
 dotenv.config();
 
 const EXPECTED_BUCKET = "onway-74c20.firebasestorage.app";
@@ -47,11 +52,34 @@ async function main() {
     fail("FIREBASE_SERVICE_ACCOUNT is not set — cannot talk to Firebase.");
   }
 
-  // Initialising Firestore is what wires up the Admin SDK (and the storageBucket).
+  // H-76: this used to call getFirestore() alone, with a comment claiming that
+  // "initialising Firestore is what wires up the Admin SDK". It does not.
+  // getFirestore() is a plain getter over a module-level handle that stays null
+  // until initializeFirebase() has run, and importing ../firebase runs nothing.
+  // Only server/index.ts ever called the initialiser, so this script read null
+  // and exited 1 at this very step — on every machine, with every configuration,
+  // however correct. An operator who ran the documented pre-launch check saw it
+  // fail for a reason that was not true, and skipped the check.
+  //
+  // initializeFirebase() is the server's own initialiser, deliberately reused
+  // rather than a second admin.initializeApp() here: it is what computes the
+  // storageBucket default, and uploadToFirebaseStorage() — the function this
+  // script exists to exercise — resolves its bucket from that same app. Rolling
+  // a separate init would let the check pass against a different bucket than
+  // production uploads use.
   step(1, "Initialising the Admin SDK");
+  const initialised = initializeFirebase();
+  if (!initialised)
+    fail(
+      "Admin SDK did not initialise — check FIREBASE_SERVICE_ACCOUNT is present and is valid JSON.",
+    );
+
+  // Re-read through the public accessor: this asserts the module-level handle
+  // the rest of server/firebase.ts uses was actually populated, not merely that
+  // the initialiser returned something.
   const db = getFirestore();
   if (!db)
-    fail("Admin SDK did not initialise — check FIREBASE_SERVICE_ACCOUNT.");
+    fail("Admin SDK initialised but the Firestore handle is still unset.");
 
   step(2, "Resolving the configured bucket");
   const bucket = admin.storage().bucket();

@@ -272,13 +272,31 @@ describe("H-64 · 9+10. the phantom 'delivering' status is gone", () => {
     }
   });
 
-  test("10. the store's revenue set counts in-flight orders (C-2)", () => {
+  test("10. the store's in-flight orders are still accounted for (C-2)", () => {
     const code = stripComments(VENDOR);
-    assert.match(
-      code,
-      /const completedStatuses = new Set\(\["delivered", "picked_up", "in_delivery"\]\)/,
-      "orders out for delivery still drop out of the vendor's revenue",
-    );
+
+    // C-2's harm was that orders OUT FOR DELIVERY dropped out of the vendor's
+    // wallet entirely and reappeared on delivery — revenue that fell and rose
+    // with no explanation. C-2 fixed it by folding picked_up/in_delivery into
+    // one `completedStatuses` set that fed totalRevenue.
+    //
+    // H-74 kept the visibility and removed the claim: an order on a motorbike is
+    // reported, but it is not money the store has earned. The settlement engine
+    // accrues on delivery only, so counting it as revenue made the wallet
+    // disagree with the ledger the store is actually paid from.
+    //
+    // So this now pins the INTENT — in-flight orders are still tracked and
+    // surfaced — rather than the single set literal C-2 happened to use.
+    assert.match(code, /const IN_FLIGHT_STATUSES = new Set\(\["picked_up", "in_delivery"\]\)/,
+      "orders out for delivery still drop out of the vendor's wallet");
+    assert.match(code, /const countedStatuses = new Set\(\[\.\.\.EARNED_STATUSES, \.\.\.IN_FLIGHT_STATUSES\]\)/,
+      "in-flight orders are no longer collected at all");
+    assert.match(code, /inFlightRevenue/,
+      "the in-flight total is not reported to the store");
+
+    // …and the other half of H-74: earned means delivered.
+    assert.match(code, /const EARNED_STATUSES = new Set\(\["delivered"\]\)/,
+      "an undelivered order is counted as earned revenue again");
   });
 
   test("the dashboard's orders tabs filter on statuses the server writes", () => {

@@ -7,7 +7,9 @@
  * every /api/admin/* (and /admin/*) request automatically, so no individual call
  * site in the 3k-line AdminScreen has to be touched.
  */
-import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
+// H-80: admin-token reads/writes go through the in-memory cache so the
+// interceptor stops hitting the Keychain on every /api/admin/* request.
+import { readToken, rememberToken, forgetToken } from "@/lib/authTokenCache";
 import { getApiUrl } from "@/lib/query-client";
 
 export const ADMIN_TOKEN_KEY = "@onway_admin_token";
@@ -31,12 +33,12 @@ export async function loginAdmin(
   }
   const data = await res.json();
   if (!data?.token) throw new Error("لم يتم استلام رمز الجلسة من الخادم");
-  await setToken(ADMIN_TOKEN_KEY, data.token as string);
+  await rememberToken(ADMIN_TOKEN_KEY, data.token as string);
 }
 
 export async function getAdminToken(): Promise<string | null> {
   try {
-    return await getToken(ADMIN_TOKEN_KEY);
+    return await readToken(ADMIN_TOKEN_KEY);
   } catch {
     return null;
   }
@@ -44,7 +46,7 @@ export async function getAdminToken(): Promise<string | null> {
 
 export async function clearAdminToken(): Promise<void> {
   try {
-    await removeToken(ADMIN_TOKEN_KEY);
+    await forgetToken(ADMIN_TOKEN_KEY);
   } catch {
     /* ignore */
   }
@@ -148,7 +150,7 @@ export function installAdminAuthInterceptor(): void {
     try {
       const url = typeof input === "string" ? input : (input?.url ?? "");
       if (typeof url === "string" && isAdminApiUrl(url)) {
-        const token = await getToken(ADMIN_TOKEN_KEY);
+        const token = await readToken(ADMIN_TOKEN_KEY);
         if (token) {
           const headers = new Headers(
             (init && init.headers) ||

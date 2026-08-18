@@ -928,10 +928,27 @@ describe("Driver approval status must survive phone-format differences", () => {
     assert.ok(fn.length > 0, "getDriverByPhone must exist");
     // Production driver docs hold mixed formats (009647…, 07…). An exact-string match
     // leaves an already-approved driver unfindable and frozen on "under review".
+    //
+    // H-73 moved the variant loop into findDriverDocByPhone so the four driver
+    // functions that used to match exactly share one rule with this one. The
+    // guard therefore follows the delegation instead of pinning the loop's old
+    // location — and still fails if either end reverts to an exact match.
     assert.match(
       fn,
+      /findDriverDocByPhone\(/,
+      "getDriverByPhone must resolve the driver through the shared variant lookup",
+    );
+    const lookup = functionBody(FIREBASE, "export async function findDriverDocByPhone");
+    assert.ok(lookup.length > 0, "findDriverDocByPhone must exist");
+    assert.match(
+      lookup,
       /phoneVariants\(/,
-      "getDriverByPhone must match across phone-format variants like getUserByPhone/getVendorByPhone",
+      "the shared driver lookup must match across phone-format variants like getUserByPhone/getVendorByPhone",
+    );
+    assert.doesNotMatch(
+      fn,
+      /collection\("drivers"\)\.where\(/,
+      "getDriverByPhone went back to querying the collection itself",
     );
   });
 });

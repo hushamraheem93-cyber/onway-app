@@ -27,7 +27,11 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { planReorder, isProductAvailable, EXCLUSION_TEXT } from "../../client/lib/reorder.ts";
+import {
+  planReorder,
+  isProductAvailable,
+  EXCLUSION_TEXT,
+} from "../../client/lib/reorder.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "../..");
@@ -38,26 +42,53 @@ const ROUTES = read("server/routes.ts");
 
 // ── the server's own price-mismatch rule, lifted and executed ────────────────
 const serverRejectsPrice = (() => {
-  const m = ROUTES.match(/if \(Math\.abs\(\(Number\(it\.price\) \|\| 0\) - realPrice\) > (\d+)\)/);
+  const m = ROUTES.match(
+    /if \(Math\.abs\(\(Number\(it\.price\) \|\| 0\) - realPrice\) > (\d+)\)/,
+  );
   assert.ok(m, "the price-mismatch check moved in server/routes.ts");
   const tolerance = Number(m[1]);
-  return (clientPrice, realPrice) => Math.abs((Number(clientPrice) || 0) - realPrice) > tolerance;
+  return (clientPrice, realPrice) =>
+    Math.abs((Number(clientPrice) || 0) - realPrice) > tolerance;
 })();
 
 // ── the screen's own flow, lifted and executed ───────────────────────────────
-function braceBlock(src, start) {
-  const open = src.indexOf("{", start);
-  let d = 0;
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === "{") d++;
-    else if (src[i] === "}" && --d === 0) return src.slice(start, i + 1);
-  }
-  throw new Error("unbalanced braces in OrdersScreen.tsx");
-}
+// Lifted by AST rather than by brace matching: H-82 wrapped these two in
+// `useCallback(fn, deps)`, and counting braces from `const name = ` stops at the
+// arrow body and drops the `, [deps])` tail. The function itself is unchanged —
+// this unwraps the memo call and takes the same arrow it always took, so the tests
+// below still drive the REAL handler. Memoisation is H-82's subject, not this
+// file's.
+const screenSf = ts.createSourceFile(
+  "OrdersScreen.tsx",
+  SCREEN,
+  ts.ScriptTarget.ES2022,
+  true,
+  ts.ScriptKind.TSX,
+);
+
 function liftArrow(name) {
-  const at = SCREEN.indexOf(`const ${name} = `);
-  if (at === -1) return "";
-  return braceBlock(SCREEN, at) + ";";
+  let decl = null;
+  const walk = (n) => {
+    if (
+      ts.isVariableDeclaration(n) &&
+      ts.isIdentifier(n.name) &&
+      n.name.text === name
+    )
+      decl = n;
+    ts.forEachChild(n, walk);
+  };
+  walk(screenSf);
+  if (!decl) return "";
+
+  let init = decl.initializer;
+  if (
+    ts.isCallExpression(init) &&
+    ts.isIdentifier(init.expression) &&
+    init.expression.text === "useCallback"
+  ) {
+    init = init.arguments[0];
+  }
+  return `const ${name} = ${init.getText(screenSf)};`;
 }
 
 const SCREEN_JS = ts.transpileModule(
@@ -69,7 +100,11 @@ const SCREEN_JS = ts.transpileModule(
  * Drive OrdersScreen.handleReorder for one order against one live catalogue.
  * `confirm` decides which button a shown dialog "receives".
  */
-async function runScreenReorder(order, products, { confirm = true, fetchFails = false } = {}) {
+async function runScreenReorder(
+  order,
+  products,
+  { confirm = true, fetchFails = false } = {},
+) {
   const seen = { cart: null, navigated: null, alerts: [], urls: [] };
 
   const env = {
@@ -81,7 +116,9 @@ async function runScreenReorder(order, products, { confirm = true, fetchFails = 
       seen.urls.push(String(url));
       if (fetchFails) return { ok: false, json: async () => ({}) };
       // /api/stores/:id/products answers { store, products }, /api/products an array.
-      const body = String(url).includes("/api/stores/") ? { products } : products;
+      const body = String(url).includes("/api/stores/")
+        ? { products }
+        : products;
       return { ok: true, json: async () => body };
     },
     Alert: {
@@ -96,12 +133,20 @@ async function runScreenReorder(order, products, { confirm = true, fetchFails = 
     },
     planReorder,
     EXCLUSION_TEXT,
-    replaceCart: (items) => { seen.cart = items; },
-    navigation: { navigate: (screen) => { seen.navigated = screen; } },
+    replaceCart: (items) => {
+      seen.cart = items;
+    },
+    navigation: {
+      navigate: (screen) => {
+        seen.navigated = screen;
+      },
+    },
   };
 
   const keys = Object.keys(env);
-  const handleReorder = new Function(...keys, SCREEN_JS)(...keys.map((k) => env[k]));
+  const handleReorder = new Function(...keys, SCREEN_JS)(
+    ...keys.map((k) => env[k]),
+  );
   await handleReorder(order);
   return seen;
 }
@@ -110,11 +155,23 @@ async function runScreenReorder(order, products, { confirm = true, fetchFails = 
 const VENDOR = "vendor-1";
 const order = (items) => ({ id: "o-1", vendorId: VENDOR, items });
 const line = (over = {}) => ({
-  productId: "p-1", name: "برغر", price: 10000, quantity: 2, image: "old.jpg", ...over,
+  productId: "p-1",
+  name: "برغر",
+  price: 10000,
+  quantity: 2,
+  image: "old.jpg",
+  ...over,
 });
 const live = (over = {}) => ({
-  id: "p-1", name: "برغر", price: 10000, imageUrl: "new.jpg", description: "لحم",
-  stock: 5, vendorId: VENDOR, storeName: "مطعم الضلوعية", ...over,
+  id: "p-1",
+  name: "برغر",
+  price: 10000,
+  imageUrl: "new.jpg",
+  description: "لحم",
+  stock: 5,
+  vendorId: VENDOR,
+  storeName: "مطعم الضلوعية",
+  ...over,
 });
 
 const unitPrice = (cartItem) => cartItem.product.price;
@@ -136,8 +193,10 @@ describe("H-53 · A — unchanged product reorders cleanly", () => {
 
   test("it takes the store's live catalogue, not the order document", async () => {
     const r = await runScreenReorder(order([line()]), [live()]);
-    assert.ok(r.urls.some((u) => u.includes(`/api/stores/${VENDOR}/products`)),
-      `no live product fetch happened (urls: ${r.urls.join(", ") || "none"})`);
+    assert.ok(
+      r.urls.some((u) => u.includes(`/api/stores/${VENDOR}/products`)),
+      `no live product fetch happened (urls: ${r.urls.join(", ") || "none"})`,
+    );
   });
 
   test("live name and image replace the historical ones", async () => {
@@ -153,16 +212,26 @@ describe("H-53 · A — unchanged product reorders cleanly", () => {
 // ═════════════════════════════════════════════════════════════════════════════
 describe("H-53 · B — a changed price is never replayed", () => {
   test("the cart carries the CURRENT price, not the paid one", async () => {
-    const r = await runScreenReorder(order([line({ price: 10000 })]), [live({ price: 13500 })]);
-    assert.equal(unitPrice(r.cart[0]), 13500,
-      "the historical price reached the cart — the server would reject this order");
+    const r = await runScreenReorder(order([line({ price: 10000 })]), [
+      live({ price: 13500 }),
+    ]);
+    assert.equal(
+      unitPrice(r.cart[0]),
+      13500,
+      "the historical price reached the cart — the server would reject this order",
+    );
     assert.notEqual(unitPrice(r.cart[0]), 10000);
   });
 
   test("the server's own rule would ACCEPT what the cart now holds", async () => {
-    const r = await runScreenReorder(order([line({ price: 10000 })]), [live({ price: 13500 })]);
-    assert.equal(serverRejectsPrice(unitPrice(r.cart[0]), 13500), false,
-      "the order would still fail with أسعار بعض المنتجات تغيّرت");
+    const r = await runScreenReorder(order([line({ price: 10000 })]), [
+      live({ price: 13500 }),
+    ]);
+    assert.equal(
+      serverRejectsPrice(unitPrice(r.cart[0]), 13500),
+      false,
+      "the order would still fail with أسعار بعض المنتجات تغيّرت",
+    );
   });
 
   test("…and would REJECT what the old flow sent, which is the finding", () => {
@@ -171,7 +240,9 @@ describe("H-53 · B — a changed price is never replayed", () => {
   });
 
   test("the customer is told which product moved, and by how much", async () => {
-    const r = await runScreenReorder(order([line({ price: 10000 })]), [live({ price: 13500 })]);
+    const r = await runScreenReorder(order([line({ price: 10000 })]), [
+      live({ price: 13500 }),
+    ]);
     assert.equal(r.alerts.length, 1);
     assert.match(r.alerts[0].message, /10000/);
     assert.match(r.alerts[0].message, /13500/);
@@ -180,13 +251,18 @@ describe("H-53 · B — a changed price is never replayed", () => {
 
   test("the cart is only replaced after the customer continues", async () => {
     const declined = await runScreenReorder(
-      order([line({ price: 10000 })]), [live({ price: 13500 })], { confirm: false });
+      order([line({ price: 10000 })]),
+      [live({ price: 13500 })],
+      { confirm: false },
+    );
     assert.equal(declined.cart, null, "the cart was replaced without consent");
     assert.equal(declined.navigated, null);
   });
 
   test("a price move within the server's tolerance is not flagged", async () => {
-    const plan = planReorder(order([line({ price: 10000 })]), [live({ price: 10000 })]);
+    const plan = planReorder(order([line({ price: 10000 })]), [
+      live({ price: 10000 }),
+    ]);
     assert.deepEqual(plan.priceChanges, []);
   });
 });
@@ -198,12 +274,17 @@ describe("H-53 · C — an out-of-stock product never enters the cart", () => {
     ["inStock: false", { inStock: false, stock: undefined }],
   ]) {
     test(`${label} → excluded and named`, async () => {
-      const r = await runScreenReorder(order([line(), line({ productId: "p-2", name: "بيتزا" })]),
-        [live(over), live({ id: "p-2", name: "بيتزا" })]);
+      const r = await runScreenReorder(
+        order([line(), line({ productId: "p-2", name: "بيتزا" })]),
+        [live(over), live({ id: "p-2", name: "بيتزا" })],
+      );
       const ids = r.cart.map((i) => i.product.id);
       assert.deepEqual(ids, ["p-2"], "an unavailable product reached the cart");
       assert.match(r.alerts[0].message, /برغر/);
-      assert.match(r.alerts[0].message, new RegExp(EXCLUSION_TEXT.out_of_stock));
+      assert.match(
+        r.alerts[0].message,
+        new RegExp(EXCLUSION_TEXT.out_of_stock),
+      );
     });
   }
 
@@ -211,7 +292,10 @@ describe("H-53 · C — an out-of-stock product never enters the cart", () => {
     assert.equal(isProductAvailable({ id: "x", stock: 3 }), true);
     assert.equal(isProductAvailable({ id: "x", stock: 0 }), false);
     assert.equal(isProductAvailable({ id: "x", inStock: false }), false);
-    assert.equal(isProductAvailable({ id: "x", inStock: false, stock: 9 }), false);
+    assert.equal(
+      isProductAvailable({ id: "x", inStock: false, stock: 9 }),
+      false,
+    );
     assert.equal(isProductAvailable({ id: "x" }), true);
   });
 });
@@ -225,15 +309,27 @@ describe("H-53 · D/E — lines with options are handled explicitly", () => {
   ]) {
     test(`${label} → excluded, and the stale ids are NOT sent`, async () => {
       const r = await runScreenReorder(order([line(over)]), [live()]);
-      assert.equal(r.cart, null, "a line whose options cannot be verified was added anyway");
-      assert.match(r.alerts[0].message, new RegExp(EXCLUSION_TEXT.needs_options));
+      assert.equal(
+        r.cart,
+        null,
+        "a line whose options cannot be verified was added anyway",
+      );
+      assert.match(
+        r.alerts[0].message,
+        new RegExp(EXCLUSION_TEXT.needs_options),
+      );
     });
   }
 
   test("no historical variant or addon id survives into the cart", async () => {
     const plan = planReorder(
-      order([line({ selectedVariantId: "v-gone", selectedAddons: [{ id: "a-gone", name: "x", price: 1 }] }),
-             line({ productId: "p-2", name: "عصير" })]),
+      order([
+        line({
+          selectedVariantId: "v-gone",
+          selectedAddons: [{ id: "a-gone", name: "x", price: 1 }],
+        }),
+        line({ productId: "p-2", name: "عصير" }),
+      ]),
       [live(), live({ id: "p-2", name: "عصير" })],
     );
     for (const item of plan.items) {
@@ -246,17 +342,26 @@ describe("H-53 · D/E — lines with options are handled explicitly", () => {
 
   test("a plain line beside an option line still reorders", async () => {
     const r = await runScreenReorder(
-      order([line({ selectedVariantId: "v-1" }), line({ productId: "p-2", name: "عصير" })]),
+      order([
+        line({ selectedVariantId: "v-1" }),
+        line({ productId: "p-2", name: "عصير" }),
+      ]),
       [live(), live({ id: "p-2", name: "عصير" })],
     );
-    assert.deepEqual(r.cart.map((i) => i.product.id), ["p-2"]);
+    assert.deepEqual(
+      r.cart.map((i) => i.product.id),
+      ["p-2"],
+    );
   });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("H-53 · F — a deleted product neither crashes nor slips through", () => {
   test("it is excluded with a reason", async () => {
-    const r = await runScreenReorder(order([line({ productId: "gone", name: "منتج محذوف" })]), [live()]);
+    const r = await runScreenReorder(
+      order([line({ productId: "gone", name: "منتج محذوف" })]),
+      [live()],
+    );
     assert.equal(r.cart, null);
     assert.match(r.alerts[0].message, /منتج محذوف/);
     assert.match(r.alerts[0].message, new RegExp(EXCLUSION_TEXT.missing));
@@ -269,7 +374,9 @@ describe("H-53 · F — a deleted product neither crashes nor slips through", ()
   });
 
   test("a failed fetch leaves the cart alone and says so", async () => {
-    const r = await runScreenReorder(order([line()]), [live()], { fetchFails: true });
+    const r = await runScreenReorder(order([line()]), [live()], {
+      fetchFails: true,
+    });
     assert.equal(r.cart, null);
     assert.equal(r.navigated, null);
     assert.equal(r.alerts.length, 1);
@@ -277,11 +384,25 @@ describe("H-53 · F — a deleted product neither crashes nor slips through", ()
   });
 
   test("malformed order items do not throw", () => {
-    for (const bad of [[], [{}], [{ productId: "p-1" }], [{ productId: "p-1", quantity: -3 }]]) {
-      assert.doesNotThrow(() => planReorder({ items: bad, vendorId: VENDOR }, [live()]));
+    for (const bad of [
+      [],
+      [{}],
+      [{ productId: "p-1" }],
+      [{ productId: "p-1", quantity: -3 }],
+    ]) {
+      assert.doesNotThrow(() =>
+        planReorder({ items: bad, vendorId: VENDOR }, [live()]),
+      );
     }
-    const plan = planReorder({ items: [{ productId: "p-1", quantity: -3 }], vendorId: VENDOR }, [live()]);
-    assert.equal(plan.items[0].quantity, 1, "a negative quantity survived into the cart");
+    const plan = planReorder(
+      { items: [{ productId: "p-1", quantity: -3 }], vendorId: VENDOR },
+      [live()],
+    );
+    assert.equal(
+      plan.items[0].quantity,
+      1,
+      "a negative quantity survived into the cart",
+    );
   });
 });
 
@@ -332,8 +453,11 @@ describe("H-53 · G — a mixed reorder partially succeeds, and explains itself"
     const r = await runScreenReorder(mixed, catalogue);
     for (const item of r.cart) {
       const liveP = catalogue.find((p) => p.id === item.product.id);
-      assert.equal(serverRejectsPrice(unitPrice(item), liveP.price), false,
-        `${item.product.id} would be rejected by the server`);
+      assert.equal(
+        serverRejectsPrice(unitPrice(item), liveP.price),
+        false,
+        `${item.product.id} would be rejected by the server`,
+      );
     }
   });
 
@@ -346,26 +470,41 @@ describe("H-53 · G — a mixed reorder partially succeeds, and explains itself"
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("H-53 · the historical shortcuts are gone from the screen", () => {
-  const code = SCREEN.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  const code = SCREEN.replace(/\/\/[^\n]*/g, "").replace(
+    /\/\*[\s\S]*?\*\//g,
+    "",
+  );
 
   test("no line is built with an asserted inStock", () => {
-    assert.doesNotMatch(code, /inStock:\s*true/,
-      "the screen asserts availability again instead of checking it");
+    assert.doesNotMatch(
+      code,
+      /inStock:\s*true/,
+      "the screen asserts availability again instead of checking it",
+    );
   });
 
   test("the historical price is not read into a cart product", () => {
-    assert.doesNotMatch(code, /price:\s*item\.price/,
-      "the paid price is being replayed again");
+    assert.doesNotMatch(
+      code,
+      /price:\s*item\.price/,
+      "the paid price is being replayed again",
+    );
   });
 
   test("the screen delegates to the shared planner", () => {
     assert.match(SCREEN, /from "@\/lib\/reorder"/);
-    assert.match(code, /planReorder\(order, await fetchCurrentProducts\(order\)\)/);
+    assert.match(
+      code,
+      /planReorder\(order, await fetchCurrentProducts\(order\)\)/,
+    );
   });
 
   test("the server still verifies price and stock — the client is not the only guard", () => {
     assert.match(ROUTES, /priceMismatchProductIds\.push\(it\.productId\)/);
-    assert.match(ROUTES, /outOfStockNames\.push\(it\.name \|\| it\.productId\)/);
+    assert.match(
+      ROUTES,
+      /outOfStockNames\.push\(it\.name \|\| it\.productId\)/,
+    );
     assert.match(ROUTES, /unknownProductIds\.push\(it\.productId\)/);
   });
 });

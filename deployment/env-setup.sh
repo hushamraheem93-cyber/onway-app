@@ -11,7 +11,12 @@ info()    { echo -e "${BLUE}[INFO]${NC}  $*"; }
 success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 
-APP_DIR="/var/www/onway"
+# H-78: derived from this script's own location (…/deployment/x.sh → the parent is
+# the app root), the same rule update.sh already uses. It was hardcoded to
+# /var/www/onway while server-setup.sh installs to /var/www/onway-app, so this
+# wrote to a directory that does not exist on a real install. ONWAY_APP_DIR still
+# overrides.
+APP_DIR="${ONWAY_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENV_FILE="${APP_DIR}/.env"
 
 [[ ! -f "$ENV_FILE" ]] && cp "${APP_DIR}/.env.example" "$ENV_FILE" && chmod 600 "$ENV_FILE"

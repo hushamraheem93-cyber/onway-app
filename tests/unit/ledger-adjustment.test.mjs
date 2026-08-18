@@ -113,7 +113,10 @@ describe("H-07 — the adjustment leaves an immutable record", () => {
     // so the adjustment is visible when a balance is disputed.
     assert.match(ADJUST_FN, /type: "adjustment"/);
     assert.match(ADJUST_FN, /createdBy: adminName \|\| "admin"/);
-    assert.match(ROUTES, /getAccountStatement\("driver", phoneNumber\)/);
+    // H-72 changed WHICH account this addresses — a driver's money is keyed by
+    // walletId now, not by their phone — but not THAT the driver's statement
+    // reads it, which is what this test is about.
+    assert.match(ROUTES, /getAccountStatement\("driver", \(req as any\)\.driverWalletId as string\)/);
   });
 
   test("the in-place fields are a convenience copy, not the audit trail", () => {
@@ -140,9 +143,12 @@ describe("H-07 — the adjuster is named from the session, never the body", () =
   });
 
   test("the name that reaches the audit record is the session one", () => {
+    // H-72: argument 2 is now the resolved wallet account rather than the phone
+    // the panel sent. Everything this test exists for — that `adminName` is the
+    // session's and reaches the call unmodified — is asserted unchanged.
     assert.match(
       ADJUST_ROUTE,
-      /adminAdjustLedger\("driver", phoneNumber, amountNum, type as "add" \| "deduct", notes \|\| "", adminName\)/,
+      /adminAdjustLedger\("driver", accountId, amountNum, type as "add" \| "deduct", notes \|\| "", adminName\)/,
     );
     assert.doesNotMatch(ADJUST_ROUTE, /adminName \|\| ""\)/);
   });

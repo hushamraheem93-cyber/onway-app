@@ -270,5 +270,14 @@ service cloud.firestore {
     match /productImageHashes/{docId} {
       allow read, write: if false;
     }
+
+    // H-75: OTP verification state. Written and read ONLY by the server through
+    // the Admin SDK, which bypasses these rules. Document ids are phone numbers,
+    // so a readable collection would enumerate every number mid-signup; a
+    // writable one would let anyone mint their own verification. Closed, and it
+    // must stay closed.
+    match /otpCodes/{docId} {
+      allow read, write: if false;
+    }
   }
 }

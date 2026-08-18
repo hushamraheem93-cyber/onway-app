@@ -559,8 +559,14 @@ describe("H-63 · the 00964+07… documents the old client wrote", () => {
     const db = makeDb();
     const { getUserByPhone } = buildFirebase(db);
     await getUserByPhone(FAKE.local);
+    // Was 6. H-73 added exactly one variant — the E.164 "+9647…" form, which no
+    // other spelling could reach — after finding that a driver stored that way
+    // was invisible to every lookup. The point of this bound is that the miss
+    // path stays a small fixed number rather than growing per format anyone can
+    // imagine; raising it by one for a format the task requires, and refusing
+    // the speculative "+9640 7…" companion, keeps that intact.
     assert.ok(
-      db.reads.length <= 6,
+      db.reads.length <= 7,
       `${db.reads.length} queries for one lookup`,
     );
   });

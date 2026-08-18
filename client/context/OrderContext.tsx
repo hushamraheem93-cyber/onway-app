@@ -16,6 +16,7 @@ import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
 import { getApiUrl } from "@/lib/query-client";
 import { playLoudAlert } from "@/lib/alertSound";
+import { reconcileOrders } from "@/lib/orderIdentity";
 
 const ORDER_STATUSES_KEY = "@onway_order_statuses";
 
@@ -218,7 +219,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         checkForStatusChanges(data);
-        setOrders(data);
+        // H-82: the payload is the server's, but an order that did not change
+        // keeps the object it already had. Without this every poll replaced all
+        // forty order objects, and React.memo(OrderCard) could never bail out
+        // however stable its callbacks were. See client/lib/orderIdentity.ts.
+        setOrders((prev) => reconcileOrders(prev, data));
       }
     } catch (error) {
     } finally {

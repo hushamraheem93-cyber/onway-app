@@ -1,17 +1,44 @@
 {
+  "//": [
+    "H-77 — release configuration.",
+    "",
+    "The project previously had three build profiles and nothing else: no submit",
+    "section, no channels, no native build numbering, and no expo-updates. Every",
+    "fix needed a full store review, two builds could not be told apart, and a bad",
+    "release could not be pulled back.",
+    "",
+    "appVersionSource 'remote' means EAS owns the native build numbers, so iOS",
+    "buildNumber and Android versionCode must NOT be written into app.config.js —",
+    "EAS would ignore them and the two sources would drift. 'autoIncrement' is the",
+    "mechanism that belongs with remote versioning: EAS bumps the stored number on",
+    "every build, so no two binaries ever carry the same one and App Store Connect",
+    "and Play Console both accept consecutive uploads.",
+    "",
+    "Channels bind a binary to an update stream at BUILD time. A production binary",
+    "only ever receives updates published to the production channel; nothing a",
+    "developer publishes to preview or development can reach a customer's phone.",
+    "",
+    "NO CREDENTIAL BELONGS IN THIS FILE. The Apple values below are read from the",
+    "environment at submit time, and the Google Play service-account key is held by",
+    "EAS (eas credentials) rather than committed. See H77RELEASE.md."
+  ],
   "cli": {
+    "version": ">= 5.2.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "channel": "development",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://onwayiq.com"
       }
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
+      "autoIncrement": true,
       "android": {
         "buildType": "apk"
       },
@@ -20,8 +47,38 @@
       }
     },
     "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://onwayiq.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "$EXPO_APPLE_ID",
+        "ascAppId": "$EXPO_ASC_APP_ID",
+        "appleTeamId": "$EXPO_APPLE_TEAM_ID"
+      },
+      "android": {
+        "track": "production",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": false
+      }
+    },
+    "preview": {
+      "ios": {
+        "appleId": "$EXPO_APPLE_ID",
+        "ascAppId": "$EXPO_ASC_APP_ID",
+        "appleTeamId": "$EXPO_APPLE_TEAM_ID"
+      },
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }
