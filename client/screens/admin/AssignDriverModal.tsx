@@ -83,6 +83,7 @@ function AssignDriverModalInner({
                 drv.phoneNumber;
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={drv.id}
                   style={[
                     styles.driverPickerRow,
@@ -126,6 +127,7 @@ function AssignDriverModalInner({
             })
           )}
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.statusBtn,
               {

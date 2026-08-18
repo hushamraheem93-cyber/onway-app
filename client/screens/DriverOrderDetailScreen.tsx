@@ -189,6 +189,8 @@ export default function DriverOrderDetailScreen() {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
           testID="button-back"
+          accessibilityRole="button"
+          accessibilityLabel="رجوع"
         >
           <Feather name="arrow-right" size={24} color={AppColors.white} />
         </Pressable>
@@ -382,6 +384,7 @@ export default function DriverOrderDetailScreen() {
           </View>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.callButton}
             onPress={handleCallCustomer}
             testID="button-call-customer"
@@ -418,6 +421,7 @@ export default function DriverOrderDetailScreen() {
                 موقع التوصيل
               </ThemedText>
               <Pressable
+                accessibilityRole="button"
                 style={styles.openMapsBtn}
                 onPress={openInMaps}
                 testID="button-open-maps"
@@ -451,7 +455,13 @@ export default function DriverOrderDetailScreen() {
                 {order.address || order.region}
               </ThemedText>
             </View>
-            <Pressable onPress={openInMaps} testID="button-map-preview">
+            <Pressable
+              onPress={openInMaps}
+              testID="button-map-preview"
+              accessibilityRole="button"
+              accessibilityLabel="موقع التسليم على الخريطة"
+              accessibilityHint="يفتح الموقع في تطبيق الخرائط"
+            >
               <View style={styles.miniMapContainer}>
                 <WebView
                   source={{

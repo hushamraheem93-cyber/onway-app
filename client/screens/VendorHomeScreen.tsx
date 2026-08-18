@@ -43,7 +43,9 @@ const POLL_INTERVAL_MS = 30_000;
  * Falls back to a neutral retry hint when the body is not the usual { error }.
  */
 async function serverError(res: Response): Promise<string> {
-  const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  const data = (await res.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
   return typeof data?.error === "string" && data.error.trim()
     ? data.error
     : "حاول مرة أخرى";
@@ -164,6 +166,7 @@ const StatCard = React.memo(
       style={({ pressed }) => [sc.statCard, { opacity: pressed ? 0.85 : 1 }]}
       onPress={onPress}
       testID={testID}
+      accessibilityRole="button"
     >
       <View style={[sc.statIconBox, { backgroundColor: iconBg }]}>
         <MaterialCommunityIcons name={icon} size={22} color={iconColor} />
@@ -199,6 +202,7 @@ const QuickActionCard = React.memo(
         { backgroundColor: bg, opacity: pressed ? 0.82 : 1 },
       ]}
       onPress={onPress}
+      accessibilityRole="button"
     >
       <View style={[sc.quickIconBox, { backgroundColor: color + "20" }]}>
         <MaterialCommunityIcons name={icon} size={26} color={color} />
@@ -235,6 +239,12 @@ const AvailabilityChip = React.memo(
       onPress={onPress}
       disabled={loading}
       testID={testID}
+      accessibilityRole="button"
+      accessibilityState={{
+        selected: active,
+        disabled: loading,
+        busy: loading,
+      }}
       style={({ pressed }) => [
         sc.availChip,
         {
@@ -744,6 +754,7 @@ export default function VendorHomeScreen({ navigation }: any) {
         <View style={sc.header}>
           {/* Avatar */}
           <Pressable
+            accessibilityRole="button"
             onPress={() => uploadImage("profileImage")}
             style={sc.avatarWrap}
             testID="button-edit-avatar"
@@ -793,11 +804,15 @@ export default function VendorHomeScreen({ navigation }: any) {
             <Pressable
               style={sc.headerBtn}
               onPress={() => navigation.navigate("VendorOrdersTab")}
+              accessibilityRole="button"
+              accessibilityLabel="التنبيهات"
             >
               <Feather name="bell" size={20} color={AppColors.gray600} />
             </Pressable>
             <Pressable
               style={sc.headerBtn}
+              accessibilityRole="button"
+              accessibilityLabel="إعدادات المتجر"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setSettDeliveryTime(vendorProfile?.deliveryTime || "30-45");
@@ -853,6 +868,8 @@ export default function VendorHomeScreen({ navigation }: any) {
                       onPress={() => dismissNotification(notif)}
                       hitSlop={10}
                       testID={`button-dismiss-notification-${notif.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel="إخفاء التنبيه"
                     >
                       <Feather name="x" size={16} color={AppColors.gray400} />
                     </Pressable>
@@ -1088,6 +1105,7 @@ export default function VendorHomeScreen({ navigation }: any) {
           {/* ── Profile completion nudge ─────────────────────────────────── */}
           {!vendorProfile?.bio && (
             <Pressable
+              accessibilityRole="button"
               style={sc.nudgeCard}
               onPress={() => setBioModalVisible(true)}
             >
@@ -1131,6 +1149,7 @@ export default function VendorHomeScreen({ navigation }: any) {
             <ThemedText style={sc.bioCount}>{bioText.length}/200</ThemedText>
             <View style={sc.sheetActions}>
               <Pressable
+                accessibilityRole="button"
                 style={sc.btnPrimary}
                 onPress={saveBio}
                 disabled={savingBio}
@@ -1142,6 +1161,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                 )}
               </Pressable>
               <Pressable
+                accessibilityRole="button"
                 style={sc.btnSecondary}
                 onPress={() => setBioModalVisible(false)}
               >
@@ -1167,6 +1187,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                 style={sc.settInput}
                 value={settDeliveryTime}
                 onChangeText={setSettDeliveryTime}
+                accessibilityLabel="وقت التوصيل المتوقع (دقائق)"
                 placeholder="مثال: 20-30"
                 placeholderTextColor={AppColors.gray300}
                 textAlign="right"
@@ -1179,6 +1200,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                 style={sc.settInput}
                 value={settDeliveryPrice}
                 onChangeText={setSettDeliveryPrice}
+                accessibilityLabel="سعر التوصيل (دينار عراقي)"
                 placeholder="0 = توصيل مجاني"
                 placeholderTextColor={AppColors.gray300}
                 textAlign="right"
@@ -1188,6 +1210,9 @@ export default function VendorHomeScreen({ navigation }: any) {
               <View style={sc.toggleRow}>
                 <Pressable
                   onPress={() => setSettingsUseHours(!settingsUseHours)}
+                  accessibilityRole="switch"
+                  accessibilityLabel="تحديد ساعات العمل"
+                  accessibilityState={{ checked: settingsUseHours }}
                   style={[
                     sc.toggle,
                     {
@@ -1220,6 +1245,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                     style={sc.settInput}
                     value={settOpenTime}
                     onChangeText={setSettOpenTime}
+                    accessibilityLabel="وقت الفتح"
                     placeholder="09:00"
                     placeholderTextColor={AppColors.gray300}
                     textAlign="right"
@@ -1230,6 +1256,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                     style={sc.settInput}
                     value={settCloseTime}
                     onChangeText={setSettCloseTime}
+                    accessibilityLabel="وقت الإغلاق"
                     placeholder="22:00"
                     placeholderTextColor={AppColors.gray300}
                     textAlign="right"
@@ -1241,6 +1268,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                       const active = settOpenDays.includes(i);
                       return (
                         <Pressable
+                          accessibilityRole="button"
                           key={i}
                           onPress={() => {
                             Haptics.impactAsync(
@@ -1283,6 +1311,7 @@ export default function VendorHomeScreen({ navigation }: any) {
 
               <View style={[sc.sheetActions, { marginTop: 18 }]}>
                 <Pressable
+                  accessibilityRole="button"
                   style={sc.btnPrimary}
                   onPress={saveStoreSettings}
                   disabled={savingSettings}
@@ -1296,6 +1325,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                   )}
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
                   style={sc.btnSecondary}
                   onPress={() => setSettingsVisible(false)}
                 >

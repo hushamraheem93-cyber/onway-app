@@ -131,7 +131,23 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         };
 
         return (
-          <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
+          // H-63: the visible label already names this tab, so no accessibilityLabel
+          // is added for it — except when the unread badge is showing, where the
+          // reader would otherwise announce "الطلبات ٩+" and leave "9+ of what?"
+          // unanswered. Role and selected state were missing outright: focus was
+          // carried by colour and a background tint, neither of which is announced.
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            style={styles.tabItem}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isFocused }}
+            accessibilityLabel={
+              isOrders && unreadCount > 0
+                ? `${config.label}، ${unreadCount} طلب غير مقروء`
+                : undefined
+            }
+          >
             <View
               style={[
                 styles.iconWrap,

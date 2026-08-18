@@ -244,7 +244,11 @@ function ReplyModal({
           <View style={rm.handle} />
           <View style={rm.header}>
             <ThemedText style={rm.title}>الرد على التقييم</ThemedText>
-            <Pressable onPress={onClose}>
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="إغلاق الرد على التقييم"
+            >
               <Feather name="x" size={20} color={theme.textSecondary} />
             </Pressable>
           </View>
@@ -268,6 +272,7 @@ function ReplyModal({
           />
           <View style={rm.btns}>
             <Pressable
+              accessibilityRole="button"
               onPress={onClose}
               style={[rm.btn, { backgroundColor: theme.backgroundRoot }]}
             >
@@ -281,6 +286,7 @@ function ReplyModal({
               </ThemedText>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               onPress={handleSave}
               disabled={saving || !text.trim()}
               style={[
@@ -428,6 +434,7 @@ function WalletTab() {
       <View style={wt.periodRow}>
         {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
           <Pressable
+            accessibilityRole="button"
             key={p}
             style={[wt.periodBtn, period === p && { backgroundColor: ORANGE }]}
             onPress={() => setPeriod(p)}
@@ -846,6 +853,7 @@ function RatingsTab({ vendorId }: { vendorId: string | null }) {
           </View>
         )}
         <Pressable
+          accessibilityRole="button"
           onPress={() =>
             setReply({
               visible: true,
@@ -934,6 +942,7 @@ function RatingsTab({ vendorId }: { vendorId: string | null }) {
       <View style={rt.filterRow}>
         {FILTER_TABS.map((tab) => (
           <Pressable
+            accessibilityRole="button"
             key={tab.key}
             onPress={() => setFilter(tab.key)}
             style={[
@@ -1128,6 +1137,7 @@ export default function VendorAnalyticsScreen() {
           const active = activeTab === t.key;
           return (
             <Pressable
+              accessibilityRole="button"
               key={t.key}
               style={[
                 main.tabBtn,

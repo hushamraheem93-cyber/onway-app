@@ -216,6 +216,7 @@ function SettingsTabInner({
               testID="input-service-fee"
             />
             <Pressable
+              accessibilityRole="button"
               onPress={handleSaveFee}
               disabled={isSavingFee || serviceFeeInput.trim() === ""}
               style={{
@@ -253,6 +254,7 @@ function SettingsTabInner({
 
         {/* Sign out (H-64 / A-1) */}
         <Pressable
+          accessibilityRole="button"
           onPress={handleAdminLogout}
           style={{
             backgroundColor: theme.backgroundSecondary,
@@ -486,6 +488,7 @@ function SettingsTabInner({
           )}
 
           <Pressable
+            accessibilityRole="button"
             onPress={saveDeliveryPricing}
             disabled={isSavingDeliveryPricing}
             style={{
@@ -562,6 +565,7 @@ function SettingsTabInner({
           <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
             {(["flat", "percent"] as const).map((t) => (
               <Pressable
+                accessibilityRole="button"
                 key={t}
                 onPress={() => setPayoutRuleType(t)}
                 style={{
@@ -647,6 +651,7 @@ function SettingsTabInner({
             />
           )}
           <Pressable
+            accessibilityRole="button"
             onPress={saveDriverPayoutRule}
             disabled={isSavingPayout}
             style={{
@@ -743,6 +748,7 @@ function SettingsTabInner({
               onChangeText={setAutoSuspendInput}
             />
             <Pressable
+              accessibilityRole="button"
               onPress={saveAutoSuspendThreshold}
               disabled={isSavingSuspend}
               style={{
@@ -818,6 +824,7 @@ function SettingsTabInner({
           <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
             {[1, 2, 3, 4].map((n) => (
               <Pressable
+                accessibilityRole="button"
                 key={n}
                 onPress={() => saveMaxBatchSize(n)}
                 disabled={isSavingMaxBatch}
@@ -892,6 +899,7 @@ function SettingsTabInner({
             </View>
           </View>
           <Pressable
+            accessibilityRole="button"
             onPress={emergencyRedistribute}
             disabled={isRedistributing}
             style={{

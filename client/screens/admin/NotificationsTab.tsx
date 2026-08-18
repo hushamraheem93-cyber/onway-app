@@ -62,6 +62,7 @@ function NotificationsTabInner({
             styles.notifInput,
             { color: theme.text, borderColor: theme.backgroundSecondary },
           ]}
+          accessibilityLabel="عنوان الإشعار"
           placeholder="مثال: تخفيضات حصرية اليوم!"
           placeholderTextColor={AppColors.gray400}
           value={notifForm.title}
@@ -107,6 +108,7 @@ function NotificationsTabInner({
       ) : null}
 
       <Pressable
+        accessibilityRole="button"
         style={[styles.notifSendBtn, isSendingNotif && { opacity: 0.7 }]}
         onPress={handleSendNotification}
         disabled={isSendingNotif}

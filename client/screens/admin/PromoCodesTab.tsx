@@ -69,6 +69,7 @@ function PromoCodesTabInner({
 
         <View style={styles.typeSelector}>
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.typeButton,
               promoForm.type === "fixed" && styles.typeButtonActive,
@@ -86,6 +87,7 @@ function PromoCodesTabInner({
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.typeButton,
               promoForm.type === "percentage" && styles.typeButtonActive,
@@ -123,6 +125,7 @@ function PromoCodesTabInner({
             styles.input,
             { backgroundColor: theme.backgroundSecondary, color: theme.text },
           ]}
+          accessibilityLabel="تاريخ انتهاء الكود"
           placeholder="YYYY-MM-DD"
           placeholderTextColor={theme.textSecondary}
           value={promoForm.expiryDate}
@@ -133,13 +136,21 @@ function PromoCodesTabInner({
 
         <View style={styles.formButtons}>
           {isEditing ? (
-            <Pressable style={styles.cancelButton} onPress={resetForm}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.cancelButton}
+              onPress={resetForm}
+            >
               <ThemedText type="body" style={styles.cancelButtonText}>
                 إلغاء
               </ThemedText>
             </Pressable>
           ) : null}
-          <Pressable style={styles.saveButton} onPress={savePromoCode}>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.saveButton}
+            onPress={savePromoCode}
+          >
             <ThemedText type="body" style={styles.saveButtonText}>
               {editItem ? "حفظ التعديلات" : "إضافة"}
             </ThemedText>
@@ -210,12 +221,17 @@ function PromoCodesTabInner({
               <Pressable
                 onPress={() => handleEditPromo(promo)}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`تعديل كود الخصم ${promo.code}`}
               >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable
                 onPress={() => confirmDelete(promo.id, "promoCode")}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`حذف كود الخصم ${promo.code}`}
+                accessibilityHint="يفتح تأكيداً قبل الحذف"
               >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>

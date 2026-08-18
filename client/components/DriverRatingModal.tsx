@@ -84,6 +84,8 @@ export function DriverRatingModal({
                 onPress={() => setStars(n)}
                 hitSlop={6}
                 accessibilityRole="button"
+                accessibilityLabel={`${n} من 5 نجوم`}
+                accessibilityState={{ selected: n <= stars }}
               >
                 <Feather
                   name="star"

@@ -106,6 +106,7 @@ function ProductsTabInner({
           >
             {categories.map((cat) => (
               <Pressable
+                accessibilityRole="button"
                 key={cat.id}
                 style={[
                   styles.categoryChip,
@@ -202,6 +203,7 @@ function ProductsTabInner({
               متوفر
             </ThemedText>
             <Switch
+              accessibilityLabel="متوفر"
               value={productForm.inStock}
               onValueChange={(value) =>
                 setProductForm({ ...productForm, inStock: value })
@@ -229,6 +231,7 @@ function ProductsTabInner({
         />
 
         <Pressable
+          accessibilityRole="button"
           style={[styles.imagePicker, { borderColor: theme.border }]}
           onPress={() =>
             pickImage((uri) =>
@@ -257,13 +260,18 @@ function ProductsTabInner({
 
         <View style={styles.formButtons}>
           {isEditing ? (
-            <Pressable style={styles.cancelButton} onPress={resetForm}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.cancelButton}
+              onPress={resetForm}
+            >
               <ThemedText type="body" style={styles.cancelButtonText}>
                 إلغاء
               </ThemedText>
             </Pressable>
           ) : null}
           <Pressable
+            accessibilityRole="button"
             style={[styles.saveButton, isSavingProduct && { opacity: 0.7 }]}
             onPress={saveProduct}
             disabled={isSavingProduct}
@@ -345,12 +353,17 @@ function ProductsTabInner({
               <Pressable
                 onPress={() => handleEditProduct(product)}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`تعديل منتج ${product.name}`}
               >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable
                 onPress={() => confirmDelete(product.id, "product")}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`حذف منتج ${product.name}`}
+                accessibilityHint="يفتح تأكيداً قبل الحذف"
               >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>

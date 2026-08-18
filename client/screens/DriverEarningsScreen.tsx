@@ -410,6 +410,7 @@ function FilterPills({
         const isActive = f.key === active;
         return (
           <Pressable
+            accessibilityRole="button"
             key={f.key}
             onPress={() => onChange(f.key)}
             style={{
@@ -1699,6 +1700,7 @@ export default function DriverEarningsScreen() {
           <TextInput
             value={customFrom}
             onChangeText={setCustomFrom}
+            accessibilityLabel="من تاريخ"
             placeholder="من (YYYY-MM-DD)"
             style={[
               styles.dateInput,
@@ -1713,6 +1715,7 @@ export default function DriverEarningsScreen() {
           <TextInput
             value={customTo}
             onChangeText={setCustomTo}
+            accessibilityLabel="إلى تاريخ"
             placeholder="إلى (YYYY-MM-DD)"
             style={[
               styles.dateInput,
@@ -1760,6 +1763,7 @@ export default function DriverEarningsScreen() {
             const isActive = activeTab === tab.key;
             return (
               <Pressable
+                accessibilityRole="button"
                 key={tab.key}
                 style={[
                   styles.tabItem,

@@ -45,13 +45,16 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
  * `{ error: "<Arabic message>" }` on failure.
  */
 async function serverError(res: Response): Promise<string> {
-  const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  const data = (await res.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
   return typeof data?.error === "string" && data.error.trim()
     ? data.error
     : "حاول مرة أخرى";
 }
 
-const CONNECTION_ERROR = "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
+const CONNECTION_ERROR =
+  "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
 
 // ─── Status chip config ───────────────────────────────────────────────────────
 const STATUS_CFG: Record<
@@ -213,10 +216,12 @@ function ConfirmModal({
       onRequestClose={onCancel}
     >
       <Pressable
+        accessibilityRole="button"
         style={styles.modalOverlay}
         onPress={loading ? undefined : onCancel}
       >
         <Pressable
+          accessibilityRole="button"
           style={[
             styles.modalBox,
             { backgroundColor: theme.backgroundDefault },
@@ -247,6 +252,7 @@ function ConfirmModal({
           </ThemedText>
           <View style={styles.modalBtns}>
             <Pressable
+              accessibilityRole="button"
               style={[
                 styles.modalBtn,
                 { borderColor: theme.border, borderWidth: 1 },
@@ -265,6 +271,7 @@ function ConfirmModal({
               </ThemedText>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               style={[
                 styles.modalBtn,
                 { backgroundColor: confirmColor ?? AppColors.primary },
@@ -784,6 +791,7 @@ export default function DriverOrdersScreen() {
         <View style={styles.quickRow}>
           {order.customerPhone ? (
             <Pressable
+              accessibilityRole="button"
               testID={`button-call-${order.id}`}
               style={[styles.quickBtn, { backgroundColor: "#4CAF5015" }]}
               onPress={() => callCustomer(order.customerPhone)}
@@ -802,6 +810,7 @@ export default function DriverOrdersScreen() {
           ) : null}
           {hasMap ? (
             <Pressable
+              accessibilityRole="button"
               testID={`button-map-${order.id}`}
               style={[styles.quickBtn, { backgroundColor: "#2196F315" }]}
               onPress={() => openMap(order)}
@@ -835,6 +844,7 @@ export default function DriverOrdersScreen() {
           </View>
         ) : canDeliver ? (
           <Pressable
+            accessibilityRole="button"
             testID={`button-deliver-${order.id}`}
             style={[styles.primaryBtn, { backgroundColor: AppColors.success }]}
             onPress={() =>
@@ -857,6 +867,7 @@ export default function DriverOrdersScreen() {
           </Pressable>
         ) : canPickup ? (
           <Pressable
+            accessibilityRole="button"
             testID={`button-pickup-${order.id}`}
             style={[
               styles.primaryBtn,
@@ -1037,6 +1048,7 @@ export default function DriverOrdersScreen() {
               </ThemedText>
               {orders.length > 1 ? (
                 <Pressable
+                  accessibilityRole="button"
                   testID="button-optimize-route"
                   onPress={handleOptimizeRoute}
                   style={[
@@ -1079,6 +1091,7 @@ export default function DriverOrdersScreen() {
         {/* Navigate to full batch screen */}
         {batch?.status === "in_progress" ? (
           <Pressable
+            accessibilityRole="button"
             testID="button-manage-batch"
             style={[
               styles.manageBatchBtn,

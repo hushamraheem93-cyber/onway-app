@@ -95,7 +95,11 @@ function UsersTabInner({
             textAlign="right"
           />
           {usersSearch.length > 0 ? (
-            <Pressable onPress={() => setUsersSearch("")}>
+            <Pressable
+              onPress={() => setUsersSearch("")}
+              accessibilityRole="button"
+              accessibilityLabel="مسح البحث"
+            >
               <Feather name="x" size={15} color={AppColors.gray400} />
             </Pressable>
           ) : null}
@@ -103,6 +107,7 @@ function UsersTabInner({
 
         {/* Refresh */}
         <Pressable
+          accessibilityRole="button"
           style={styles.usersRefreshBtn}
           onPress={() => refetchUsers()}
         >

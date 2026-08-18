@@ -70,6 +70,7 @@ const SettingsRow = React.memo(
         ]}
         onPress={onPress}
         testID={testID}
+        accessibilityRole="button"
       >
         <View style={[sr.iconBox, { backgroundColor: iconBg }]}>
           <MaterialCommunityIcons
@@ -177,7 +178,12 @@ function SheetModal({
           <View style={sm.handle} />
           <View style={sm.header}>
             <ThemedText style={sm.title}>{title}</ThemedText>
-            <Pressable onPress={onClose} hitSlop={10}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`إغلاق ${title}`}
+            >
               <Feather name="x" size={20} color={AppColors.gray400} />
             </Pressable>
           </View>
@@ -533,6 +539,8 @@ export default function VendorProfileScreen() {
         <Pressable
           style={p.coverWrap}
           onPress={() => uploadImage("coverImage")}
+          accessibilityRole="button"
+          accessibilityLabel="تغيير صورة الغلاف"
         >
           {coverUrl ? (
             <Image
@@ -570,6 +578,7 @@ export default function VendorProfileScreen() {
         {/* Avatar + info */}
         <View style={p.avatarRow}>
           <Pressable
+            accessibilityRole="button"
             style={p.avatarWrap}
             onPress={() => uploadImage("profileImage")}
           >
@@ -608,6 +617,7 @@ export default function VendorProfileScreen() {
 
           <View style={{ flex: 1, gap: 4 }}>
             <Pressable
+              accessibilityRole="button"
               style={p.storeNameRow}
               onPress={() => setStoreNameModal(true)}
             >
@@ -636,7 +646,11 @@ export default function VendorProfileScreen() {
         </View>
 
         {/* Bio */}
-        <Pressable style={p.bioRow} onPress={() => setBioModal(true)}>
+        <Pressable
+          accessibilityRole="button"
+          style={p.bioRow}
+          onPress={() => setBioModal(true)}
+        >
           <ThemedText
             style={[
               p.bioText,
@@ -790,6 +804,7 @@ export default function VendorProfileScreen() {
         />
         <View style={md.btns}>
           <Pressable
+            accessibilityRole="button"
             style={[
               md.btn,
               {
@@ -808,6 +823,7 @@ export default function VendorProfileScreen() {
             )}
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: AppColors.gray100 }]}
             onPress={() => setStoreNameModal(false)}
           >
@@ -843,6 +859,7 @@ export default function VendorProfileScreen() {
         />
         <View style={md.btns}>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: ORANGE }]}
             onPress={saveBio}
             disabled={savingBio}
@@ -854,6 +871,7 @@ export default function VendorProfileScreen() {
             )}
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: AppColors.gray100 }]}
             onPress={() => setBioModal(false)}
           >
@@ -882,6 +900,7 @@ export default function VendorProfileScreen() {
             ]}
             value={settDeliveryTime}
             onChangeText={setDeliveryTime}
+            accessibilityLabel="وقت التوصيل (دقائق)"
             placeholder="مثال: 30-45"
             placeholderTextColor={AppColors.gray400}
             textAlign="right"
@@ -899,12 +918,14 @@ export default function VendorProfileScreen() {
             value={settDeliveryPrice}
             onChangeText={setDeliveryPrice}
             keyboardType="numeric"
+            accessibilityLabel="أجرة التوصيل (د.ع)"
             placeholder="0"
             placeholderTextColor={AppColors.gray400}
             textAlign="right"
           />
 
           <Pressable
+            accessibilityRole="button"
             style={md.toggleRow}
             onPress={() => setUseHours(!useHours)}
           >
@@ -933,6 +954,7 @@ export default function VendorProfileScreen() {
                   ]}
                   value={settOpenTime}
                   onChangeText={setOpenTime}
+                  accessibilityLabel="وقت الفتح"
                   placeholder="09:00"
                   placeholderTextColor={AppColors.gray400}
                   textAlign="right"
@@ -950,6 +972,7 @@ export default function VendorProfileScreen() {
                   ]}
                   value={settCloseTime}
                   onChangeText={setCloseTime}
+                  accessibilityLabel="وقت الإغلاق"
                   placeholder="22:00"
                   placeholderTextColor={AppColors.gray400}
                   textAlign="right"
@@ -964,6 +987,7 @@ export default function VendorProfileScreen() {
                 const on = settOpenDays.includes(i);
                 return (
                   <Pressable
+                    accessibilityRole="button"
                     key={i}
                     style={[
                       md.dayBtn,
@@ -988,6 +1012,7 @@ export default function VendorProfileScreen() {
 
           <View style={[md.btns, { marginTop: 8 }]}>
             <Pressable
+              accessibilityRole="button"
               style={[md.btn, { backgroundColor: ORANGE }]}
               onPress={saveSettings}
               disabled={savingSettings}
@@ -999,6 +1024,7 @@ export default function VendorProfileScreen() {
               )}
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               style={[md.btn, { backgroundColor: AppColors.gray100 }]}
               onPress={() => setSettingsModal(false)}
             >

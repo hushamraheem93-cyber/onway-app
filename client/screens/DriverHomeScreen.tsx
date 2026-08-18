@@ -1046,6 +1046,7 @@ export default function DriverHomeScreen() {
   // ── Online toggle ───────────────────────────────────────────────────────────
   const renderToggle = () => (
     <Pressable
+      accessibilityRole="button"
       onPress={handleToggleOnline}
       disabled={isToggling}
       style={[
@@ -1332,9 +1333,12 @@ export default function DriverHomeScreen() {
         {/* Accept / Reject */}
         <View style={styles.incomingActions}>
           <Pressable
+            accessibilityRole="button"
             style={styles.rejectBtn}
             onPress={handleRejectBatch}
             testID="button-reject-batch"
+            accessibilityLabel="رفض مجموعة الطلبات"
+            accessibilityHint="يرفض جميع طلبات هذه المجموعة"
           >
             <Feather name="x" size={18} color={AppColors.error} />
             <ThemedText
@@ -1345,10 +1349,13 @@ export default function DriverHomeScreen() {
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[styles.acceptBtn, { opacity: isAccepting ? 0.75 : 1 }]}
             onPress={handleAcceptBatch}
             disabled={isAccepting}
             testID="button-accept-batch"
+            accessibilityLabel="قبول مجموعة الطلبات"
+            accessibilityState={{ disabled: isAccepting, busy: isAccepting }}
           >
             {isAccepting ? (
               <ActivityIndicator size="small" color={AppColors.white} />
@@ -1475,6 +1482,7 @@ export default function DriverHomeScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={[
             styles.manageBatchBtn,
             { backgroundColor: AppColors.statusPurple },
@@ -1584,6 +1592,7 @@ export default function DriverHomeScreen() {
           </View>
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={handleWhatsAppSupport}
           style={[styles.whatsappBtn, { backgroundColor: textColor }]}
           testID="button-whatsapp-support"
@@ -1657,10 +1666,12 @@ export default function DriverHomeScreen() {
         onRequestClose={() => !issueSending && setIssueModalVisible(false)}
       >
         <Pressable
+          accessibilityRole="button"
           style={styles.modalOverlay}
           onPress={() => !issueSending && setIssueModalVisible(false)}
         >
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.modalBox,
               { backgroundColor: theme.backgroundDefault },
@@ -1717,6 +1728,7 @@ export default function DriverHomeScreen() {
                 </ThemedText>
                 {ISSUE_OPTIONS.map((opt) => (
                   <Pressable
+                    accessibilityRole="button"
                     key={opt.key}
                     style={[styles.issueOption, { borderColor: theme.border }]}
                     onPress={() => handleSelectIssue(opt.key)}
@@ -1749,6 +1761,7 @@ export default function DriverHomeScreen() {
                   </Pressable>
                 ))}
                 <Pressable
+                  accessibilityRole="button"
                   style={{
                     alignItems: "center",
                     paddingVertical: Spacing.sm,

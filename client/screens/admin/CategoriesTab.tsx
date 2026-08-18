@@ -78,6 +78,7 @@ function CategoriesTabInner({
         />
 
         <Pressable
+          accessibilityRole="button"
           style={[styles.imagePicker, { borderColor: theme.border }]}
           onPress={() =>
             pickImage((uri) =>
@@ -107,13 +108,21 @@ function CategoriesTabInner({
 
         <View style={styles.formButtons}>
           {isEditing ? (
-            <Pressable style={styles.cancelButton} onPress={resetForm}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.cancelButton}
+              onPress={resetForm}
+            >
               <ThemedText type="body" style={styles.cancelButtonText}>
                 إلغاء
               </ThemedText>
             </Pressable>
           ) : null}
-          <Pressable style={styles.saveButton} onPress={saveCategory}>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.saveButton}
+            onPress={saveCategory}
+          >
             <ThemedText type="body" style={styles.saveButtonText}>
               {editItem ? "حفظ التعديلات" : "إضافة"}
             </ThemedText>
@@ -150,12 +159,17 @@ function CategoriesTabInner({
               <Pressable
                 onPress={() => handleEditCategory(category)}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`تعديل قسم ${category.name}`}
               >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable
                 onPress={() => confirmDelete(category.id, "category")}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`حذف قسم ${category.name}`}
+                accessibilityHint="يفتح تأكيداً قبل الحذف"
               >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
@@ -166,6 +180,7 @@ function CategoriesTabInner({
 
       {hasCategoryChanges ? (
         <Pressable
+          accessibilityRole="button"
           testID="button-save-category-changes"
           onPress={saveCategoryChanges}
           style={[

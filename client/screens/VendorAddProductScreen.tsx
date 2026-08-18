@@ -282,6 +282,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             : "سيراجع الفريق منتجك خلال 24 ساعة ويظهر للزبائن بعد الموافقة"}
         </ThemedText>
         <Pressable
+          accessibilityRole="button"
           style={[s.btn, { backgroundColor: ORANGE }]}
           onPress={() => {
             setSuccess(false);
@@ -300,6 +301,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
           <ThemedText style={s.btnText}>إضافة منتج آخر</ThemedText>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           style={[s.btn, { backgroundColor: AppColors.gray100 }]}
           onPress={() => navigation.navigate("VendorProducts")}
           testID="button-view-products"
@@ -408,12 +410,15 @@ export default function VendorAddProductScreen({ navigation }: any) {
               style={s.heroRemoveBtn}
               onPress={() => removeImage(0)}
               testID="button-remove-image-0"
+              accessibilityRole="button"
+              accessibilityLabel="إزالة الصورة الرئيسية"
             >
               <Feather name="x" size={14} color={AppColors.white} />
             </Pressable>
           </View>
         ) : (
           <Pressable
+            accessibilityRole="button"
             style={s.heroPlaceholder}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -454,6 +459,8 @@ export default function VendorAddProductScreen({ navigation }: any) {
                     style={s.removeBtn}
                     onPress={() => removeImage(index)}
                     testID={`button-remove-image-${index}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`إزالة الصورة ${index + 1}`}
                   >
                     <Feather name="x" size={11} color={AppColors.white} />
                   </Pressable>
@@ -462,6 +469,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             })}
             {imageUris.length < MAX_IMAGES && (
               <Pressable
+                accessibilityRole="button"
                 style={s.addThumbBtn}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -480,6 +488,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
 
         <View style={s.imgActions}>
           <Pressable
+            accessibilityRole="button"
             style={s.imgActionBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -496,6 +505,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             style={[s.imgActionDivider, { backgroundColor: AppColors.divider }]}
           />
           <Pressable
+            accessibilityRole="button"
             style={s.imgActionBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -552,6 +562,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               style={s.input}
               value={price}
               onChangeText={setPrice}
+              accessibilityLabel="السعر (دينار)"
               placeholder="5000"
               placeholderTextColor={AppColors.gray300}
               keyboardType="numeric"
@@ -564,6 +575,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               style={s.input}
               value={stock}
               onChangeText={setStock}
+              accessibilityLabel="المخزون"
               placeholder="100"
               placeholderTextColor={AppColors.gray300}
               keyboardType="numeric"
@@ -591,6 +603,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             selectedValue={category}
             onValueChange={setCategory}
             style={s.picker}
+            accessibilityLabel="القسم / الفئة"
           >
             {categories.map((c) => (
               <Picker.Item key={c} label={c} value={c} />
@@ -604,7 +617,12 @@ export default function VendorAddProductScreen({ navigation }: any) {
         />
         <ThemedText style={s.label}>وحدة القياس</ThemedText>
         <View style={s.pickerWrap}>
-          <Picker selectedValue={unit} onValueChange={setUnit} style={s.picker}>
+          <Picker
+            selectedValue={unit}
+            onValueChange={setUnit}
+            style={s.picker}
+            accessibilityLabel="وحدة القياس"
+          >
             {UNITS.map((u) => (
               <Picker.Item key={u} label={u} value={u} />
             ))}
@@ -625,6 +643,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             <ThemedText style={s.optional}>(اختياري)</ThemedText>
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             onPress={addVariant}
             style={s.addExtraBtn}
             testID="button-add-variant"
@@ -646,6 +665,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               style={[s.input, s.extraInput, { flex: 2 }]}
               value={v.name}
               onChangeText={(val) => updateVariant(v.id, "name", val)}
+              accessibilityLabel="اسم الحجم"
               placeholder="الاسم"
               placeholderTextColor={AppColors.gray300}
               testID={`input-variant-name-${v.id}`}
@@ -656,6 +676,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               onChangeText={(val) =>
                 updateVariant(v.id, "priceAdjustment", val)
               }
+              accessibilityLabel="فرق سعر الحجم"
               placeholder="فرق السعر"
               placeholderTextColor={AppColors.gray300}
               keyboardType="numeric"
@@ -665,6 +686,8 @@ export default function VendorAddProductScreen({ navigation }: any) {
               onPress={() => removeVariant(v.id)}
               style={s.extraRemoveBtn}
               testID={`button-remove-variant-${v.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`إزالة الحجم ${v.name || ""}`.trim()}
             >
               <Feather name="x" size={14} color={AppColors.error} />
             </Pressable>
@@ -684,6 +707,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             الإضافات <ThemedText style={s.optional}>(اختياري)</ThemedText>
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             onPress={addAddon}
             style={s.addExtraBtn}
             testID="button-add-addon"
@@ -713,6 +737,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               style={[s.input, s.extraInput, { flex: 1 }]}
               value={a.price}
               onChangeText={(val) => updateAddon(a.id, "price", val)}
+              accessibilityLabel="سعر الإضافة"
               placeholder="السعر"
               placeholderTextColor={AppColors.gray300}
               keyboardType="numeric"
@@ -722,6 +747,8 @@ export default function VendorAddProductScreen({ navigation }: any) {
               onPress={() => removeAddon(a.id)}
               style={s.extraRemoveBtn}
               testID={`button-remove-addon-${a.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`إزالة الإضافة ${a.name || ""}`.trim()}
             >
               <Feather name="x" size={14} color={AppColors.error} />
             </Pressable>
@@ -748,6 +775,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
 
       {/* Submit */}
       <Pressable
+        accessibilityRole="button"
         style={[s.submitBtn, loading && { opacity: 0.6 }]}
         onPress={submit}
         disabled={loading}

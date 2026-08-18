@@ -46,13 +46,16 @@ type BatchScreenRoute = RouteProp<RootStackParamList, "DriverBatch">;
  * handler that only has a try/catch never sees them and shows nothing at all.
  */
 async function serverError(res: Response): Promise<string> {
-  const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  const data = (await res.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
   return typeof data?.error === "string" && data.error.trim()
     ? data.error
     : "حاول مرة أخرى";
 }
 
-const CONNECTION_ERROR = "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
+const CONNECTION_ERROR =
+  "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
 
 const STATUS_CONFIG: Record<
   string,
@@ -505,6 +508,7 @@ export default function DriverBatchScreen() {
             <View style={styles.storeActions}>
               {order.storePhone ? (
                 <Pressable
+                  accessibilityRole="button"
                   style={[styles.storeBtn, { backgroundColor: "#4CAF5015" }]}
                   onPress={() => {
                     const url =
@@ -744,6 +748,7 @@ export default function DriverBatchScreen() {
         {/* Quick action buttons */}
         <View style={styles.quickActions}>
           <Pressable
+            accessibilityRole="button"
             style={[styles.quickBtn, { backgroundColor: "#4CAF5015" }]}
             onPress={() => handleCallCustomer(order.customerPhone)}
             testID={`button-call-${order.id}`}
@@ -761,6 +766,7 @@ export default function DriverBatchScreen() {
           </Pressable>
           {order.latitude && order.longitude ? (
             <Pressable
+              accessibilityRole="button"
               style={[styles.quickBtn, { backgroundColor: "#2196F315" }]}
               onPress={() => handleOpenMap(order)}
               testID={`button-map-${order.id}`}
@@ -779,6 +785,7 @@ export default function DriverBatchScreen() {
           ) : null}
           {canAct ? (
             <Pressable
+              accessibilityRole="button"
               style={[
                 styles.quickBtn,
                 { backgroundColor: AppColors.primary + "15" },
@@ -811,6 +818,7 @@ export default function DriverBatchScreen() {
         {!isDelivered ? (
           isWaitingAtStore ? (
             <Pressable
+              accessibilityRole="button"
               style={[
                 styles.mainActionBtn,
                 {
@@ -840,6 +848,7 @@ export default function DriverBatchScreen() {
             </Pressable>
           ) : (
             <Pressable
+              accessibilityRole="button"
               style={[
                 styles.mainActionBtn,
                 {
@@ -915,6 +924,8 @@ export default function DriverBatchScreen() {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
           testID="button-back"
+          accessibilityRole="button"
+          accessibilityLabel="رجوع"
         >
           <Feather name="chevron-right" size={26} color={AppColors.white} />
         </Pressable>
@@ -932,6 +943,10 @@ export default function DriverBatchScreen() {
             onPress={handleRejectBatch}
             disabled={isRejecting}
             testID="button-reject-batch"
+            accessibilityRole="button"
+            accessibilityLabel="رفض مجموعة الطلبات"
+            accessibilityHint="يرفض جميع طلبات هذه المجموعة"
+            accessibilityState={{ disabled: isRejecting, busy: isRejecting }}
           >
             {isRejecting ? (
               <ActivityIndicator size="small" color={AppColors.white} />
@@ -952,10 +967,14 @@ export default function DriverBatchScreen() {
             طلب معلق — قبول أو رفض مطلوب
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             style={styles.rejectBannerBtn}
             onPress={handleRejectBatch}
             disabled={isRejecting}
             testID="button-reject-batch-banner"
+            accessibilityLabel="رفض مجموعة الطلبات"
+            accessibilityHint="يرفض جميع طلبات هذه المجموعة"
+            accessibilityState={{ disabled: isRejecting, busy: isRejecting }}
           >
             {isRejecting ? (
               <ActivityIndicator size="small" color={AppColors.error} />
@@ -1093,10 +1112,12 @@ export default function DriverBatchScreen() {
         onRequestClose={() => !issueSending && setIssueModalVisible(false)}
       >
         <Pressable
+          accessibilityRole="button"
           style={styles.modalOverlay}
           onPress={() => !issueSending && setIssueModalVisible(false)}
         >
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.modalBox,
               { backgroundColor: theme.backgroundDefault },
@@ -1155,6 +1176,7 @@ export default function DriverBatchScreen() {
                 </ThemedText>
                 {ISSUE_OPTIONS.map((opt) => (
                   <Pressable
+                    accessibilityRole="button"
                     key={opt.key}
                     style={[styles.issueOption, { borderColor: theme.border }]}
                     onPress={() => handleSelectIssue(opt.key)}
@@ -1187,6 +1209,7 @@ export default function DriverBatchScreen() {
                   </Pressable>
                 ))}
                 <Pressable
+                  accessibilityRole="button"
                   style={styles.modalCancelBtn}
                   onPress={() => setIssueModalVisible(false)}
                   disabled={issueSending}

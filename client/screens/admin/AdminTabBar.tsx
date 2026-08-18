@@ -64,6 +64,9 @@ function AdminTabBarInner<K extends string>({
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
+            // H-63: the visible label already names the tab; only the badge case
+            // needs an explicit one, so the count is not read as a bare number.
+            // The active tab was marked by an underline colour alone.
             <Pressable
               key={tab.key}
               style={[
@@ -72,6 +75,13 @@ function AdminTabBarInner<K extends string>({
               ]}
               onPress={() => onSelect(tab.key)}
               testID={`tab-${tab.key}`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={
+                tab.badge && tab.badge > 0
+                  ? `${tab.label}، ${tab.badge} جديد`
+                  : undefined
+              }
             >
               <View style={{ position: "relative" }}>
                 <Feather

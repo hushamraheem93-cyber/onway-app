@@ -285,6 +285,7 @@ export default function DriverProfileScreen() {
             الدعم الفني
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             style={styles.menuRow}
             onPress={handleSupportChat}
             testID="button-support-chat"
@@ -316,6 +317,7 @@ export default function DriverProfileScreen() {
             </View>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[styles.menuRow, { borderBottomWidth: 0 }]}
             onPress={handleWhatsApp}
             testID="button-support-whatsapp"
@@ -349,6 +351,7 @@ export default function DriverProfileScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={[styles.logoutButton, { borderColor: AppColors.error }]}
           onPress={handleLogout}
           testID="button-logout"

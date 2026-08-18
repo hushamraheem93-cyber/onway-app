@@ -390,6 +390,7 @@ function OrdersTabInner({
             </ThemedText>
             {order.status === "in_delivery" || order.status === "picked_up" ? (
               <Pressable
+                accessibilityRole="button"
                 style={[styles.trackBtn]}
                 onPress={() => openTrackingModal(order.id)}
               >
@@ -429,6 +430,7 @@ function OrdersTabInner({
                   <>
                     {order.status === "pending" ? (
                       <Pressable
+                        accessibilityRole="button"
                         style={[
                           styles.statusBtn,
                           { backgroundColor: AppColors.info },
@@ -450,6 +452,7 @@ function OrdersTabInner({
                     ) : null}
                     {order.status === "confirmed" ? (
                       <Pressable
+                        accessibilityRole="button"
                         style={[
                           styles.statusBtn,
                           { backgroundColor: AppColors.statusPurple },
@@ -471,6 +474,7 @@ function OrdersTabInner({
                     ) : null}
                     {order.status === "preparing" ? (
                       <Pressable
+                        accessibilityRole="button"
                         style={[
                           styles.statusBtn,
                           { backgroundColor: AppColors.statusCyan },
@@ -492,6 +496,7 @@ function OrdersTabInner({
                     ) : null}
                     {order.status === "in_delivery" ? (
                       <Pressable
+                        accessibilityRole="button"
                         style={[
                           styles.statusBtn,
                           { backgroundColor: AppColors.success },
@@ -512,6 +517,7 @@ function OrdersTabInner({
                       </Pressable>
                     ) : null}
                     <Pressable
+                      accessibilityRole="button"
                       style={[
                         styles.statusBtn,
                         { backgroundColor: AppColors.error },
@@ -531,6 +537,7 @@ function OrdersTabInner({
                       </ThemedText>
                     </Pressable>
                     <Pressable
+                      accessibilityRole="button"
                       style={[
                         styles.statusBtn,
                         {

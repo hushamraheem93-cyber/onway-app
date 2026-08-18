@@ -71,6 +71,7 @@ function BannersTabInner({
 
         <View style={styles.typeSelector}>
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.typeButton,
               bannerForm.type === "slider" && styles.typeButtonActive,
@@ -88,6 +89,7 @@ function BannersTabInner({
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.typeButton,
               bannerForm.type === "offer" && styles.typeButtonActive,
@@ -107,6 +109,7 @@ function BannersTabInner({
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={[styles.imagePicker, { borderColor: theme.border }]}
           onPress={() =>
             pickImage((uri) =>
@@ -135,13 +138,21 @@ function BannersTabInner({
 
         <View style={styles.formButtons}>
           {isEditing ? (
-            <Pressable style={styles.cancelButton} onPress={resetForm}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.cancelButton}
+              onPress={resetForm}
+            >
               <ThemedText type="body" style={styles.cancelButtonText}>
                 إلغاء
               </ThemedText>
             </Pressable>
           ) : null}
-          <Pressable style={styles.saveButton} onPress={saveBanner}>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.saveButton}
+            onPress={saveBanner}
+          >
             <ThemedText type="body" style={styles.saveButtonText}>
               {editItem ? "حفظ التعديلات" : "إضافة"}
             </ThemedText>
@@ -196,12 +207,17 @@ function BannersTabInner({
               <Pressable
                 onPress={() => handleEditBanner(banner)}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`تعديل بانر ${banner.title || "بدون عنوان"}`}
               >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable
                 onPress={() => confirmDelete(banner.id, "banner")}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`حذف بانر ${banner.title || "بدون عنوان"}`}
+                accessibilityHint="يفتح تأكيداً قبل الحذف"
               >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>

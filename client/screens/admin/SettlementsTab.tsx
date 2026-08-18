@@ -201,6 +201,7 @@ function SettlementsTabInner({
         </ThemedText>
         <View style={{ flexDirection: "row-reverse", gap: 8 }}>
           <Pressable
+            accessibilityRole="button"
             onPress={() => openSettlementDetails(a)}
             style={{
               flex: 1,
@@ -223,6 +224,7 @@ function SettlementsTabInner({
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={doFull}
             disabled={!canSettle}
             style={{
@@ -244,6 +246,7 @@ function SettlementsTabInner({
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={doPartial}
             disabled={!canSettle}
             style={{
@@ -286,6 +289,7 @@ function SettlementsTabInner({
         <View style={{ flexDirection: "row-reverse", gap: 6 }}>
           {subTabs.map((t) => (
             <Pressable
+              accessibilityRole="button"
               key={t.key}
               onPress={() => setSettleView(t.key)}
               style={{
@@ -357,6 +361,7 @@ function SettlementsTabInner({
           <>
             <View style={{ flexDirection: "row-reverse", gap: 8 }}>
               <Pressable
+                accessibilityRole="button"
                 onPress={printSettlementReport}
                 style={{
                   flexDirection: "row-reverse",
@@ -374,6 +379,7 @@ function SettlementsTabInner({
                 </ThemedText>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
                 onPress={() =>
                   Linking.openURL(
                     `${getApiUrl()}/api/admin/settlement-export?accountType=${settleView}`,
@@ -461,6 +467,7 @@ function SettlementsTabInner({
                       تفعيل الحظر عند تجاوز الحدّ
                     </ThemedText>
                     <Switch
+                      accessibilityLabel="تفعيل الحظر عند تجاوز الحدّ"
                       value={c.thresholdEnabled}
                       onValueChange={(v) =>
                         saveSettlementConfig(t, v, c.thresholdAmount)
@@ -476,6 +483,7 @@ function SettlementsTabInner({
                   >
                     {[50000, 100000, 200000].map((amt) => (
                       <Pressable
+                        accessibilityRole="button"
                         key={amt}
                         onPress={() =>
                           saveSettlementConfig(t, c.thresholdEnabled, amt)
@@ -563,7 +571,11 @@ function SettlementsTabInner({
                 >
                   {detailTarget?.accountName}
                 </ThemedText>
-                <Pressable onPress={() => setDetailTarget(null)}>
+                <Pressable
+                  onPress={() => setDetailTarget(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="إغلاق التفاصيل"
+                >
                   <Feather name="x" size={22} color={theme.textSecondary} />
                 </Pressable>
               </View>
@@ -762,6 +774,7 @@ function SettlementsTabInner({
               />
               <View style={{ flexDirection: "row-reverse", gap: 8 }}>
                 <Pressable
+                  accessibilityRole="button"
                   disabled={completeBusy}
                   onPress={() => {
                     const amt = Math.round(Number(completeAmount));
@@ -798,6 +811,7 @@ function SettlementsTabInner({
                   )}
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
                   onPress={() => setCompleteTarget(null)}
                   style={{
                     flex: 1,

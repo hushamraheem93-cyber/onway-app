@@ -232,6 +232,7 @@ function DriversTabInner({
             {driver.status === "pending" ? (
               <View style={{ flexDirection: "row", gap: Spacing.sm }}>
                 <Pressable
+                  accessibilityRole="button"
                   style={{
                     flex: 1,
                     minHeight: 48,
@@ -259,6 +260,7 @@ function DriversTabInner({
                   </ThemedText>
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
                   style={{
                     flex: 1,
                     minHeight: 48,
@@ -288,6 +290,7 @@ function DriversTabInner({
               </View>
             ) : (
               <Pressable
+                accessibilityRole="button"
                 style={{
                   minHeight: 48,
                   backgroundColor:
@@ -358,6 +361,7 @@ function DriversTabInner({
                   </ThemedText>
                 </View>
                 <Pressable
+                  accessibilityRole="button"
                   style={{
                     backgroundColor: AppColors.primary,
                     paddingHorizontal: Spacing.md,
@@ -386,6 +390,7 @@ function DriversTabInner({
               {rechargeDriver === driver.phoneNumber ? (
                 <View style={{ flexDirection: "row", gap: Spacing.sm }}>
                   <Pressable
+                    accessibilityRole="button"
                     style={{
                       backgroundColor: AppColors.primary,
                       paddingHorizontal: Spacing.lg,

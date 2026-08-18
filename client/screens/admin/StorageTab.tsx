@@ -106,7 +106,11 @@ function StorageTabInner({
           >
             {storageStatsError}
           </ThemedText>
-          <Pressable onPress={loadStorageStats} style={{ marginTop: 4 }}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={loadStorageStats}
+            style={{ marginTop: 4 }}
+          >
             <ThemedText
               style={{
                 color: AppColors.primary,
@@ -331,6 +335,7 @@ function StorageTabInner({
             {new Date(storageStats.computedAt).toLocaleString("ar-IQ")}
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             onPress={loadStorageStats}
             style={{
               backgroundColor: theme.backgroundSecondary,

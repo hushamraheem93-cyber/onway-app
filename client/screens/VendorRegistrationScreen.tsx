@@ -69,7 +69,9 @@ export default function VendorRegistrationScreen() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+            ...(customerToken
+              ? { Authorization: `Bearer ${customerToken}` }
+              : {}),
           },
           body: JSON.stringify({
             storeName: storeName.trim(),
@@ -157,6 +159,7 @@ export default function VendorRegistrationScreen() {
           ))}
         </View>
         <Pressable
+          accessibilityRole="button"
           style={styles.doneBtn}
           onPress={async () => {
             if (pendingVendorData) {
@@ -186,6 +189,8 @@ export default function VendorRegistrationScreen() {
           style={styles.backBtn}
           onPress={goBackToUserType}
           testID="button-back"
+          accessibilityRole="button"
+          accessibilityLabel="رجوع"
         >
           <Feather name="arrow-right" size={20} color={AppColors.white} />
         </Pressable>
@@ -231,6 +236,7 @@ export default function VendorRegistrationScreen() {
           style={styles.input}
           value={storeName}
           onChangeText={setStoreName}
+          accessibilityLabel="اسم المتجر"
           placeholder="مثال: مطعم النخيل"
           placeholderTextColor={AppColors.gray300}
           testID="input-storeName"
@@ -252,6 +258,7 @@ export default function VendorRegistrationScreen() {
             selectedValue={businessType}
             onValueChange={setBusinessType}
             style={styles.picker}
+            accessibilityLabel="نوع النشاط التجاري"
             itemStyle={{ fontFamily: "Cairo_400Regular", fontSize: 14 }}
           >
             {BUSINESS_TYPES.map((t) => (
@@ -272,6 +279,7 @@ export default function VendorRegistrationScreen() {
 
         <Label text="موقع المتجر على الخريطة" />
         <Pressable
+          accessibilityRole="button"
           style={styles.mapBtn}
           onPress={() =>
             navigation.navigate("MapPicker", {
@@ -307,6 +315,7 @@ export default function VendorRegistrationScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={[styles.submitBtn, loading && styles.submitDisabled]}
           onPress={submit}
           disabled={loading}

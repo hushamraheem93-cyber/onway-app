@@ -246,6 +246,7 @@ function VendorsTabInner({
           {(["all", "active", "pending", "rejected", "suspended"] as const).map(
             (f) => (
               <Pressable
+                accessibilityRole="button"
                 key={f}
                 onPress={() => setVendorStatusFilter(f)}
                 style={{
@@ -329,6 +330,8 @@ function VendorsTabInner({
                 <Pressable
                   onPress={() => setSelectedVendor(vendor)}
                   testID={`vendor-card-${vendor.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`فتح متجر ${vendor.storeName}`}
                 >
                   {vendor.coverImageUrl ? (
                     <Image
@@ -364,7 +367,11 @@ function VendorsTabInner({
                     }}
                   >
                     {/* Logo */}
-                    <Pressable onPress={() => setSelectedVendor(vendor)}>
+                    <Pressable
+                      onPress={() => setSelectedVendor(vendor)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`شعار متجر ${vendor.storeName}`}
+                    >
                       {vendor.profileImageUrl ? (
                         <Image
                           source={{
@@ -402,6 +409,7 @@ function VendorsTabInner({
                       )}
                     </Pressable>
                     <Pressable
+                      accessibilityRole="button"
                       style={{ flex: 1 }}
                       onPress={() => setSelectedVendor(vendor)}
                     >
@@ -553,6 +561,14 @@ function VendorsTabInner({
                         deleteVendor.isPending &&
                         deleteVendor.variables === vendor.id
                       }
+                      accessibilityRole="button"
+                      accessibilityLabel={`حذف متجر ${vendor.storeName}`}
+                      accessibilityHint="يفتح تأكيداً قبل الحذف"
+                      accessibilityState={{
+                        disabled:
+                          deleteVendor.isPending &&
+                          deleteVendor.variables === vendor.id,
+                      }}
                       style={({ pressed }) => ({
                         width: 34,
                         height: 34,
@@ -590,6 +606,8 @@ function VendorsTabInner({
               <Pressable
                 style={{ flex: 1 }}
                 onPress={() => setSelectedVendor(null)}
+                accessibilityRole="button"
+                accessibilityLabel="إغلاق"
               />
               <View
                 style={{
@@ -621,6 +639,8 @@ function VendorsTabInner({
                   </ThemedText>
                   <Pressable
                     onPress={() => setSelectedVendor(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`إغلاق ${selectedVendor.storeName}`}
                     style={{
                       width: 32,
                       height: 32,
@@ -821,6 +841,7 @@ function VendorsTabInner({
                     {selectedVendor.status === "pending" ? (
                       <>
                         <Pressable
+                          accessibilityRole="button"
                           onPress={() =>
                             handleUpdateVendorStatus(
                               selectedVendor.id,
@@ -857,6 +878,7 @@ function VendorsTabInner({
                           )}
                         </Pressable>
                         <Pressable
+                          accessibilityRole="button"
                           onPress={() =>
                             handleUpdateVendorStatus(
                               selectedVendor.id,
@@ -889,6 +911,7 @@ function VendorsTabInner({
                       </>
                     ) : selectedVendor.status === "active" ? (
                       <Pressable
+                        accessibilityRole="button"
                         onPress={() =>
                           handleUpdateVendorStatus(
                             selectedVendor.id,
@@ -926,6 +949,7 @@ function VendorsTabInner({
                       </Pressable>
                     ) : (
                       <Pressable
+                        accessibilityRole="button"
                         onPress={() =>
                           handleUpdateVendorStatus(selectedVendor.id, "active")
                         }
@@ -963,9 +987,16 @@ function VendorsTabInner({
 
                   {/* Delete vendor */}
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => handleDeleteVendor(selectedVendor)}
                     disabled={deleteVendor.isPending}
                     testID={`button-delete-vendor-${selectedVendor.id}`}
+                    accessibilityLabel={`حذف متجر ${selectedVendor.storeName}`}
+                    accessibilityHint="يفتح تأكيداً قبل الحذف"
+                    accessibilityState={{
+                      disabled: deleteVendor.isPending,
+                      busy: deleteVendor.isPending,
+                    }}
                     style={{
                       flexDirection: "row-reverse",
                       gap: 8,
@@ -1022,6 +1053,8 @@ function VendorsTabInner({
                       <Pressable
                         onPress={() => refetchVendorProducts()}
                         style={{ padding: 6 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="تحديث قائمة المنتجات"
                       >
                         <Feather
                           name="refresh-cw"
@@ -1030,6 +1063,7 @@ function VendorsTabInner({
                         />
                       </Pressable>
                       <Pressable
+                        accessibilityRole="button"
                         onPress={() => {
                           setVendorProductForm({
                             name: "",
@@ -1253,6 +1287,12 @@ function VendorsTabInner({
                                           }
                                         }}
                                         disabled={isDeleting}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`حذف صورة من ${prod.name}`}
+                                        accessibilityState={{
+                                          disabled: isDeleting,
+                                          busy: isDeleting,
+                                        }}
                                         style={{
                                           position: "absolute",
                                           top: -6,
@@ -1306,6 +1346,8 @@ function VendorsTabInner({
               <Pressable
                 style={{ flex: 1 }}
                 onPress={() => setAddVendorProductOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="إغلاق"
               />
               <View
                 style={{
@@ -1337,6 +1379,8 @@ function VendorsTabInner({
                   </ThemedText>
                   <Pressable
                     onPress={() => setAddVendorProductOpen(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="إغلاق إضافة منتج"
                     style={{
                       width: 32,
                       height: 32,
@@ -1407,6 +1451,7 @@ function VendorsTabInner({
                         []
                       ).map((cat: string) => (
                         <Pressable
+                          accessibilityRole="button"
                           key={cat}
                           onPress={() =>
                             setVendorProductForm({
@@ -1547,6 +1592,7 @@ function VendorsTabInner({
                   />
                   {/* Image picker */}
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() =>
                       pickImage((uri) =>
                         setVendorProductForm({
@@ -1604,6 +1650,7 @@ function VendorsTabInner({
                   </Pressable>
                   {/* Save button */}
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => saveVendorProduct(selectedVendor.id)}
                     disabled={savingVendorProduct}
                     style={{

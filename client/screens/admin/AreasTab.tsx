@@ -80,13 +80,21 @@ function AreasTabInner({
 
         <View style={styles.formButtons}>
           {isEditing ? (
-            <Pressable style={styles.cancelButton} onPress={resetForm}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.cancelButton}
+              onPress={resetForm}
+            >
               <ThemedText type="body" style={styles.cancelButtonText}>
                 إلغاء
               </ThemedText>
             </Pressable>
           ) : null}
-          <Pressable style={styles.saveButton} onPress={saveArea}>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.saveButton}
+            onPress={saveArea}
+          >
             <ThemedText type="body" style={styles.saveButtonText}>
               {editItem ? "حفظ التعديلات" : "إضافة"}
             </ThemedText>
@@ -130,12 +138,17 @@ function AreasTabInner({
               <Pressable
                 onPress={() => handleEditArea(area)}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`تعديل منطقة ${area.name}`}
               >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable
                 onPress={() => confirmDelete(area.id, "area")}
                 style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`حذف منطقة ${area.name}`}
+                accessibilityHint="يفتح تأكيداً قبل الحذف"
               >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>

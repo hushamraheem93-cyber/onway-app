@@ -457,6 +457,7 @@ function DashboardTabInner({
           >
             {quickLinks.map((ql, i) => (
               <Pressable
+                accessibilityRole="button"
                 key={i}
                 onPress={() => {
                   setActiveTab(ql.tab);
@@ -518,6 +519,7 @@ function DashboardTabInner({
               آخر الطلبات
             </ThemedText>
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 setActiveTab("orders");
                 resetForm();
@@ -550,6 +552,7 @@ function DashboardTabInner({
             <View style={{ gap: Spacing.sm }}>
               {recentOrders.map((order) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={order.id}
                   onPress={() => {
                     setActiveTab("orders");
@@ -718,6 +721,7 @@ function DashboardTabInner({
                   }}
                 >
                   <TextInput
+                    accessibilityLabel={label}
                     value={urgencyForm[key]}
                     onChangeText={(t) =>
                       setUrgencyForm((prev) => ({
@@ -779,6 +783,7 @@ function DashboardTabInner({
             </ThemedText>
           ) : null}
           <Pressable
+            accessibilityRole="button"
             onPress={saveUrgencyThresholds}
             disabled={isSavingUrgency}
             testID="button-save-urgency"
@@ -808,6 +813,7 @@ function DashboardTabInner({
         {/* Commission summary shortcut */}
         {ownerEarnings ? (
           <Pressable
+            accessibilityRole="button"
             onPress={() => {
               setActiveTab("orders");
               resetForm();

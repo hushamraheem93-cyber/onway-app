@@ -63,12 +63,21 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           }
         };
 
+        // H-63: every tab here renders an icon and nothing else, so a screen
+        // reader announced four identical "button"s and no way to tell which was
+        // which — on the surface a driver uses one-handed while working. The
+        // labels already existed in TAB_CONFIG for sighted layout; they are the
+        // accessible name too. `selected` matters just as much: focus was shown
+        // only by icon colour and the active dot, neither of which is announced.
         if (isHome) {
           return (
             <Pressable
               key={route.key}
               onPress={onPress}
               style={styles.mainButtonContainer}
+              accessibilityRole="tab"
+              accessibilityLabel={config.label}
+              accessibilityState={{ selected: isFocused }}
             >
               <View style={styles.mainButton}>
                 <Feather name="home" size={28} color={AppColors.black} />
@@ -78,7 +87,14 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         }
 
         return (
-          <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            style={styles.tabItem}
+            accessibilityRole="tab"
+            accessibilityLabel={config.label}
+            accessibilityState={{ selected: isFocused }}
+          >
             <Feather
               name={config.icon}
               size={24}

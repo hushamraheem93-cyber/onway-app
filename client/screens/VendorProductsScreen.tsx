@@ -341,6 +341,7 @@ const ProductCard = React.memo(
 
     return (
       <Pressable
+        accessibilityRole="button"
         style={[pc.card, selected && { borderWidth: 2, borderColor: ORANGE }]}
         onPress={selectMode ? onToggleSelect : undefined}
         testID={`card-product-${item.id}`}
@@ -420,6 +421,7 @@ const ProductCard = React.memo(
               <View style={pc.actions}>
                 {/* Availability pill */}
                 <Pressable
+                  accessibilityRole="button"
                   style={[
                     pc.availPill,
                     {
@@ -465,6 +467,8 @@ const ProductCard = React.memo(
                   style={[pc.iconBtn, { backgroundColor: AppColors.secondary }]}
                   onPress={onCopy}
                   testID={`button-copy-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`نسخ ${item.name}`}
                 >
                   <Feather name="copy" size={14} color={ORANGE} />
                 </Pressable>
@@ -472,6 +476,8 @@ const ProductCard = React.memo(
                   style={[pc.iconBtn, { backgroundColor: AppColors.secondary }]}
                   onPress={onEdit}
                   testID={`button-edit-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`تعديل ${item.name}`}
                 >
                   <Feather name="edit-2" size={14} color={ORANGE} />
                 </Pressable>
@@ -482,6 +488,9 @@ const ProductCard = React.memo(
                   ]}
                   onPress={onDelete}
                   testID={`button-delete-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`حذف ${item.name}`}
+                  accessibilityHint="يفتح تأكيداً قبل الحذف"
                 >
                   <Feather name="trash-2" size={14} color={AppColors.error} />
                 </Pressable>
@@ -646,6 +655,7 @@ const ConfirmModal = React.memo(
           <ThemedText style={cm.desc}>{desc}</ThemedText>
           <View style={cm.btns}>
             <Pressable
+              accessibilityRole="button"
               style={[cm.btn, { backgroundColor: confirmColor }]}
               onPress={onConfirm}
               disabled={confirming}
@@ -657,6 +667,7 @@ const ConfirmModal = React.memo(
               )}
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               style={[cm.btn, { backgroundColor: AppColors.gray100 }]}
               onPress={onCancel}
               disabled={confirming}
@@ -716,6 +727,7 @@ const ResultModal = React.memo(
               : `تم حذف ${result?.succeeded} منتج، وفشل حذف ${result?.failed} منتج`}
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             style={[cm.btn, { backgroundColor: ORANGE, width: "100%" }]}
             onPress={onClose}
             testID="button-result-close"
@@ -808,6 +820,7 @@ export default function VendorProductsScreen({ navigation }: any) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
+          accessibilityRole="button"
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             if (selectMode) exitSelectMode();
@@ -1082,6 +1095,7 @@ export default function VendorProductsScreen({ navigation }: any) {
             const active = filterStatus === f.value;
             return (
               <Pressable
+                accessibilityRole="button"
                 key={f.value}
                 style={[
                   fb.chip,
@@ -1108,6 +1122,7 @@ export default function VendorProductsScreen({ navigation }: any) {
         {selectMode && filteredProducts.length > 0 && (
           <View style={fb.selectBar}>
             <Pressable
+              accessibilityRole="button"
               style={fb.selectAllBtn}
               onPress={toggleSelectAll}
               testID="button-select-all"
@@ -1218,6 +1233,8 @@ export default function VendorProductsScreen({ navigation }: any) {
             navigation.navigate("VendorAddProduct");
           }}
           testID="button-add-product"
+          accessibilityRole="button"
+          accessibilityLabel="إضافة منتج"
         >
           <Feather name="plus" size={26} color={AppColors.white} />
         </Pressable>
@@ -1227,6 +1244,7 @@ export default function VendorProductsScreen({ navigation }: any) {
       {selectMode && (
         <View style={[bulk.bar, { bottom: tabBarHeight + 16 }]}>
           <Pressable
+            accessibilityRole="button"
             style={[bulk.btn, selectedIds.size === 0 && bulk.btnDisabled]}
             onPress={() => {
               if (selectedIds.size > 0) {

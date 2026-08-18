@@ -1173,6 +1173,7 @@ const OrderCard = React.memo(
               <View style={oc.actionsRow}>
                 {actions.map((a) => (
                   <Pressable
+                    accessibilityRole="button"
                     key={a.nextStatus}
                     style={({ pressed }) => [
                       oc.actionBtn,
@@ -1214,6 +1215,7 @@ const OrderCard = React.memo(
             {/* ── Print ── */}
             {order.status !== "pending" && order.status !== "cancelled" && (
               <Pressable
+                accessibilityRole="button"
                 style={oc.printBtn}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1342,6 +1344,7 @@ function ETAModal({
               const sel = selected === mins;
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={mins}
                   style={[
                     md.option,
@@ -1368,6 +1371,7 @@ function ETAModal({
             })}
           </View>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: AppColors.success }]}
             onPress={handleConfirm}
             testID="btn-eta-confirm"
@@ -1377,6 +1381,7 @@ function ETAModal({
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: AppColors.gray100 }]}
             onPress={handleCancel}
             testID="btn-eta-cancel"
@@ -1419,12 +1424,14 @@ function CancelModal({
             سيتم إلغاء هذا الطلب وإشعار الزبون.
           </ThemedText>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: AppColors.error }]}
             onPress={onConfirm}
           >
             <ThemedText style={md.btnText}>نعم، إلغاء الطلب</ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             style={[md.btn, { backgroundColor: AppColors.gray100 }]}
             onPress={onCancel}
           >
@@ -1795,6 +1802,7 @@ export default function VendorOrdersScreen() {
             const count = tabCounts[t.key] ?? 0;
             return (
               <Pressable
+                accessibilityRole="button"
                 key={t.key}
                 style={[ts.tab, active && { backgroundColor: t.color + "12" }]}
                 onPress={() => {
@@ -1890,6 +1898,7 @@ export default function VendorOrdersScreen() {
       {/* ── New order banner ── */}
       {newArrived && (
         <Pressable
+          accessibilityRole="button"
           style={bn.newBanner}
           onPress={() => {
             setActiveTab("new");
@@ -1906,6 +1915,8 @@ export default function VendorOrdersScreen() {
             onPress={() => setNewArrived(false)}
             style={bn.close}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق تنبيه الطلب الجديد"
           >
             <MaterialCommunityIcons
               name="close"
@@ -1929,6 +1940,8 @@ export default function VendorOrdersScreen() {
             onPress={() => setUpdateError(null)}
             style={bn.close}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق رسالة الخطأ"
           >
             <MaterialCommunityIcons
               name="close"

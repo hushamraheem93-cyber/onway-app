@@ -51,7 +51,12 @@ function TrackingModalInner({
               paddingBottom: Spacing.md,
             }}
           >
-            <Pressable onPress={closeTrackingModal} style={{ padding: 8 }}>
+            <Pressable
+              onPress={closeTrackingModal}
+              style={{ padding: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="إغلاق التتبع"
+            >
               <Feather name="x" size={24} color={AppColors.white} />
             </Pressable>
             <View

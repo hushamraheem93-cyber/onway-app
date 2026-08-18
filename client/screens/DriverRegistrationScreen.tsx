@@ -289,6 +289,7 @@ export default function DriverRegistrationScreen() {
         bottomOffset={50}
       >
         <Pressable
+          accessibilityRole="button"
           style={[
             styles.backButton,
             { backgroundColor: theme.backgroundDefault },
@@ -326,7 +327,11 @@ export default function DriverRegistrationScreen() {
             <ThemedText type="body" style={styles.errorBannerText}>
               {errorMessage}
             </ThemedText>
-            <Pressable onPress={() => setErrorMessage("")}>
+            <Pressable
+              onPress={() => setErrorMessage("")}
+              accessibilityRole="button"
+              accessibilityLabel="إغلاق رسالة الخطأ"
+            >
               <Feather name="x" size={18} color={AppColors.white} />
             </Pressable>
           </View>
@@ -356,6 +361,7 @@ export default function DriverRegistrationScreen() {
                   borderColor: theme.border,
                 },
               ]}
+              accessibilityLabel="الاسم الأول"
               placeholder="مثال: أحمد"
               placeholderTextColor={theme.textSecondary}
               value={firstName}
@@ -378,6 +384,7 @@ export default function DriverRegistrationScreen() {
                   borderColor: theme.border,
                 },
               ]}
+              accessibilityLabel="اسم الأب"
               placeholder="مثال: محمد"
               placeholderTextColor={theme.textSecondary}
               value={secondName}
@@ -400,6 +407,7 @@ export default function DriverRegistrationScreen() {
                   borderColor: theme.border,
                 },
               ]}
+              accessibilityLabel="اسم الجد"
               placeholder="مثال: علي"
               placeholderTextColor={theme.textSecondary}
               value={thirdName}
@@ -422,6 +430,7 @@ export default function DriverRegistrationScreen() {
                   borderColor: theme.border,
                 },
               ]}
+              accessibilityLabel="اللقب"
               placeholder="مثال: العبيدي"
               placeholderTextColor={theme.textSecondary}
               value={fourthName}
@@ -519,6 +528,7 @@ export default function DriverRegistrationScreen() {
           </ThemedText>
 
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.idUpload,
               {
@@ -582,6 +592,7 @@ export default function DriverRegistrationScreen() {
           </ThemedText>
 
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.idUpload,
               {
@@ -659,6 +670,7 @@ export default function DriverRegistrationScreen() {
           </ThemedText>
 
           <Pressable
+            accessibilityRole="button"
             style={[
               styles.idUpload,
               {
@@ -781,6 +793,7 @@ export default function DriverRegistrationScreen() {
           </ScrollView>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.checkboxRow}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -810,6 +823,7 @@ export default function DriverRegistrationScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={[
             styles.submitButton,
             !isFormValid && styles.submitButtonDisabled,

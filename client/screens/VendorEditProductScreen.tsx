@@ -267,6 +267,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             : "تم حفظ التغييرات بنجاح"}
         </ThemedText>
         <Pressable
+          accessibilityRole="button"
           style={[s.submitBtn, { backgroundColor: AppColors.gray100 }]}
           onPress={() => navigation.navigate("VendorProducts")}
           testID="button-view-products"
@@ -332,12 +333,15 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
               style={s.heroRemoveBtn}
               onPress={() => removeImage(0)}
               testID="button-remove-image-0"
+              accessibilityRole="button"
+              accessibilityLabel="إزالة الصورة الرئيسية"
             >
               <Feather name="x" size={14} color={AppColors.white} />
             </Pressable>
           </View>
         ) : (
           <Pressable
+            accessibilityRole="button"
             style={s.heroPlaceholder}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -380,6 +384,8 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
                     style={s.removeBtn}
                     onPress={() => removeImage(index)}
                     testID={`button-remove-image-${index}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`إزالة الصورة ${index + 1}`}
                   >
                     <Feather name="x" size={11} color={AppColors.white} />
                   </Pressable>
@@ -388,6 +394,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             })}
             {images.length < MAX_IMAGES && (
               <Pressable
+                accessibilityRole="button"
                 style={s.addThumbBtn}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -406,6 +413,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
 
         <View style={s.imgActions}>
           <Pressable
+            accessibilityRole="button"
             style={s.imgActionBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -422,6 +430,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             style={[s.imgActionDivider, { backgroundColor: AppColors.divider }]}
           />
           <Pressable
+            accessibilityRole="button"
             style={s.imgActionBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -515,6 +524,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
               style={s.input}
               value={price}
               onChangeText={setPrice}
+              accessibilityLabel="السعر (دينار)"
               placeholder="5000"
               placeholderTextColor={AppColors.gray300}
               keyboardType="numeric"
@@ -527,6 +537,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
               style={s.input}
               value={stock}
               onChangeText={setStock}
+              accessibilityLabel="المخزون"
               placeholder="100"
               placeholderTextColor={AppColors.gray300}
               keyboardType="numeric"
@@ -550,6 +561,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             selectedValue={category}
             onValueChange={setCategory}
             style={s.picker}
+            accessibilityLabel="القسم / الفئة"
           >
             {categories.map((c) => (
               <Picker.Item key={c} label={c} value={c} />
@@ -565,7 +577,12 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
 
         <ThemedText style={s.label}>وحدة القياس</ThemedText>
         <View style={s.pickerWrap}>
-          <Picker selectedValue={unit} onValueChange={setUnit} style={s.picker}>
+          <Picker
+            selectedValue={unit}
+            onValueChange={setUnit}
+            style={s.picker}
+            accessibilityLabel="وحدة القياس"
+          >
             {UNITS.map((u) => (
               <Picker.Item key={u} label={u} value={u} />
             ))}
@@ -575,6 +592,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
 
       {/* Submit */}
       <Pressable
+        accessibilityRole="button"
         style={[s.submitBtn, loading && { opacity: 0.6 }]}
         onPress={submit}
         disabled={loading}
