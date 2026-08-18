@@ -338,10 +338,68 @@ server {
         try_files \$uri =404;
     }
 
-    # Redirect everything else to HTTPS (once SSL is installed)
+    # ── C-15: these used to live in the commented-out HTTPS block below ───────
+    # `certbot --nginx` builds the TLS server block by COPYING this one. Anything
+    # that sits in a comment is not copied, so the rate limits and the security
+    # headers were never applied — not on port 80, and not on 443 after SSL was
+    # installed either. They are part of the live block now, which is the only
+    # way certbot carries them across.
+    #
+    # HSTS on a plaintext response is ignored by browsers (RFC 6797 §7.2), so
+    # declaring it here is harmless before SSL and correct the moment certbot
+    # clones this block.
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Frame-Options           "SAMEORIGIN"  always;
+    add_header X-Content-Type-Options    "nosniff"     always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+
+    client_max_body_size 20M;
+    gzip on;
+    gzip_types text/plain application/json application/javascript text/css;
+
+    # Admin login — strict limit. An exact-match location outranks the /api/
+    # prefix below regardless of the order they appear in, so the stricter rule
+    # can never be shadowed by the looser one.
+    location = /api/admin/login {
+        limit_req zone=onway_login burst=3 nodelay;
+        proxy_pass         http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host \$host;
+        proxy_set_header   X-Real-IP \$remote_addr;
+        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    location /api/ {
+        limit_req zone=onway_api burst=60 nodelay;
+        proxy_pass         http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host \$host;
+        proxy_set_header   X-Real-IP \$remote_addr;
+        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    # Socket.IO deliberately carries NO limit_req: a WebSocket is one long-lived
+    # connection, and a per-request limiter would drop live order tracking.
+    location /socket.io/ {
+        proxy_pass         http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade \$http_upgrade;
+        proxy_set_header   Connection "Upgrade";
+        proxy_set_header   Host \$host;
+        proxy_set_header   X-Real-IP \$remote_addr;
+        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
     location / {
-        # Uncomment after certbot: return 301 https://\$host\$request_uri;
-        # While testing without SSL — proxy directly:
         proxy_pass         http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade \$http_upgrade;
@@ -353,72 +411,18 @@ server {
         proxy_cache_bypass \$http_upgrade;
         proxy_read_timeout 300s;
         proxy_send_timeout 300s;
-        client_max_body_size 20M;
     }
 }
+# The HTTPS server block is NOT written here, and must not be: \`certbot --nginx\`
+# generates it from the block above and manages its certificate paths. A
+# hand-written 443 block would either conflict with it or, as the commented-out
+# one that used to sit here did, quietly hold the only copy of the security
+# headers while never being parsed by nginx at all.
+#
+# Run deployment/ssl-setup.sh to obtain the certificate and turn port 80 into a
+# redirect. Until then this server answers plaintext on port 80 — see the
+# warning printed at the end of this script.
 
-# ── HTTPS (Certbot fills in SSL block automatically) ──────────────────────────
-# server {
-#     listen 443 ssl http2;
-#     listen [::]:443 ssl http2;
-#     server_name ${SERVER_NAME};
-#
-#     # SSL managed by Certbot — do not edit manually
-#     # ssl_certificate     /etc/letsencrypt/live/${SERVER_NAME}/fullchain.pem;
-#     # ssl_certificate_key /etc/letsencrypt/live/${SERVER_NAME}/privkey.pem;
-#     # include             /etc/letsencrypt/options-ssl-nginx.conf;
-#     # ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
-#
-#     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-#     add_header X-Frame-Options           "SAMEORIGIN"  always;
-#     add_header X-Content-Type-Options    "nosniff"     always;
-#     add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
-#
-#     client_max_body_size 20M;
-#     gzip on;
-#     gzip_types text/plain application/json application/javascript text/css;
-#
-#     # Admin login — strict rate limit
-#     location = /api/admin/login {
-#         limit_req zone=onway_login burst=3 nodelay;
-#         proxy_pass http://127.0.0.1:5000;
-#         include /etc/nginx/proxy_params;
-#     }
-#
-#     # API
-#     location /api/ {
-#         limit_req zone=onway_api burst=60 nodelay;
-#         proxy_pass http://127.0.0.1:5000;
-#         include /etc/nginx/proxy_params;
-#     }
-#
-#     # Socket.io WebSocket
-#     location /socket.io/ {
-#         proxy_pass         http://127.0.0.1:5000;
-#         proxy_http_version 1.1;
-#         proxy_set_header   Upgrade \$http_upgrade;
-#         proxy_set_header   Connection "Upgrade";
-#         proxy_set_header   Host \$host;
-#         proxy_set_header   X-Real-IP \$remote_addr;
-#         proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
-#         proxy_read_timeout 86400s;
-#     }
-#
-#     # Everything else
-#     location / {
-#         proxy_pass         http://127.0.0.1:5000;
-#         proxy_http_version 1.1;
-#         proxy_set_header   Upgrade \$http_upgrade;
-#         proxy_set_header   Connection 'upgrade';
-#         proxy_set_header   Host \$host;
-#         proxy_set_header   X-Real-IP \$remote_addr;
-#         proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
-#         proxy_set_header   X-Forwarded-Proto \$scheme;
-#         proxy_cache_bypass \$http_upgrade;
-#         proxy_read_timeout 300s;
-#         client_max_body_size 20M;
-#     }
-# }
 NGINX_EOF
 
 # Enable site
@@ -477,9 +481,21 @@ echo ""
 echo -e "${YELLOW}STEP 2 — Start the server (as the service user, NOT as root):${NC}"
 echo "  sudo -u ${SERVICE_USER} bash -c 'cd ${APP_DIR} && pm2 start ecosystem.config.js && pm2 save'"
 echo ""
-echo -e "${YELLOW}STEP 3 (optional — if you have a domain) — Install SSL:${NC}"
-echo "  Make sure your domain's A record points to this server's IP first, then:"
-echo "  certbot --nginx -d ${DOMAIN:-your-domain.com}"
+# C-15: SSL used to be listed here as "optional", pointing at a bare certbot call.
+# Following that produced exactly the server the audit described — admin passwords,
+# vendor tokens, driver sessions and OTP codes crossing port 80 in the clear. It is
+# a required step now, and it names ssl-setup.sh rather than certbot directly:
+# ssl-setup.sh is the one that checks the certificate actually brought the rate
+# limits and security headers into the HTTPS block, and that merges the domain into
+# ALLOWED_ORIGINS instead of overwriting the list.
+echo -e "${RED}STEP 3 — REQUIRED — Install SSL:${NC}"
+echo -e "${RED}  Until this runs, port 80 serves EVERYTHING IN PLAINTEXT:${NC}"
+echo "    admin login credentials, vendor tokens, driver sessions, OTP codes,"
+echo "    and customer addresses."
+echo "  Point your domain's A record at this server, then run:"
+echo "    sudo bash ${APP_DIR}/deployment/ssl-setup.sh"
+echo "  (It runs certbot, then FAILS if the HTTPS block is missing any header or"
+echo "   rate limit — do not treat the site as secured until it prints OK.)"
 echo ""
 echo -e "${YELLOW}STEP 4 — Verify:${NC}"
 echo "  sudo -u ${SERVICE_USER} pm2 status"

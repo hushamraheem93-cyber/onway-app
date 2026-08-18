@@ -44,7 +44,14 @@ describe("H-35 · vendor products are read once, not once per line", () => {
   const pricingLoopAt = (() => {
     const at = PRICING.indexOf("let realPrice: number | undefined;");
     assert.ok(at > 0, "the pricing loop disappeared");
-    return PRICING.lastIndexOf("for (const it of items as any[])", at);
+    // Matches the loop header by its `for (const it of …)` shape rather than by
+    // one exact iterable expression: C-06/C-07 made the source `service ? [] :
+    // (items as any[])` so a service request skips the catalogue entirely. The
+    // previous literal returned -1 when that changed, and -1 silently satisfied
+    // the "batch comes first" comparison below — so this now asserts it was found.
+    const loopAt = PRICING.lastIndexOf("for (const it of ", at);
+    assert.ok(loopAt > 0, "the pricing loop header could not be located");
+    return loopAt;
   })();
 
   test("no Firestore read happens inside the item loop", () => {

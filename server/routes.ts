@@ -121,6 +121,7 @@ import {
   csvNumber,
   type ResolvedOrderLine,
 } from "./orderValidation";
+import { isServiceOrderType, resolveServiceOrder } from "./serviceOrders";
 import {
   DEFAULT_DELIVERY_PRICING,
   normalizeDeliveryPricing,
@@ -2947,6 +2948,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         longitude: parsedLongitude,
       } = fields.value;
 
+      // C-06 / C-07: a service request is resolved BEFORE the catalogue loop and
+      // never enters it. Its lines name no product, so the loop could only ever
+      // reject them. `isServiceOrderType` is the sole gate — an order not tagged as
+      // one of the two services takes the product path exactly as before, and a
+      // service id appearing in a product order still falls through to
+      // unknownProductIds below.
+      const serviceOrder = isServiceOrderType(normalizedOrderType)
+        ? resolveServiceOrder({ orderType: normalizedOrderType, items, courierDetails, internationalDetails })
+        : null;
+      if (serviceOrder && !serviceOrder.ok) {
+        return res.status(400).json({ error: serviceOrder.error });
+      }
+      const service = serviceOrder?.ok ? serviceOrder.value : null;
+
       const allProductsForPricing = await getCachedProducts();
       const verifiedPriceByProductId = new Map<string, number>();
       let verifiedSubtotal = 0;
@@ -3003,7 +3018,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // with different add-ons, and those two lines have different verified prices.
       const resolvedLines: ResolvedOrderLine[] = [];
 
-      for (const it of items as any[]) {
+      if (service) {
+        // The one validated service line, rebuilt from the resolver's output — not
+        // copied from the request. `declaredValue` is the only client-originated
+        // number that survives, and it arrived here parsed, floored and capped.
+        allItemsAreRestaurant = false;
+        verifiedSubtotal = service.declaredValue;
+        verifiedPriceByProductId.set(service.line.productId, service.declaredValue);
+        resolvedLines.push({
+          productId: service.line.productId,
+          name: service.line.name,
+          unitPrice: service.declaredValue,
+          quantity: service.line.quantity,
+          variant: null,
+          addons: [],
+        });
+      }
+
+      for (const it of service ? [] : (items as any[])) {
         let realPrice: number | undefined;
         let available = true; // only an explicit inStock === false blocks the order
         // Catalogue-resolved presentation for this line. Populated alongside the
@@ -3165,7 +3197,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const appSharePercent = sysSettings.deliveryPricing[orderKind].appSharePercent;
 
       let verifiedDeliveryFee: number | null = null;
-      if (vendorDeliveryFeeOverride != null) {
+      if (service) {
+        // C-06/C-07 third gate: a service request has no delivery area to price
+        // against — the screens collect a pickup address, not one of the configured
+        // regions — so the lookup below could only ever return null and H-02 would
+        // refuse the order. The fee is the server's own constant; the request's
+        // `deliveryFee` is still never read, which is what H-02 exists to guarantee.
+        verifiedDeliveryFee = service.deliveryFee;
+      } else if (vendorDeliveryFeeOverride != null) {
         verifiedDeliveryFee = vendorDeliveryFeeOverride;
       } else {
         const areas = await getFirestoreDeliveryAreas(true);
@@ -3294,8 +3333,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderData.longitude = parsedLongitude;
       }
       if (normalizedOrderType) orderData.orderType = normalizedOrderType;
-      if (internationalDetails) orderData.internationalDetails = internationalDetails;
-      if (courierDetails) orderData.courierDetails = courierDetails;
+      // C-06/C-07: these two used to be written straight from the request body —
+      // whatever shape and size the caller sent, unvalidated, into the order
+      // document. What is stored now is the resolver's own object: known keys,
+      // trimmed, length-bounded, with the declared value already capped.
+      if (service?.type === "international-shopping") {
+        orderData.internationalDetails = service.details;
+      }
+      if (service?.type === "courier-pickup") {
+        orderData.courierDetails = service.details;
+      }
       // H-03: store the canonical spelling, so the order and promoUsageHistory agree.
       if (promoCodeCanonical) orderData.promoCode = promoCodeCanonical;
       if (verifiedDiscount) orderData.promoDiscount = verifiedDiscount;

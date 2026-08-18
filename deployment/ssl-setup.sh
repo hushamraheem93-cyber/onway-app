@@ -115,6 +115,53 @@ if [[ -f "${APP_DIR}/.env" ]]; then
   echo ""
 fi
 
+# ── C-15: prove the TLS block really carries the hardening ────────────────────
+#
+# `certbot --nginx` builds the 443 server block by copying the port-80 one, so the
+# rate limits and security headers server-setup.sh puts there should come across.
+# "Should" is not good enough for the thing that protects the admin login, and the
+# audit's exact point was that these directives existed only as comments and were
+# therefore never applied on either port. So the result is CHECKED, and a missing
+# directive fails the script instead of leaving a server that looks configured.
+#
+# Idempotent by construction: it only reads and reports. Re-running ssl-setup.sh
+# re-checks and adds nothing, so no directive can ever be duplicated.
+SITE_CONF="/etc/nginx/sites-available/onway"
+info "Verifying the HTTPS block carries the security directives..."
+
+if [[ ! -f "$SITE_CONF" ]]; then
+  err "Expected ${SITE_CONF} to exist. Run server-setup.sh first."
+fi
+
+# Only the TLS server block is inspected — matching the whole file would pass on
+# the port-80 copy alone and prove nothing about what HTTPS serves.
+tls_block() { awk '/listen .*443/,/^}/' "$SITE_CONF"; }
+
+MISSING=""
+for directive in \
+  "Strict-Transport-Security" \
+  "X-Frame-Options" \
+  "X-Content-Type-Options" \
+  "Referrer-Policy" \
+  "limit_req zone=onway_login" \
+  "limit_req zone=onway_api"
+do
+  tls_block | grep -qF -- "$directive" || MISSING="${MISSING}\n    - ${directive}"
+done
+
+if [[ -n "$MISSING" ]]; then
+  err "Certbot did not carry these into the HTTPS block:${MISSING}\n\n  The site is NOT hardened. Fix ${SITE_CONF} by hand (copy the directives from\n  the port-80 block), run 'nginx -t', then reload nginx."
+fi
+success "HTTPS block carries all rate limits and security headers"
+
+# certbot --redirect rewrites port 80 to a 301. Confirm it, so nobody is told the
+# site is on HTTPS while plaintext is still being served.
+if awk '/listen .*80/,/^}/' "$SITE_CONF" | grep -qE 'return\s+301\s+https'; then
+  success "Port 80 redirects to HTTPS"
+else
+  err "Port 80 is still serving traffic directly — certbot's --redirect did not apply.\n  Do not announce this server as HTTPS-only until that is fixed."
+fi
+
 info "Reloading Nginx..."
 nginx -t && systemctl reload nginx
 

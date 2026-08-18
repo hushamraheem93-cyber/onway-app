@@ -139,7 +139,14 @@ export default function InternationalShoppingScreen() {
         setIsSubmitted(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        Alert.alert("خطأ", "حدث خطأ أثناء تقديم الطلب. حاول مرة أخرى.");
+        // C-07: same as C-06 — the real reason was swallowed, so a rejected request
+        // and a dropped connection looked identical to the customer.
+        const body = await response.json().catch(() => null);
+        const serverError =
+          body && typeof body.error === "string" && body.error.trim()
+            ? body.error
+            : "حدث خطأ أثناء تقديم الطلب. حاول مرة أخرى.";
+        Alert.alert("خطأ", serverError);
       }
     } catch (error) {
       Alert.alert("خطأ", "حدث خطأ في الاتصال. تأكد من اتصالك بالإنترنت.");

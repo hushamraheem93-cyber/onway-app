@@ -59,6 +59,13 @@ export default function CourierPickupScreen() {
     setIsSubmitting(true);
 
     try {
+      // C-06: the courier's phone used to be sent as a flat `courierPhone` field
+      // that the server never read — it destructures `courierDetails` — so it was
+      // dropped on every request. The service details now travel in the object the
+      // server validates, and the declared value lives there too: the server reads
+      // it from `courierDetails`, never from `items[].price`, and prices the
+      // delivery itself. `total`/`deliveryFee` are sent for older builds' sake and
+      // are recomputed server-side regardless.
       const orderData = {
         phoneNumber: phoneNumber || customerPhone,
         customerName,
@@ -75,9 +82,14 @@ export default function CourierPickupScreen() {
         deliveryFee: 0,
         address: courierLocation,
         region: "خدمات المندوب",
-        courierPhone,
         notes: notes || undefined,
         orderType: "courier-pickup",
+        courierDetails: {
+          courierPhone,
+          pickupLocation: courierLocation,
+          declaredValue: Number(orderPrice) || 0,
+          notes: notes || undefined,
+        },
       };
 
       const response = await fetch(
@@ -98,7 +110,16 @@ export default function CourierPickupScreen() {
         setIsSubmitted(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        Alert.alert("خطأ", "حدث خطأ أثناء تقديم الطلب. حاول مرة أخرى.");
+        // C-06: the generic message hid the real reason for years — the audit's
+        // point was that a 401 and a rejected product read identically to the
+        // customer. Show what the server actually said, and fall back only when it
+        // said nothing usable.
+        const body = await response.json().catch(() => null);
+        const serverError =
+          body && typeof body.error === "string" && body.error.trim()
+            ? body.error
+            : "حدث خطأ أثناء تقديم الطلب. حاول مرة أخرى.";
+        Alert.alert("خطأ", serverError);
       }
     } catch (error) {
       Alert.alert("خطأ", "حدث خطأ في الاتصال. تأكد من اتصالك بالإنترنت.");
