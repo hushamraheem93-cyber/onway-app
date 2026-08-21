@@ -369,7 +369,7 @@ describe("H-64 · 12-14. admin session: logout, expiry, 401", () => {
       /export async function isAdminSessionValid/,
     );
     const screen = stripComments(MOBILE);
-    assert.match(screen, /const valid = await isAdminSessionValid\(\);/);
+    assert.match(screen, /const result = await checkAdminSession\(\);/);
     assert.doesNotMatch(
       screen,
       /if \(token\) setAdminAuthState\("ok"\);/,
@@ -381,7 +381,7 @@ describe("H-64 · 12-14. admin session: logout, expiry, 401", () => {
     const screen = stripComments(MOBILE);
     assert.match(
       screen,
-      /if \(valid === false\) navigation\.replace\("AdminLogin"\)/,
+      /if \(!result\.info && result\.reachable\) navigation\.replace\("AdminLogin"\)/,
       "a dropped connection must not be treated as a dead session",
     );
   });

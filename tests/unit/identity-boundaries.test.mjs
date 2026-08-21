@@ -37,7 +37,7 @@ describe("H-12 — the admin panel does not render without an admin token", () =
     assert.match(ADMIN_SCREEN, /from "@\/lib\/adminAuth";/);
     assert.match(
       ADMIN_SCREEN,
-      /const valid = await isAdminSessionValid\(\);/,
+      /const result = await checkAdminSession\(\);/,
       "REGRESSION: the screen mounts without verifying the session",
     );
   });

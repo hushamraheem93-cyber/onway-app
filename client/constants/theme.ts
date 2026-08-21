@@ -31,10 +31,11 @@ const gray700 = "#374151";
 const gray800 = "#1F2937";
 
 // ─── Portal Colors ───────────────────────────────────────────────────────────
-const vendorPurple = "#673AB7";
-const vendorPurpleLight = "#EDE7F6";
-const driverBlue = "#1565C0";
-const driverBlueLight = "#E3F2FD";
+// Legacy names retained for compatibility; all portal identity accents use OnWay orange.
+const vendorPurple = primary;
+const vendorPurpleLight = secondary;
+const driverBlue = primary;
+const driverBlueLight = secondary;
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 const white = "#FFFFFF";
@@ -159,100 +160,59 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   issue: "يوجد مشكلة",
 };
 
-// ─── Colors (Light / Dark Themes) ────────────────────────────────────────────
+// ─── Colors (Light-only runtime palette) ─────────────────────────────────────
+const lightColors = {
+  text: "#2D2D2D",
+  textSecondary: "#555555",
+  textDisabled: gray400,
+  buttonText: black,
+  link: primary,
+  tabIconDefault: gray500,
+  tabIconSelected: primary,
+  primary,
+  primaryLight,
+  secondary,
+  backgroundRoot: "#F7F9FC",
+  backgroundDefault: white,
+  backgroundCard: white,
+  backgroundSecondary: "#F0F0F0",
+  backgroundTertiary: "#E8E8E8",
+  border: "#E0E0E0",
+  divider: gray200,
+  iconPrimary: primary,
+  iconSecondary: "#555555",
+  iconMuted: gray400,
+  iconDanger: error,
+  iconSuccess: success,
+  iconWarning: warning,
+  success,
+  successLight,
+  warning,
+  warningLight,
+  error,
+  errorLight,
+  info,
+  infoLight,
+  gray50,
+  gray100,
+  gray200,
+  gray300,
+  gray400,
+  gray500,
+  gray600,
+  gray700,
+  gray800,
+  white,
+  black,
+  overlay,
+  shadowColor: black,
+};
+
 export const Colors = {
-  light: {
-    text: "#2D2D2D",
-    textSecondary: "#555555",
-    textDisabled: gray400,
-    buttonText: black,
-    link: primary,
-    tabIconDefault: gray500,
-    tabIconSelected: primary,
-    primary,
-    primaryLight,
-    secondary,
-    backgroundRoot: "#F7F9FC",
-    backgroundDefault: white,
-    backgroundCard: white,
-    backgroundSecondary: "#F0F0F0",
-    backgroundTertiary: "#E8E8E8",
-    border: "#E0E0E0",
-    divider: gray200,
-    iconPrimary: primary,
-    iconSecondary: "#555555",
-    iconMuted: gray400,
-    iconDanger: error,
-    iconSuccess: success,
-    iconWarning: warning,
-    success,
-    successLight,
-    warning,
-    warningLight,
-    error,
-    errorLight,
-    info,
-    infoLight,
-    gray50,
-    gray100,
-    gray200,
-    gray300,
-    gray400,
-    gray500,
-    gray600,
-    gray700,
-    gray800,
-    white,
-    black,
-    overlay,
-    shadowColor: black,
-  },
-  dark: {
-    text: "#ECEDEE",
-    textSecondary: "#9BA1A6",
-    textDisabled: gray600,
-    buttonText: black,
-    link: primary,
-    tabIconDefault: gray500,
-    tabIconSelected: primary,
-    primary,
-    primaryLight,
-    secondary,
-    backgroundRoot: "#1A1A1A",
-    backgroundDefault: "#2A2A2A",
-    backgroundCard: "#2A2A2A",
-    backgroundSecondary: "#353535",
-    backgroundTertiary: "#404040",
-    border: "#404040",
-    divider: "#404040",
-    iconPrimary: primary,
-    iconSecondary: "#9BA1A6",
-    iconMuted: gray600,
-    iconDanger: "#F87171",
-    iconSuccess: "#34D399",
-    iconWarning: "#FCD34D",
-    success: "#34D399",
-    successLight: "#064E3B",
-    warning: "#FCD34D",
-    warningLight: "#451A03",
-    error: "#F87171",
-    errorLight: "#450A0A",
-    info: "#60A5FA",
-    infoLight: "#1E3A5F",
-    gray50: "#374151",
-    gray100: "#374151",
-    gray200: "#4B5563",
-    gray300: gray500,
-    gray400: gray400,
-    gray500: gray300,
-    gray600: gray200,
-    gray700: gray100,
-    gray800: gray50,
-    white,
-    black,
-    overlay,
-    shadowColor: black,
-  },
+  light: lightColors,
+  // Compatibility alias only: the product has no dark theme or user switcher.
+  // Any legacy caller asking for "dark" still receives the official light palette.
+  dark: lightColors,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -274,11 +234,11 @@ export const FontSize = {
 
 // ─── Font Families ────────────────────────────────────────────────────────────
 export const FontFamily = {
-  // Tajawal — primary UI font (Arabic)
-  tajawal: "Tajawal_400Regular",
-  tajawalMedium: "Tajawal_500Medium",
-  tajawalBold: "Tajawal_700Bold",
-  tajawalXBold: "Tajawal_800ExtraBold",
+  // Cairo — primary UI font (Arabic); legacy property names are retained for compatibility.
+  tajawal: "Cairo_400Regular",
+  tajawalMedium: "Cairo_600SemiBold",
+  tajawalBold: "Cairo_700Bold",
+  tajawalXBold: "Cairo_700Bold",
   // Cairo — headings and labels (Arabic)
   cairo: "Cairo_400Regular",
   cairoMedium: "Cairo_600SemiBold",
@@ -432,9 +392,9 @@ export const Fonts = Platform.select({
     sansMedium: FontFamily.tajawalMedium,
   },
   web: {
-    sans: "Tajawal, system-ui, -apple-system, sans-serif",
-    sansBold: "Tajawal, system-ui, -apple-system, sans-serif",
-    sansMedium: "Tajawal, system-ui, -apple-system, sans-serif",
+    sans: "Cairo, system-ui, -apple-system, sans-serif",
+    sansBold: "Cairo, system-ui, -apple-system, sans-serif",
+    sansMedium: "Cairo, system-ui, -apple-system, sans-serif",
   },
 });
 
@@ -696,11 +656,12 @@ export const GradientPresets = {
   errorGrad: [error, "#DC2626"] as [string, string],
   warningGrad: [warning, "#D97706"] as [string, string],
   infoGrad: [info, "#2563EB"] as [string, string],
-  // Portals
-  vendor: [vendorPurple, "#512DA8"] as [string, string],
-  driver: [driverBlue, "#0D47A1"] as [string, string],
+  // Portals use the same OnWay brand gradient; status colors remain semantic.
+  vendor: [primary, primaryDark] as [string, string],
+  driver: [primary, primaryDark] as [string, string],
   // Utility
-  dark: [gray800, gray700] as [string, string],
+  // Compatibility preset: a neutral light gradient, never a dark surface.
+  dark: [gray100, gray50] as [string, string],
   glass: ["rgba(255,255,255,0.85)", "rgba(255,255,255,0.40)"] as [
     string,
     string,
@@ -911,9 +872,10 @@ export const BadgeVariants = {
     color: statusCyan,
     borderRadius: BorderRadius.full,
   },
+  // Compatibility variant: retained by name for old imports, but light-only.
   dark: {
-    backgroundColor: gray800,
-    color: white,
+    backgroundColor: gray100,
+    color: gray700,
     borderRadius: BorderRadius.full,
   },
 };
@@ -1305,56 +1267,56 @@ export const ORDER_STATUS_STYLES: Record<
 
 // ─── Portal Themes ────────────────────────────────────────────────────────────
 export const VendorTheme = {
-  primary: vendorPurple,
-  primaryLight: vendorPurpleLight,
-  accent: statusPurple,
-  gradient: [vendorPurple, "#512DA8"] as [string, string],
+  primary,
+  primaryLight,
+  accent: primary,
+  gradient: [primary, primaryDark] as [string, string],
   tabBar: {
-    active: vendorPurple,
-    inactive: gray400,
+    active: primary,
+    inactive: gray500,
     badge: error,
     background: white,
   },
   header: {
-    tintColor: vendorPurple,
+    tintColor: primary,
     background: white,
   },
-  card: CardVariants.vendor,
-  badge: BadgeVariants.purple,
+  card: CardVariants.primary,
+  badge: BadgeVariants.primary,
 };
 
 export const DriverTheme = {
-  primary: driverBlue,
-  primaryLight: driverBlueLight,
-  accent: statusCyan,
-  gradient: [driverBlue, "#0D47A1"] as [string, string],
+  primary,
+  primaryLight,
+  accent: primary,
+  gradient: [primary, primaryDark] as [string, string],
   online: { color: success, background: successLight },
   offline: { color: gray500, background: gray100 },
   busy: { color: warning, background: warningLight },
   tabBar: {
-    active: "#4A4A4A",
-    inactive: gray400,
+    active: primary,
+    inactive: gray500,
     fab: primary,
     fabBorder: white,
     background: white,
   },
   header: {
-    tintColor: driverBlue,
+    tintColor: primary,
     background: white,
   },
-  card: CardVariants.driver,
+  card: CardVariants.primary,
 };
 
 export const AdminTheme = {
-  primary: primary,
-  accent: info,
+  primary,
+  accent: primary,
   gradient: [primary, primaryDark] as [string, string],
   sidebar: {
-    background: gray800,
-    text: white,
+    background: white,
+    text: gray700,
     activeItem: primary,
-    inactiveItem: gray400,
-    borderColor: gray700,
+    inactiveItem: gray500,
+    borderColor: gray200,
   },
   card: CardVariants.elevated,
   badge: BadgeVariants.primary,
@@ -1419,7 +1381,7 @@ export const RTL = {
 
 /**
  * Apply opacity to a hex color.
- * hexAlpha("#E86520", 0.20) → "#E8652033"
+ * hexAlpha("#FB5B21", 0.20) → "#FB5B2133"
  */
 export function hexAlpha(hex: string, opacity: number): string {
   const clamped = Math.min(1, Math.max(0, opacity));

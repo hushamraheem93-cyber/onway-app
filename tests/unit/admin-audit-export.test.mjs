@@ -47,7 +47,7 @@ const MONEY_ROUTES = [
 describe("H-14 — the admin name comes from the session", () => {
   test("the session getter exists and only trusts admin tokens", () => {
     assert.match(ADMIN_AUTH, /export function getSessionUsername\(req: Request\): string/);
-    assert.match(ADMIN_AUTH, /if \(decoded\?\.type !== "admin"\) return "";/);
+    assert.match(ADMIN_AUTH, /if \(decoded\?\.type !== "admin"\) return null;/);
   });
 
   for (const path of MONEY_ROUTES) {
@@ -56,7 +56,7 @@ describe("H-14 — the admin name comes from the session", () => {
       assert.ok(body.length > 0, `${path} not found`);
       assert.match(
         body,
-        /const adminName = getSessionUsername\(req\) \|\| "admin";/,
+        /const actor = adminIdentityFromRequest\(req\);[\s\S]*const adminName = actor\?\.username \|\| getSessionUsername\(req\) \|\| "admin";/,
         `REGRESSION: ${path} takes the auditor's name from the client again`,
       );
     });

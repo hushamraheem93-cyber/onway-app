@@ -52,6 +52,7 @@
  *   node scripts/backfill-order-vendor-ids.mjs --limit 100  # sample first
  */
 import admin from "firebase-admin";
+import { computeVendorIds } from "./compute-vendor-ids.mjs";
 
 const APPLY = process.argv.includes("--apply");
 const ROLLBACK = process.argv.includes("--rollback");
@@ -79,21 +80,6 @@ async function loadProductOwners() {
   return owners;
 }
 
-/** The vendors with a stake in one order — the exact rule the JS filter uses today. */
-export function computeVendorIds(order, productOwners) {
-  const out = new Set();
-  if (typeof order?.vendorId === "string" && order.vendorId.trim()) {
-    out.add(order.vendorId.trim());
-  }
-  const items = Array.isArray(order?.items) ? order.items : [];
-  for (const item of items) {
-    const pid = item?.productId;
-    if (typeof pid !== "string" || !pid) continue;
-    const owner = productOwners.get(pid);
-    if (owner) out.add(owner);
-  }
-  return [...out].sort();
-}
 
 const sameArray = (a, b) =>
   Array.isArray(a) && Array.isArray(b) && a.length === b.length &&

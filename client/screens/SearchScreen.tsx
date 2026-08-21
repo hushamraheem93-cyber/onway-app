@@ -31,7 +31,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function SearchScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const { addToCart } = useCart();
 
@@ -173,9 +173,7 @@ export default function SearchScreen() {
       style={[
         styles.categoryChip,
         {
-          backgroundColor: isDark
-            ? theme.backgroundSecondary
-            : AppColors.secondary,
+          backgroundColor: AppColors.secondary,
           borderWidth: 1,
           borderColor: AppColors.primary + "40",
         },
@@ -206,10 +204,8 @@ export default function SearchScreen() {
           style={[
             styles.searchBar,
             {
-              backgroundColor: isDark
-                ? theme.backgroundDefault
-                : AppColors.gray50,
-              borderColor: isDark ? theme.border : AppColors.divider,
+              backgroundColor: AppColors.gray50,
+              borderColor: AppColors.divider,
             },
           ]}
         >

@@ -18,6 +18,8 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
@@ -506,38 +508,11 @@ export default function DriverOrdersScreen() {
   };
 
   const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View
-        style={[
-          styles.emptyIconBox,
-          { backgroundColor: AppColors.primary + "15" },
-        ]}
-      >
-        <Feather name="package" size={48} color={AppColors.primary} />
-      </View>
-      <ThemedText
-        type="h3"
-        style={{
-          color: theme.text,
-          fontWeight: FontWeight.bold,
-          marginTop: Spacing.lg,
-          textAlign: "center",
-        }}
-      >
-        لا توجد طلبات نشطة
-      </ThemedText>
-      <ThemedText
-        type="body"
-        style={{
-          color: theme.textSecondary,
-          marginTop: Spacing.xs,
-          textAlign: "center",
-          lineHeight: 24,
-        }}
-      >
-        ستظهر طلباتك هنا بعد قبول الدفعة من الشاشة الرئيسية
-      </ThemedText>
-    </View>
+    <EmptyState
+      icon="cube-outline"
+      title="لا توجد طلبات نشطة"
+      subtitle="ستظهر طلباتك هنا بعد قبول الدفعة من الشاشة الرئيسية"
+    />
   );
 
   // H-29: shown instead of the empty state when the screen has never managed to load.
@@ -545,38 +520,11 @@ export default function DriverOrdersScreen() {
   // tell "nothing assigned to me" apart from "I could not reach the server".
   // Pull-to-refresh below is the retry — nothing is re-sent automatically.
   const renderLoadError = () => (
-    <View style={styles.emptyContainer}>
-      <View
-        style={[
-          styles.emptyIconBox,
-          { backgroundColor: AppColors.error + "15" },
-        ]}
-      >
-        <Feather name="wifi-off" size={48} color={AppColors.error} />
-      </View>
-      <ThemedText
-        type="h3"
-        style={{
-          color: theme.text,
-          fontWeight: FontWeight.bold,
-          marginTop: Spacing.lg,
-          textAlign: "center",
-        }}
-      >
-        تعذّر تحميل طلباتك
-      </ThemedText>
-      <ThemedText
-        type="body"
-        style={{
-          color: theme.textSecondary,
-          marginTop: Spacing.xs,
-          textAlign: "center",
-          lineHeight: 24,
-        }}
-      >
-        تحقّق من الإنترنت واسحب للأسفل للمحاولة مجدداً
-      </ThemedText>
-    </View>
+    <ErrorState
+      title="تعذّر تحميل طلباتك"
+      message="تحقّق من الإنترنت وحاول مرة أخرى."
+      onRetry={() => void fetchStatus(true)}
+    />
   );
 
   const renderOrderCard = (order: BatchOrder) => {
@@ -914,18 +862,10 @@ export default function DriverOrdersScreen() {
   // ─── Root render ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          {
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: theme.backgroundRoot,
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color={AppColors.primary} />
-      </View>
+      <LoadingState
+        label="جاري تحميل طلباتك..."
+        style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      />
     );
   }
 

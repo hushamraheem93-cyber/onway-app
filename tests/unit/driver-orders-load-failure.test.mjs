@@ -239,16 +239,16 @@ describe("H-29 — the source keeps the shape the fix depends on", () => {
   });
 
   test("the two states are visually distinguishable and say different things", () => {
-    assert.match(SRC, /لا توجد طلبات نشطة/);
-    assert.match(SRC, /تعذّر تحميل طلباتك/);
-    assert.match(SRC, /name="wifi-off"/);
-    assert.match(SRC, /name="package"/);
+    assert.match(SRC, /<EmptyState[\s\S]*?لا توجد طلبات نشطة/);
+    assert.match(SRC, /<ErrorState[\s\S]*?تعذّر تحميل طلباتك/);
+    assert.match(SRC, /<ErrorState/);
+    assert.match(SRC, /<EmptyState/);
   });
 
   test("no automatic retry was introduced", () => {
     assert.doesNotMatch(FETCH_BODY, /\bretry\b|for \(let attempt|while \(attempt/i);
-    assert.match(SRC, /تحقّق من الإنترنت واسحب للأسفل للمحاولة مجدداً/,
-      "the driver must be told how to retry by hand");
+    assert.match(SRC, /onRetry=\{\(\) => void fetchStatus\(true\)\}/,
+      "the driver must be given an explicit retry action");
   });
 
   test("the request, the poll and pull-to-refresh are unchanged", () => {

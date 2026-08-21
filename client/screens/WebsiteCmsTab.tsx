@@ -1222,7 +1222,7 @@ const s = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: "Tajawal_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: AppColors.gray800,
     textAlignVertical: "top",

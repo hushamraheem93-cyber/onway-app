@@ -19,6 +19,7 @@ import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNo
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory, settlementId } from "./settlement";
 import { getAccountStatement } from "./financialLedger";
 import { orderEvents } from "./orderEvents";
+import { aggregateDailyOrderTrend, type VendorAnalyticsPeriod } from "./vendorAnalytics";
 import { isValidSession } from "./adminAuth";
 import { isCustomerTokenRevoked } from "./customerRevocation";
 import { isRequestSecure } from "./originGuard";
@@ -2577,6 +2578,10 @@ router.get("/api/vendor/analytics", requireVendor, async (req, res) => {
 
   try {
     const now = new Date();
+    const requestedPeriod = String(req.query.period || "month");
+    const period: VendorAnalyticsPeriod = ["today", "week", "month", "all"].includes(requestedPeriod)
+      ? (requestedPeriod as VendorAnalyticsPeriod)
+      : "month";
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
@@ -2608,11 +2613,18 @@ router.get("/api/vendor/analytics", requireVendor, async (req, res) => {
       }
     }
 
-    const bestSellers = Object.values(productCount)
+        const bestSellers = Object.values(productCount)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
-
-    return res.json({ todayOrders, todaySales, weekOrders, weekSales, bestSellers });
+    const dailyOrders = aggregateDailyOrderTrend(
+      snap.docs.map((doc) => {
+        const order = doc.data() as any;
+        return { createdAt: order.createdAt, status: order.status };
+      }),
+      period,
+      now,
+    );
+    return res.json({ todayOrders, todaySales, weekOrders, weekSales, bestSellers, dailyOrders, period });
   } catch (err: any) {
     console.error("vendor analytics error:", err);
     return res.status(500).json({ error: GENERIC_SERVER_ERROR });

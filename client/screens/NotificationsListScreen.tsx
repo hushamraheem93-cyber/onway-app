@@ -14,6 +14,7 @@ import {
   FontWeight,
 } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+import { ErrorState, LoadingState } from "@/components/ScreenState";
 import {
   useNotifications,
   AppNotification,
@@ -94,6 +95,9 @@ export default function NotificationsListScreen() {
     markAsRead,
     markAllAsRead,
     clearNotifications,
+    loading,
+    error,
+    reloadNotifications,
   } = useNotifications();
 
   useEffect(() => {
@@ -112,7 +116,19 @@ export default function NotificationsListScreen() {
     }
   };
 
-  const renderEmptyState = () => (
+  const renderEmptyState = () => {
+    if (loading) {
+      return <LoadingState label="جاري تحميل الإشعارات..." />;
+    }
+    if (error) {
+      return (
+        <ErrorState
+          title="تعذّر تحميل الإشعارات"
+          onRetry={() => void reloadNotifications()}
+        />
+      );
+    }
+    return (
     <View style={styles.emptyState}>
       <View
         style={[styles.emptyIcon, { backgroundColor: theme.backgroundDefault }]}
@@ -129,7 +145,8 @@ export default function NotificationsListScreen() {
         ستظهر هنا الإشعارات عند تحديث حالة طلباتك
       </ThemedText>
     </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container]}>

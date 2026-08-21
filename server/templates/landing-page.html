@@ -1,11 +1,11 @@
 <!doctype html>
-<html>
+<html lang="ar" dir="rtl">
   <head>
     <title>APP_NAME_PLACEHOLDER — توصيل سريع في العراق</title>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-    <!-- SEO: the page previously had only a bare <title>, so it had no description
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- SEO: the page previously had only a bare title, so it had no description
          in search results and rendered as a blank link when shared on WhatsApp /
          Facebook / Telegram — the main channels for this market. -->
     <meta name="description" content="OnWay — تطبيق توصيل الطلبات في العراق. اطلب من المطاعم والمتاجر والصيدليات القريبة منك ووصّلها لباب بيتك بسرعة." />
@@ -13,7 +13,7 @@
          install Expo Go, which is not OnWay, so it must never be indexed or be what
          a shared link resolves to. The public page is landing-public.html. -->
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="theme-color" content="#E86520" />
+    <meta name="theme-color" content="#FB5B21" />
     <link rel="canonical" href="/" />
 
     <!-- Open Graph / WhatsApp / Facebook link previews -->
@@ -32,7 +32,7 @@
         box-sizing: border-box;
       }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: 'Cairo', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         margin: 0;
         padding: 32px 20px;
         text-align: center;
@@ -283,72 +283,7 @@
         }
       }
 
-      /* Dark mode */
-      @media (prefers-color-scheme: dark) {
-        body {
-          background: #0d0d0d;
-          color: #e0e0e0;
-        }
-        h1 {
-          color: #f5f5f5;
-        }
-        .subtitle {
-          color: #999;
-        }
-        .spinner {
-          border-color: #444;
-          border-top-color: #ccc;
-        }
-        .loading-text {
-          color: #aaa;
-        }
-        .step {
-          border-color: #333;
-          background: #1a1a1a;
-        }
-        .step-number {
-          border-color: #666;
-          color: #bbb;
-        }
-        .step-title {
-          color: #f0f0f0;
-        }
-        .step-description {
-          color: #888;
-        }
-        .store-button {
-          border-color: #444;
-          color: #e0e0e0;
-          background: #222;
-        }
-        .store-button:hover {
-          background: #2a2a2a;
-          border-color: #666;
-        }
-        .store-link {
-          color: #888;
-        }
-        .store-link:hover {
-          color: #ccc;
-        }
-        .qr-section {
-          background: #111;
-          border-color: #333;
-        }
-        .qr-section .step-number {
-          border-color: rgba(255, 255, 255, 0.4);
-        }
-        .qr-section .step-description {
-          color: rgba(255, 255, 255, 0.6);
-        }
-        .open-button {
-          background: #f0f0f0;
-          color: #111;
-        }
-        .open-button:hover {
-          background: #e0e0e0;
-        }
-      }
+      /* OnWay ships a single light landing surface; browser dark preference is ignored. */
     </style>
   </head>
   <body>

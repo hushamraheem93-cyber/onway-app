@@ -103,9 +103,9 @@ export function Button({
           {
             color: getTextColor(),
             fontFamily: Platform.select({
-              ios: "Tajawal_700Bold",
-              android: "Tajawal_700Bold",
-              web: "Tajawal, system-ui, sans-serif",
+              ios: "Cairo_700Bold",
+              android: "Cairo_700Bold",
+              web: "Cairo, system-ui, sans-serif",
             }),
           },
         ]}

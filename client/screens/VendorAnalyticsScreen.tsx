@@ -40,6 +40,9 @@ import {
 } from "@/constants/theme";
 import { SettlementStatusBar } from "@/components/SettlementStatusBar";
 import { SettlementHistoryList } from "@/components/SettlementHistoryList";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState, LoadingState } from "@/components/ScreenState";
+import { LedgerStatementCard } from "@/components/LedgerStatementCard";
 import { useSettlement } from "@/hooks/useSettlement";
 
 const ORANGE = AppColors.primary;
@@ -53,6 +56,10 @@ type FilterType = "all" | "unanswered" | "high" | "low";
 interface DaySale {
   date: string;
   revenue: number;
+}
+interface DayOrder {
+  date: string;
+  orders: number;
 }
 interface RecentSale {
   id: string;
@@ -71,6 +78,19 @@ interface WalletData {
   dailySales: DaySale[];
   recentSales: RecentSale[];
   period: string;
+}
+interface BestSeller {
+  name: string;
+  count: number;
+}
+interface VendorAnalyticsData {
+  todayOrders: number;
+  todaySales: number;
+  weekOrders: number;
+  weekSales: number;
+  bestSellers: BestSeller[];
+  dailyOrders: DayOrder[];
+  period: Period;
 }
 interface RatingItem {
   id: string;
@@ -161,9 +181,16 @@ function StarRow({ value, size = 14 }: { value: number; size?: number }) {
 
 // ─── Bar chart ────────────────────────────────────────────────────────────────
 
-function BarChart({ data }: { data: DaySale[] }) {
+function BarChart({
+  data,
+  valueKey = "revenue",
+}: {
+  data: Array<DaySale | DayOrder>;
+  valueKey?: "revenue" | "orders";
+}) {
   if (data.length === 0) return null;
-  const max = Math.max(...data.map((d) => d.revenue), 1);
+  const values = data.map((d) => Number(valueKey === "revenue" ? ("revenue" in d ? d.revenue : 0) : ("orders" in d ? d.orders : 0)));
+  const max = Math.max(...values, 1);
   const barW = Math.max(24, Math.min(36, (SCREEN_W - 80) / data.length - 6));
   return (
     <View style={{ marginTop: 8, paddingBottom: 4 }}>
@@ -176,7 +203,8 @@ function BarChart({ data }: { data: DaySale[] }) {
         }}
       >
         {data.map((d, i) => {
-          const h = Math.max(4, (d.revenue / max) * 110);
+          const value = valueKey === "revenue" ? ("revenue" in d ? d.revenue : 0) : ("orders" in d ? d.orders : 0);
+          const h = Math.max(4, (value / max) * 110);
           return (
             <View key={i} style={{ alignItems: "center", gap: 4 }}>
               <View
@@ -202,6 +230,52 @@ function BarChart({ data }: { data: DaySale[] }) {
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function BestProductsList({
+  products,
+  theme,
+}: {
+  products: BestSeller[];
+  theme: ReturnType<typeof useTheme>["theme"];
+}) {
+  if (products.length === 0) {
+    return (
+      <EmptyState
+        icon="cube-outline"
+        title="لا توجد منتجات مباعة بعد"
+        subtitle="ستظهر أفضل المنتجات بعد اكتمال طلبات موصلة"
+      />
+    );
+  }
+  const max = Math.max(...products.map((product) => product.count), 1);
+  return (
+    <View style={{ gap: 12 }}>
+      {products.map((product, index) => {
+        const width = Math.max(8, (product.count / max) * 100);
+        return (
+          <View key={`${product.name}-${index}`} style={{ gap: 6 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <View style={[wt.rank, { backgroundColor: index === 0 ? ORANGE : AppColors.gray200 }]}>
+                <ThemedText style={[wt.rankText, { color: index === 0 ? AppColors.white : AppColors.gray600 }]}>
+                  {index + 1}
+                </ThemedText>
+              </View>
+              <ThemedText numberOfLines={1} style={[wt.productName, { color: theme.text }]}>
+                {product.name}
+              </ThemedText>
+              <ThemedText style={[wt.productCount, { color: ORANGE }]}>
+                {product.count} مبيع
+              </ThemedText>
+            </View>
+            <View style={wt.productTrack}>
+              <View style={[wt.productFill, { width: `${width}%`, backgroundColor: ORANGE }]} />
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -357,8 +431,9 @@ const rm = StyleSheet.create({
 // ─── Wallet tab ────────────────────────────────────────────────────────────────
 
 function WalletTab() {
-  const { vendorToken } = useAuth();
+  const { vendorToken, vendorProfile } = useAuth();
   const { theme } = useTheme();
+  const vendorId = vendorProfile?.id ?? decodeVendorId(vendorToken);
   // H-50: see VendorWalletScreen — the settlementLedger onSnapshot listener that
   // used to live here could only ever receive permission-denied, because the rules
   // close that collection to the client SDK. useSettlement is the working source.
@@ -382,8 +457,8 @@ function WalletTab() {
     );
   }, [settlement]);
 
-  const { data, isLoading, refetch, isRefetching } = useQuery<WalletData>({
-    queryKey: ["/api/vendor/wallet", period],
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery<WalletData>({
+    queryKey: ["/api/vendor/wallet", period, vendorId],
     queryFn: async () => {
       const url = new URL("/api/vendor/wallet", getApiUrl());
       url.searchParams.set("period", period);
@@ -393,7 +468,27 @@ function WalletTab() {
       if (!res.ok) throw new Error("failed");
       return res.json();
     },
-    enabled: !!vendorToken,
+    enabled: !!vendorToken && !!vendorId,
+  });
+
+  const {
+    data: analytics,
+    isLoading: analyticsLoading,
+    isError: analyticsError,
+    isRefetching: analyticsRefetching,
+    refetch: refetchAnalytics,
+  } = useQuery<VendorAnalyticsData>({
+    queryKey: ["/api/vendor/analytics", vendorId, period],
+    queryFn: async () => {
+      const url = new URL("/api/vendor/analytics", getApiUrl());
+      url.searchParams.set("period", period);
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${vendorToken}` },
+      });
+      if (!res.ok) throw new Error("failed");
+      return res.json();
+    },
+    enabled: !!vendorToken && !!vendorId,
   });
 
   const totalRevenue = data?.totalRevenue ?? 0;
@@ -401,6 +496,7 @@ function WalletTab() {
   const avgOrder = data?.avgOrderValue ?? 0;
   const dailySales = data?.dailySales ?? [];
   const recentSales = data?.recentSales ?? [];
+  const dailyOrders = analytics?.dailyOrders ?? [];
 
   const liveSettlementView = settlement.view;
 
@@ -414,8 +510,10 @@ function WalletTab() {
       }}
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={refetch}
+          refreshing={isRefetching || analyticsRefetching}
+          onRefresh={() => {
+            void Promise.all([refetch(), refetchAnalytics()]);
+          }}
           tintColor={ORANGE}
         />
       }
@@ -429,6 +527,16 @@ function WalletTab() {
         containerStyle={{ marginHorizontal: 0, marginTop: 0 }}
       />
       <SettlementHistoryList history={settlement.history} />
+      <LedgerStatementCard
+        endpoint="/api/vendor/statement"
+        authHeader={vendorToken ? { Authorization: `Bearer ${vendorToken}` } : undefined}
+      />
+
+      {/* Overview */}
+      <View style={wt.sectionHeader}>
+        <Feather name="bar-chart-2" size={16} color={ORANGE} />
+        <ThemedText style={wt.sectionTitle}>نظرة عامة</ThemedText>
+      </View>
 
       {/* Period selector */}
       <View style={wt.periodRow}>
@@ -453,9 +561,12 @@ function WalletTab() {
       </View>
 
       {isLoading ? (
-        <View style={{ alignItems: "center", paddingVertical: 40 }}>
-          <ActivityIndicator size="large" color={ORANGE} />
-        </View>
+        <LoadingState label="جاري تحميل بيانات المبيعات..." compact />
+      ) : isError && !data ? (
+        <ErrorState
+          title="تعذّر تحميل بيانات المبيعات"
+          onRetry={() => void refetch()}
+        />
       ) : (
         <>
           {/* Revenue card */}
@@ -510,8 +621,14 @@ function WalletTab() {
             </View>
           </View>
 
-          {/* Bar chart */}
-          {dailySales.length > 0 && (
+          {/* Performance */}
+          <View style={wt.sectionHeader}>
+            <Feather name="trending-up" size={16} color={ORANGE} />
+            <ThemedText style={wt.sectionTitle}>الأداء</ThemedText>
+          </View>
+
+          {/* Revenue trend */}
+          {dailySales.length > 0 ? (
             <View
               style={[wt.section, { backgroundColor: theme.backgroundDefault }]}
             >
@@ -521,9 +638,62 @@ function WalletTab() {
                   المبيعات اليومية
                 </ThemedText>
               </View>
+              <ThemedText style={wt.sectionHint}>المبيعات اليومية — من بيانات الطلبات المكتملة</ThemedText>
               <BarChart data={dailySales} />
             </View>
+          ) : (
+            <View style={[wt.section, { backgroundColor: theme.backgroundDefault }]}>
+              <ThemedText style={wt.sectionTitle}>اتجاه المبيعات</ThemedText>
+              <ThemedText style={wt.sectionHint}>لا توجد مبيعات مكتملة ضمن الفترة المختارة لعرض الرسم.</ThemedText>
+            </View>
           )}
+
+          {/* Best products */}
+          <View style={[wt.section, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={wt.sectionHeader}>
+              <Feather name="award" size={16} color={ORANGE} />
+              <ThemedText style={wt.sectionTitle}>أفضل المنتجات — آخر 7 أيام</ThemedText>
+            </View>
+            {analyticsLoading ? (
+              <LoadingState label="جاري تحميل أفضل المنتجات..." compact />
+            ) : analyticsError ? (
+              <ErrorState
+                title="تعذّر تحميل أفضل المنتجات"
+                onRetry={() => void refetchAnalytics()}
+              />
+            ) : (
+              <BestProductsList products={analytics?.bestSellers ?? []} theme={theme} />
+            )}
+          </View>
+
+          {/* Daily orders trend */}
+          <View style={[wt.section, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={wt.sectionHeader}>
+              <Feather name="shopping-bag" size={16} color={ORANGE} />
+              <ThemedText style={wt.sectionTitle}>الطلبات اليومية</ThemedText>
+            </View>
+            {analyticsLoading ? (
+              <LoadingState label="جاري تحميل اتجاه الطلبات..." compact />
+            ) : analyticsError ? (
+              <ErrorState
+                title="تعذّر تحميل اتجاه الطلبات"
+                onRetry={() => void refetchAnalytics()}
+              />
+            ) : dailyOrders.length > 0 ? (
+              <>
+                <ThemedText style={wt.sectionHint}>
+                  الطلبات المكتملة — نفس فترة {PERIOD_LABELS[period]}
+                </ThemedText>
+                <BarChart data={dailyOrders} valueKey="orders" />
+              </>
+            ) : (
+              <EmptyState
+                icon="receipt-outline"
+                title="لا توجد طلبات مكتملة"
+                subtitle={`لا توجد بيانات يومية ضمن فترة ${PERIOD_LABELS[period]}.`}
+              />
+            )}
+          </View>
 
           {/* Recent sales */}
           {recentSales.length > 0 ? (
@@ -694,6 +864,35 @@ const wt = StyleSheet.create({
     textAlign: "center",
   },
   section: { borderRadius: 20, padding: 16, ...Shadows.sm },
+  sectionHint: {
+    fontFamily: FontFamily.tajawal,
+    fontSize: 11,
+    color: AppColors.gray500,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  dataGap: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 10,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  dataGapText: {
+    flex: 1,
+    fontFamily: FontFamily.tajawal,
+    fontSize: 11,
+    lineHeight: 18,
+    color: AppColors.gray500,
+    textAlign: "right",
+  },
+  rank: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  rankText: { fontFamily: FontFamily.cairoBold, fontSize: 11 },
+  productName: { flex: 1, fontFamily: FontFamily.cairoBold, fontSize: 13, textAlign: "right" },
+  productCount: { fontFamily: FontFamily.cairoBold, fontSize: 11 },
+  productTrack: { height: 7, borderRadius: 4, overflow: "hidden", backgroundColor: AppColors.gray100 },
+  productFill: { height: "100%", borderRadius: 4 },
   sectionHeader: {
     flexDirection: "row-reverse",
     alignItems: "center",

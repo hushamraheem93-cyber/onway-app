@@ -28,6 +28,7 @@ import { useCart } from "@/context/CartContext";
 import { OrderCard } from "@/components/OrderCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
+import { LoadingState } from "@/components/ScreenState";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { GradientBackground } from "@/components/GradientBackground";
 import { getApiUrl } from "@/lib/query-client";
@@ -48,6 +49,7 @@ export default function OrdersScreen() {
   const { replaceCart } = useCart();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [hasLoadedOrders, setHasLoadedOrders] = useState(false);
 
   /**
    * H-82: every handler this screen hands to a row is wrapped, because OrderCard
@@ -208,8 +210,14 @@ export default function OrdersScreen() {
   );
 
   useEffect(() => {
-    refreshOrders();
-  }, []);
+    let active = true;
+    refreshOrders().finally(() => {
+      if (active) setHasLoadedOrders(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [refreshOrders]);
 
   // FlatList's `data`: a fresh array on every render re-renders every cell, so the
   // filtered list is built only when the orders or the query actually move. With
@@ -243,6 +251,9 @@ export default function OrdersScreen() {
   );
 
   const renderEmpty = useCallback(() => {
+    if (isLoading || !hasLoadedOrders) {
+      return <LoadingState label="جاري تحميل الطلبات..." />;
+    }
     if (isSearching) {
       return (
         <View style={styles.noResults}>
@@ -303,7 +314,7 @@ export default function OrdersScreen() {
     );
     // ListEmptyComponent is used by React as a component TYPE. A new function on
     // every render is a new type, which unmounts and remounts the empty state.
-  }, [isSearching, searchQuery, theme.textSecondary, navigation]);
+  }, [hasLoadedOrders, isLoading, isSearching, searchQuery, theme.textSecondary, navigation]);
 
   // Style and element props of the list itself. Fresh objects here re-render the
   // list on every parent render, and the list re-invokes renderItem for its cells.

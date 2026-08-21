@@ -200,9 +200,12 @@ function tabsUsing(name) {
 function usedOutsideTabs(name) {
   const re = new RegExp(`(?<![\\w.])${name}\\b`, "g");
   const spans = Object.values(TAB_SPANS);
+  const permissionMapStart = CODE.indexOf("const required:");
+  const permissionMapEnd = permissionMapStart >= 0 ? CODE.indexOf("};", permissionMapStart) : -1;
   const hits = [];
   for (const m of CODE.matchAll(re)) {
     if (spans.some(([a, b]) => m.index >= a && m.index < b)) continue;
+    if (permissionMapStart >= 0 && permissionMapEnd > permissionMapStart && m.index >= permissionMapStart && m.index < permissionMapEnd) continue;
     const lineStart = SRC.lastIndexOf("\n", m.index) + 1;
     const line = SRC.slice(lineStart, SRC.indexOf("\n", m.index));
     // Skip declarations and type annotations — neither reads the data at runtime:

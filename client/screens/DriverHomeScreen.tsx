@@ -117,7 +117,7 @@ export interface DriverStats {
 export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { phoneNumber, userProfile } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -726,7 +726,7 @@ export default function DriverHomeScreen() {
   };
 
   if (loading) {
-    const skeletonBg = isDark ? "#2a2a2a" : "#e8e8e8";
+    const skeletonBg = AppColors.gray200;
     const SkBox = ({
       w,
       h,
@@ -958,7 +958,7 @@ export default function DriverHomeScreen() {
         <Feather
           name="truck"
           size={44}
-          color={isDark ? AppColors.gray500 : AppColors.gray300}
+          color={AppColors.gray300}
         />
       </View>
       <ThemedText
@@ -1052,11 +1052,7 @@ export default function DriverHomeScreen() {
       style={[
         styles.toggleButton,
         {
-          backgroundColor: isOnline
-            ? AppColors.primary
-            : isDark
-              ? theme.backgroundSecondary
-              : AppColors.gray50,
+          backgroundColor: isOnline ? AppColors.primary : AppColors.gray50,
           borderColor: isOnline ? AppColors.primary : theme.border,
         },
       ]}

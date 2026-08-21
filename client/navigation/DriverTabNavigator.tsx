@@ -11,14 +11,15 @@ import * as Haptics from "expo-haptics";
 import DriverHomeScreen from "@/screens/DriverHomeScreen";
 import DriverOrdersScreen from "@/screens/DriverOrdersScreen";
 import DriverEarningsScreen from "@/screens/DriverEarningsScreen";
+import DriverPerformanceScreen from "@/screens/DriverPerformanceScreen";
 import DriverProfileScreen from "@/screens/DriverProfileScreen";
-import { useTheme } from "@/hooks/useTheme";
 import { AppColors } from "@/constants/theme";
 
 export type DriverTabParamList = {
   DriverHomeTab: undefined;
   DriverOrdersTab: undefined;
   DriverEarningsTab: undefined;
+  DriverPerformanceTab: undefined;
   DriverProfileTab: undefined;
 };
 
@@ -28,20 +29,19 @@ const TAB_CONFIG: Record<
 > = {
   DriverProfileTab: { icon: "user", label: "حسابي" },
   DriverEarningsTab: { icon: "dollar-sign", label: "الأرباح" },
+  DriverPerformanceTab: { icon: "activity", label: "الأداء" },
   DriverHomeTab: { icon: "home", label: "الرئيسية" },
   DriverOrdersTab: { icon: "package", label: "الطلبات" },
 };
 
 function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { theme, isDark } = useTheme();
-
   return (
     <View
       style={[
         styles.tabContainer,
         {
-          backgroundColor: isDark ? theme.backgroundDefault : AppColors.white,
+          backgroundColor: AppColors.white,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
         },
       ]}
@@ -120,6 +120,7 @@ export default function DriverTabNavigator() {
       <Tab.Screen name="DriverProfileTab" component={DriverProfileScreen} />
       <Tab.Screen name="DriverEarningsTab" component={DriverEarningsScreen} />
       <Tab.Screen name="DriverHomeTab" component={DriverHomeScreen} />
+      <Tab.Screen name="DriverPerformanceTab" component={DriverPerformanceScreen} />
       <Tab.Screen name="DriverOrdersTab" component={DriverOrdersScreen} />
     </Tab.Navigator>
   );

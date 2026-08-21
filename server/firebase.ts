@@ -888,6 +888,51 @@ export async function getOrdersByDriverPhone(driverPhone: string, driverName?: s
   }
 }
 
+/** Fetch delivery lifecycle logs attributable to one driver for server-side metrics. */
+export async function getDriverDeliveryLogs(driverPhone: string, limitCount = 1000): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const snap = await db.collection("delivery_logs").where("driverPhone", "==", driverPhone).get();
+    return snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() as any }))
+      .sort((a: any, b: any) => {
+        const aTime = a.createdAt?.toMillis?.() ?? a.created_at?.toMillis?.() ?? 0;
+        const bTime = b.createdAt?.toMillis?.() ?? b.created_at?.toMillis?.() ?? 0;
+        return bTime - aTime;
+      })
+      .slice(0, limitCount);
+  } catch (error) {
+    console.error("Error getting driver delivery logs:", error);
+    throw error;
+  }
+}
+
+/** Fetch delivered/cancelled orders attributable to one driver for server-side metrics. */
+export async function getDriverPerformanceOrders(driverPhone: string): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const seen = new Set<string>();
+    const orders: any[] = [];
+    const collect = (snap: FirebaseFirestore.QuerySnapshot) => {
+      for (const doc of snap.docs) {
+        const order = { id: doc.id, ...doc.data() as any };
+        if ((order.status === "delivered" || order.status === "cancelled") && !seen.has(doc.id)) {
+          seen.add(doc.id);
+          orders.push(order);
+        }
+      }
+    };
+
+    // Driver-scoped metrics must never fall back to a display name: two drivers
+    // can share a name, while the authenticated phone is the signed identity.
+    collect(await db.collection("orders").where("driverPhone", "==", driverPhone).get());
+    return orders;
+  } catch (error) {
+    console.error("Error getting driver performance orders:", error);
+    throw error;
+  }
+}
+
 export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "updatedAt">): Promise<(FirestoreOrder & { id: string }) | null> {
   if (!db) return null;
   

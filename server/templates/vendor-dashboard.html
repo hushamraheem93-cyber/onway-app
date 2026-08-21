@@ -8,22 +8,23 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --orange: #E86520;
-  --orange-light: rgba(232,101,32,0.12);
-  --orange-glow: rgba(232,101,32,0.35);
-  --bg: #0f0f0f;
-  --bg2: #161616;
-  --bg3: #1e1e1e;
-  --border: rgba(255,255,255,0.08);
-  --text: #f0f0f0;
-  --text-muted: rgba(255,255,255,0.45);
+  /* OnWay Light Mode tokens */
+  --orange: #FB5B21;
+  --orange-light: rgba(251,91,33,0.12);
+  --orange-glow: rgba(251,91,33,0.28);
+  --bg: #F5F6F8;
+  --bg2: #FFFFFF;
+  --bg3: #FFF8F5;
+  --border: #E5E7EB;
+  --text: #1F2937;
+  --text-muted: #6B7280;
   --green: #10B981;
   --red: #EF4444;
   --yellow: #F59E0B;
   --sidebar-w: 240px;
 }
 
-body { font-family: 'Segoe UI', Tahoma, 'Cairo', sans-serif; background: var(--bg); color: var(--text); direction: rtl; overflow-x: hidden; }
+body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); direction: rtl; overflow-x: hidden; }
 
 /* ── Layout ── */
 .app { display: flex; height: 100vh; overflow: hidden; }
@@ -50,7 +51,7 @@ body { font-family: 'Segoe UI', Tahoma, 'Cairo', sans-serif; background: var(--b
 }
 .sidebar-logo .icon {
   width: 36px; height: 36px;
-  background: linear-gradient(135deg, #E86520, #f5a623);
+  background: linear-gradient(135deg, #FB5B21, #f5a623);
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-weight: 900; font-size: 16px; color: #fff;
@@ -73,7 +74,7 @@ body { font-family: 'Segoe UI', Tahoma, 'Cairo', sans-serif; background: var(--b
   border: none; background: transparent; width: 100%; text-align: right; font-family: inherit;
 }
 .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
-.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.nav-item:hover { background: var(--orange-light); color: var(--text); }
 .nav-item.active { background: var(--orange-light); color: var(--orange); }
 .nav-item .badge {
   margin-right: auto; background: var(--orange);
@@ -137,9 +138,9 @@ body { font-family: 'Segoe UI', Tahoma, 'Cairo', sans-serif; background: var(--b
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 th { padding: 12px 16px; text-align: right; color: var(--text-muted); font-weight: 600; font-size: 0.78rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
-td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+td { padding: 12px 16px; border-bottom: 1px solid #EEF2F7; vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: rgba(255,255,255,0.02); }
+tr:hover td { background: #FFF8F5; }
 
 /* ── Badges ── */
 .badge {
@@ -161,12 +162,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   cursor: pointer; transition: all 0.15s;
   font-family: inherit;
 }
-.btn-primary { background: var(--orange); color: #fff; }
-.btn-primary:hover { background: #d4561a; }
+.btn-primary { background: var(--orange); color: #1F2937; }
+.btn-primary:hover { background: #D94A17; }
 .btn-danger { background: rgba(239,68,68,0.15); color: #EF4444; border: 1px solid rgba(239,68,68,0.2); }
 .btn-danger:hover { background: rgba(239,68,68,0.25); }
-.btn-ghost { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
-.btn-ghost:hover { background: rgba(255,255,255,0.1); }
+.btn-ghost { background: #FFFFFF; color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--orange-light); }
 .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -183,11 +184,11 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .notif-item {
   display: flex; gap: 12px; align-items: flex-start;
   padding: 14px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid #EEF2F7;
   transition: background 0.15s;
 }
 .notif-item:last-child { border-bottom: none; }
-.notif-item.unread { background: rgba(232,101,32,0.04); }
+.notif-item.unread { background: rgba(251,91,33,0.04); }
 .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); margin-top: 6px; flex-shrink: 0; }
 .notif-content .title { font-size: 0.875rem; font-weight: 600; margin-bottom: 3px; }
 .notif-content .msg { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
@@ -196,7 +197,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 /* ── Modal ── */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(15,23,42,0.45);
   display: flex; align-items: center; justify-content: center;
   z-index: 100; padding: 20px;
   opacity: 0; pointer-events: none; transition: opacity 0.2s;
@@ -224,7 +225,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .form-group select,
 .form-group textarea {
   width: 100%; padding: 10px 12px;
-  background: rgba(255,255,255,0.05);
+  background: #FFFFFF;
   border: 1px solid var(--border);
   border-radius: 8px; color: var(--text);
   font-size: 0.875rem; font-family: inherit;
@@ -235,7 +236,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .form-group textarea:focus { border-color: var(--orange); }
 .form-group input::placeholder,
 .form-group textarea::placeholder { color: var(--text-muted); }
-.form-group select option { background: #1e1e1e; }
+.form-group select option { background: #FFFFFF; color: var(--text); }
 .form-group textarea { min-height: 70px; resize: vertical; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
@@ -259,8 +260,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   padding: 10px 14px; border-radius: 8px;
   font-size: 0.82rem; margin-bottom: 12px; display: none;
 }
-.alert-sm.error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; display: block; }
-.alert-sm.success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; display: block; }
+.alert-sm.error { background: #FEF2F2; border: 1px solid #FECACA; color: #B91C1C; display: block; }
+.alert-sm.success { background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; display: block; }
 
 /* ── Profile ── */
 .profile-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
@@ -272,13 +273,13 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 999px; }
+::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 999px; }
 
 /* ── Loading ── */
 .spinner {
   width: 20px; height: 20px;
-  border: 2px solid rgba(255,255,255,0.2);
-  border-top-color: #fff;
+  border: 2px solid #E5E7EB;
+  border-top-color: var(--orange);var(--orange);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
   display: inline-block;
@@ -342,8 +343,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div style="padding:24px">
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(232,101,32,0.15)">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E86520" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <div class="stat-icon" style="background:rgba(251,91,33,0.15)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FB5B21" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
             </div>
             <div><div class="stat-value" id="ov-total">-</div><div class="stat-label">إجمالي المنتجات</div></div>
           </div>
@@ -375,17 +376,17 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             </h3>
           </div>
           <div style="padding:20px;display:grid;gap:12px;">
-            <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(232,101,32,0.06);border-radius:10px;border:1px solid rgba(232,101,32,0.15)">
-              <div style="background:#E86520;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">1</div>
-              <div><div style="font-weight:700;margin-bottom:3px">أضف منتجاتك</div><div style="font-size:0.82rem;color:rgba(255,255,255,0.55)">انتقل لقسم "منتجاتي" واضغط "إضافة منتج جديد" مع رفع صورة واضحة</div></div>
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(251,91,33,0.06);border-radius:10px;border:1px solid rgba(251,91,33,0.15)">
+              <div style="background:#FB5B21;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">1</div>
+              <div><div style="font-weight:700;margin-bottom:3px">أضف منتجاتك</div><div style="font-size:0.82rem;color:#6B7280">انتقل لقسم "منتجاتي" واضغط "إضافة منتج جديد" مع رفع صورة واضحة</div></div>
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(245,158,11,0.06);border-radius:10px;border:1px solid rgba(245,158,11,0.15)">
               <div style="background:#F59E0B;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">2</div>
-              <div><div style="font-weight:700;margin-bottom:3px">مراجعة الإدارة</div><div style="font-size:0.82rem;color:rgba(255,255,255,0.55)">يراجع الفريق منتجك خلال 24 ساعة للتأكد من مطابقته للمعايير</div></div>
+              <div><div style="font-weight:700;margin-bottom:3px">مراجعة الإدارة</div><div style="font-size:0.82rem;color:#6B7280">يراجع الفريق منتجك خلال 24 ساعة للتأكد من مطابقته للمعايير</div></div>
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(16,185,129,0.06);border-radius:10px;border:1px solid rgba(16,185,129,0.15)">
               <div style="background:#10B981;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">3</div>
-              <div><div style="font-weight:700;margin-bottom:3px">يظهر للعملاء</div><div style="font-size:0.82rem;color:rgba(255,255,255,0.55)">بعد الموافقة، يُعرض منتجك فوراً في التطبيق ويصله الطلبات</div></div>
+              <div><div style="font-weight:700;margin-bottom:3px">يظهر للعملاء</div><div style="font-size:0.82rem;color:#6B7280">بعد الموافقة، يُعرض منتجك فوراً في التطبيق ويصله الطلبات</div></div>
             </div>
           </div>
         </div>
@@ -409,7 +410,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           <div class="card-header">
             <h3>قائمة المنتجات</h3>
             <div style="display:flex;gap:8px">
-              <select id="filter-status" onchange="loadProducts()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:0.8rem;direction:rtl">
+              <select id="filter-status" onchange="loadProducts()" style="background:#FFFFFF;border:1px solid #E5E7EB;color:#1F2937;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:0.8rem;direction:rtl">
                 <option value="">الكل</option>
                 <option value="pending">قيد المراجعة</option>
                 <option value="approved">معتمدة</option>
@@ -484,12 +485,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div id="add-alert" class="alert-sm"></div>
 
     <div class="form-group">
-      <label>صورة المنتج <span style="color:#E86520">*</span></label>
+      <label>صورة المنتج <span style="color:#FB5B21">*</span></label>
       <div class="img-upload-area" id="upload-area">
         <input type="file" id="product-image" accept="image/*" onchange="previewImage(event)" />
         <div id="upload-placeholder">
           <div class="big">📷</div>
-          <div class="img-upload-hint" style="margin-top:8px">اضغط لرفع صورة<br><small style="color:rgba(255,255,255,0.3)">PNG، JPEG حتى 15MB — سيتم تحويلها تلقائياً لـ WebP بقياس 800×800</small></div>
+          <div class="img-upload-hint" style="margin-top:8px">اضغط لرفع صورة<br><small style="color:#9CA3AF">PNG، JPEG حتى 15MB — سيتم تحويلها تلقائياً لـ WebP بقياس 800×800</small></div>
         </div>
         <img id="img-preview" class="preview" style="display:none" src="" alt="معاينة" />
       </div>
@@ -497,11 +498,11 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
     <div class="form-row">
       <div class="form-group">
-        <label>اسم المنتج <span style="color:#E86520">*</span></label>
+        <label>اسم المنتج <span style="color:#FB5B21">*</span></label>
         <input type="text" id="p-name" placeholder="برجر دجاج" />
       </div>
       <div class="form-group">
-        <label>الفئة <span style="color:#E86520">*</span></label>
+        <label>الفئة <span style="color:#FB5B21">*</span></label>
         <select id="p-category">
           <option value="">اختر الفئة</option>
           <option value="وجبات">وجبات</option>
@@ -524,7 +525,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
     <div class="form-row">
       <div class="form-group">
-        <label>السعر (دينار عراقي) <span style="color:#E86520">*</span></label>
+        <label>السعر (دينار عراقي) <span style="color:#FB5B21">*</span></label>
         <input type="number" id="p-price" placeholder="5000" min="0" />
       </div>
       <div class="form-group">
@@ -556,7 +557,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <div class="modal" style="max-width:380px;text-align:center">
     <div style="font-size:3rem;margin-bottom:12px">⚠️</div>
     <h3 style="margin-bottom:8px">حذف المنتج</h3>
-    <p style="color:rgba(255,255,255,0.5);font-size:0.875rem;margin-bottom:24px">هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.</p>
+    <p style="color:#6B7280;font-size:0.875rem;margin-bottom:24px">هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.</p>
     <div style="display:flex;gap:10px">
       <button class="btn btn-danger" style="flex:1" id="del-confirm-btn" onclick="confirmDelete()">نعم، احذف</button>
       <button class="btn btn-ghost" style="flex:1" onclick="closeDelModal()">إلغاء</button>
@@ -673,9 +674,9 @@ async function loadProducts() {
     tbody.innerHTML = products.map(p => `
       <tr>
         <td>${p.imageUrl ? `<img class="product-img" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">` : '<div class="product-img-placeholder">📦</div>'}</td>
-        <td><div style="font-weight:600">${p.name}</div><div style="font-size:0.75rem;color:rgba(255,255,255,0.4)">${p.description?.substring(0,40) || ''}</div></td>
-        <td style="color:rgba(255,255,255,0.6)">${p.category}</td>
-        <td style="font-weight:700;color:#E86520">${fmt(p.price)} د.ع</td>
+        <td><div style="font-weight:600">${p.name}</div><div style="font-size:0.75rem;color:#6B7280">${p.description?.substring(0,40) || ''}</div></td>
+        <td style="color:#4B5563">${p.category}</td>
+        <td style="font-weight:700;color:#FB5B21">${fmt(p.price)} د.ع</td>
         <td>${p.stock ?? '-'} ${p.unit || ''}</td>
         <td>
           ${statusBadge(p.status)}
@@ -707,7 +708,7 @@ async function loadNotifications() {
     }
     container.innerHTML = notifications.map(n => `
       <div class="notif-item ${n.status === 'unread' ? 'unread' : ''}">
-        <div class="notif-dot" style="${n.status !== 'unread' ? 'background:rgba(255,255,255,0.2)' : ''}"></div>
+        <div class="notif-dot" style="${n.status !== 'unread' ? 'background:#D1D5DB' : ''}"></div>
         <div class="notif-content">
           <div class="title">${n.title}</div>
           <div class="msg">${n.message}</div>
@@ -726,10 +727,10 @@ function renderProfile() {
   const container = document.getElementById('profile-data');
   container.innerHTML = `
     <div style="margin-bottom:20px;display:flex;align-items:center;gap:16px">
-      <div style="width:64px;height:64px;background:linear-gradient(135deg,#E86520,#f5a623);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff">${profile.storeName?.[0] || 'م'}</div>
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#FB5B21,#f5a623);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff">${profile.storeName?.[0] || 'م'}</div>
       <div>
         <div style="font-size:1.2rem;font-weight:800">${profile.storeName}</div>
-        <div style="color:rgba(255,255,255,0.5);font-size:0.85rem">${businessTypeLabel(profile.businessType)}</div>
+        <div style="color:#6B7280;font-size:0.85rem">${businessTypeLabel(profile.businessType)}</div>
         ${profile.status === 'active' ? '<span class="badge badge-approved" style="margin-top:6px">نشط</span>' : `<span class="badge badge-pending" style="margin-top:6px">${statusLabel(profile.status)}</span>`}
       </div>
     </div>

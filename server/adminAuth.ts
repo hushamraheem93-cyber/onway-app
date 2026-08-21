@@ -29,6 +29,8 @@ import * as crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { getFirestore } from "./firebase";
 import { JWT_VERIFY_OPTS } from "./orderValidation";
+import type { AdminIdentity } from "./adminTypes";
+import { identityFromClaims } from "./adminTypes";
 
 export const ADMIN_COOKIE = "onway_admin_session";
 
@@ -95,13 +97,33 @@ function getJwtSecret(): string {
   return secret;
 }
 
-export function createSession(username: string): string {
+export function createSession(username: string): string;
+export function createSession(identity: AdminIdentity): string;
+export function createSession(usernameOrIdentity: string | AdminIdentity): string {
   const jti = crypto.randomBytes(16).toString("hex");
-  return jwt.sign(
-    { username, type: "admin", jti },
-    getJwtSecret(),
-    { expiresIn: SESSION_TTL_SECS }
-  );
+  const identity = typeof usernameOrIdentity === "string" ? null : usernameOrIdentity;
+  const username = typeof usernameOrIdentity === "string" ? usernameOrIdentity : usernameOrIdentity.username;
+  const claims = identity
+    ? {
+        adminId: identity.adminId,
+        username: identity.username,
+        displayName: identity.displayName,
+        ...(identity.email ? { email: identity.email } : {}),
+        role: identity.role,
+        permissions: identity.permissions,
+        type: "admin" as const,
+        jti,
+      }
+    : {
+        adminId: `legacy_${crypto.createHash("sha256").update(username).digest("hex").slice(0, 24)}`,
+        username,
+        displayName: username,
+        role: "super_admin" as const,
+        permissions: ["*"],
+        type: "admin" as const,
+        jti,
+      };
+  return jwt.sign(claims, getJwtSecret(), { expiresIn: SESSION_TTL_SECS });
 }
 
 export function invalidateSession(token: string | undefined | null): void {
@@ -163,32 +185,29 @@ export function getSessionToken(req: Request): string | undefined {
  * was attributed to "". Returns "" when there is no valid session; callers behind
  * requireAdminAuth always have one.
  */
-export function getSessionUsername(req: Request): string {
+export function getSessionClaims(req: Request): any | null {
   const token = getSessionToken(req);
-  if (!token) return "";
+  if (!token) return null;
   try {
     const decoded = jwt.verify(token, getJwtSecret(), JWT_VERIFY_OPTS) as any;
-    if (decoded?.type !== "admin") return "";
-    return typeof decoded.username === "string" ? decoded.username : "";
+    if (decoded?.type !== "admin") return null;
+    if (decoded.jti && revokedJtis.has(decoded.jti)) return null;
+    if (revokedBefore > 0 && (decoded.iat || 0) * 1000 < revokedBefore) return null;
+    return decoded;
   } catch {
-    return "";
+    return null;
   }
 }
 
+export function getAdminIdentity(req: Request): AdminIdentity | null {
+  return identityFromClaims(getSessionClaims(req));
+}
+
+export function getSessionUsername(req: Request): string {
+  const claims = getSessionClaims(req);
+  return typeof claims?.username === "string" ? claims.username : "";
+}
+
 export function isValidSession(req: Request): boolean {
-  const token = getSessionToken(req);
-  if (!token) return false;
-  try {
-    const decoded = jwt.verify(token, getJwtSecret(), JWT_VERIFY_OPTS) as any;
-    if (decoded?.type !== "admin") return false;
-    // Check per-token revocation
-    if (decoded.jti && revokedJtis.has(decoded.jti)) return false;
-    // (Reads stay synchronous — the durable copy is hydrated at boot by
-    //  loadRevocationState() and kept in sync on every revocation.)
-    // Check "revoke all before" timestamp (password reset)
-    if (revokedBefore > 0 && (decoded.iat || 0) * 1000 < revokedBefore) return false;
-    return true;
-  } catch {
-    return false;
-  }
+  return getSessionClaims(req) !== null;
 }

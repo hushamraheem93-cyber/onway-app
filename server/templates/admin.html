@@ -12,13 +12,13 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
-      /* Brand unified with the mobile app (AppColors.primary = #E86520) */
-      --primary: #E86520;
-      --primary-dark: #C4520F;
-      --primary-light: #F0913C;
-      --primary-wash: #FDEEE3;
+      /* OnWay light brand tokens — primary accent is #FB5B21. */
+      --primary: #FB5B21;
+      --primary-dark: #D94A17;
+      --primary-light: #FC8B56;
+      --primary-wash: #FFF1EC;
       --on-grey: #4A4A4A;
-      --way-yellow: #E86520;
+      --way-yellow: #FB5B21;
       /* Layered, soft shadow scale for a calmer, more modern surface */
       --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
       --shadow-md: 0 4px 16px rgba(16,24,40,0.07);
@@ -67,9 +67,9 @@
       top: 0;
       width: var(--sidebar-width);
       height: 100vh;
-      background: linear-gradient(180deg, #171A21 0%, #1F232C 100%);
+      background: linear-gradient(180deg, #FFFFFF 0%, #FFF8F5 100%);
       padding: 0;
-      color: white;
+      color: var(--gray-800);
       z-index: 1000;
       overflow: hidden;
       transition: transform 0.3s ease;
@@ -80,11 +80,11 @@
 
     .sidebar-header {
       padding: 24px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 12px;
-      background: rgba(0,0,0,0.15);
+      background: #FFFFFF;
     }
 
     .sidebar-header .logo {
@@ -95,7 +95,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(232,101,32,0.4);
+      box-shadow: 0 4px 12px rgba(251,91,33,0.4);
     }
 
     .sidebar-header .logo i {
@@ -168,21 +168,21 @@
       border-radius: 10px;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
-      color: #AEB4BE;
+      color: var(--gray-600);
       font-size: 0.92rem;
       margin-bottom: 2px;
     }
 
     .nav-item:hover {
-      background: rgba(255,255,255,0.06);
-      color: white;
+      background: var(--primary-wash);
+      color: var(--gray-800);
     }
 
     /* Premium, restrained active state: subtle tint + brand text + an
        inline-start accent bar (RTL → right), instead of a heavy solid pill. */
     .nav-item.active {
-      background: rgba(232,101,32,0.14);
-      color: #fff;
+      background: var(--primary-wash);
+      color: var(--primary-dark);
       font-weight: 700;
     }
 
@@ -204,8 +204,8 @@
 
     .nav-item .badge {
       margin-right: auto;
-      background: rgba(232,101,32,0.18);
-      color: var(--primary-light);
+      background: var(--primary-wash);
+      color: var(--primary-dark);
       font-size: 0.7rem;
       padding: 2px 8px;
       border-radius: 20px;
@@ -213,7 +213,7 @@
     }
 
     .nav-item.active .badge {
-      background: var(--primary);
+      background: var(--primary-dark);
       color: #fff;
     }
 
@@ -435,7 +435,7 @@
 
     .btn-primary {
       background: var(--primary);
-      color: #fff;
+      color: #1F2937;
       font-weight: 700;
     }
 
@@ -472,7 +472,7 @@
     .btn-outline:hover {
       border-color: var(--primary);
       color: var(--primary);
-      background: rgba(232,101,32,0.05);
+      background: rgba(251,91,33,0.05);
     }
 
     .df-pill {
@@ -677,12 +677,12 @@
     .product-select-card:hover {
       border-color: var(--primary);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(232,101,32,0.15);
+      box-shadow: 0 4px 12px rgba(251,91,33,0.15);
     }
 
     .product-select-card.selected {
       border-color: var(--primary);
-      background: rgba(232,101,32,0.06);
+      background: rgba(251,91,33,0.06);
     }
 
     .product-select-card img {
@@ -1220,7 +1220,7 @@
       font-size: 0.82rem; color: var(--gray-600); gap: 8px;
     }
     .delivery-map-coords span { font-family: monospace; color: var(--primary); font-weight: 600; }
-    .btn-locate { display:flex; align-items:center; gap:5px; background:var(--primary); color:#fff; border:none; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:opacity 0.15s; }
+    .btn-locate { display:flex; align-items:center; gap:5px; background:var(--primary); color:#1F2937; border:none; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:opacity 0.15s; }
     .btn-locate:hover { opacity:0.85; }
     .leaflet-container { font-family: 'Cairo', sans-serif !important; }
     .leaflet-popup-content { direction: rtl; font-family: 'Cairo', sans-serif; }
@@ -1230,26 +1230,26 @@
     .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #10B981; display: inline-block; margin-left: 6px; animation: blink 1.5s infinite; }
     @keyframes blink { 0%,100% { opacity:1; } 50% { opacity: 0.3; } }
 
-    /* Live Monitor Card */
-    .live-monitor-card { background: #111827; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.18); margin-bottom: 24px; }
-    .live-monitor-header { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; }
-    .live-monitor-title { display: flex; align-items: center; gap: 10px; font-size: 0.97rem; font-weight: 700; color: #f9fafb; }
+    /* Live Monitor Card — light surface with semantic alert colors. */
+    .live-monitor-card { background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(16,24,40,0.08); margin-bottom: 24px; }
+    .live-monitor-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .live-monitor-title { display: flex; align-items: center; gap: 10px; font-size: 0.97rem; font-weight: 700; color: var(--gray-800); }
     .live-monitor-badge { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: rgba(16,185,129,0.18); color: #10b981; border: 1px solid rgba(16,185,129,0.35); display: flex; align-items: center; gap: 5px; }
     .live-monitor-badge::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: blink 1.5s infinite; }
     .live-monitor-body { padding: 14px 20px; min-height: 52px; }
-    .monitor-ok { color: #6b7280; font-size: 0.88rem; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .monitor-ok { color: var(--gray-600); font-size: 0.88rem; margin: 0; display: flex; align-items: center; gap: 8px; }
     .monitor-ok::before { content: '✓'; color: #10b981; font-weight: 800; }
     .monitor-alerts-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-    .monitor-alert-item { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; color: #f9fafb; display: flex; align-items: flex-start; gap: 10px; animation: slideIn 0.3s ease; }
+    .monitor-alert-item { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; color: var(--gray-800); display: flex; align-items: flex-start; gap: 10px; animation: slideIn 0.3s ease; }
     .monitor-alert-info { background: rgba(33,150,243,0.12); border-right: 4px solid #2196f3; }
     .monitor-alert-warning { background: rgba(245,158,11,0.12); border-right: 4px solid #f59e0b; }
     .monitor-alert-icon { flex-shrink: 0; font-size: 1rem; }
-    .monitor-alert-time { font-size: 0.75rem; color: #6b7280; margin-right: auto; white-space: nowrap; }
+    .monitor-alert-time { font-size: 0.75rem; color: var(--gray-500); margin-right: auto; white-space: nowrap; }
     @keyframes slideIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 
     /* New order pulse */
     @keyframes rowPulse {
-      0% { background: rgba(232,101,32,0.15); }
+      0% { background: rgba(251,91,33,0.15); }
       100% { background: transparent; }
     }
     .new-order-row { animation: rowPulse 2s ease 3; }
@@ -1476,8 +1476,8 @@
     .mmenu-item.mmenu-danger{color:#DC2626;font-weight:600;}
     /* ── Website CMS tabs ── */
     .cms-tab { background:none; border:none; border-bottom:3px solid transparent; padding:10px 16px; font-family:'Cairo',sans-serif; font-size:0.88rem; font-weight:600; cursor:pointer; color:var(--text-muted,#6B7280); transition:all 0.15s; margin-bottom:-2px; }
-    .cms-tab:hover { color:var(--primary,#E86520); }
-    .cms-tab-active { color:var(--primary,#E86520); border-bottom-color:var(--primary,#E86520); }
+    .cms-tab:hover { color:var(--primary,#FB5B21); }
+    .cms-tab-active { color:var(--primary,#FB5B21); border-bottom-color:var(--primary,#FB5B21); }
     .cms-tab-panel { animation: fadeIn 0.15s ease; }
     .cms-feature-row, .cms-faq-row { background:var(--gray-50,#F9FAFB); border:1px solid var(--border,#E5E7EB); border-radius:10px; padding:14px; margin-bottom:12px; }
     .cms-screenshot-thumb { width:80px; height:140px; object-fit:cover; border-radius:8px; border:2px solid var(--border); }
@@ -1574,6 +1574,9 @@
         <div class="nav-item" onclick="showSection('financialDashboard', this)">
           <i data-lucide="wallet"></i><span>اللوحة المالية</span>
         </div>
+        <div class="nav-item" data-admin-permission="audit.read" onclick="showSection('auditLog', this)">
+          <i data-lucide="history"></i><span>سجل التدقيق</span>
+        </div>
         <div class="nav-item" onclick="showSection('settlementRequests', this)">
           <i data-lucide="receipt"></i><span>طلبات التسوية</span>
           <span class="badge" id="settlement-req-count" style="display:none;">0</span>
@@ -1596,6 +1599,9 @@
         </div>
         <!-- 'الإشعارات' removed as a duplicate sidebar entry (C1): it is a tab of
              the Support hub, reachable from 'دعم المستخدمين'. No logic removed. -->
+        <div class="nav-item" data-admin-permission="admin_users.read" onclick="showSection('adminUsers', this)">
+          <i data-lucide="shield-check"></i><span>المشرفون والصلاحيات</span>
+        </div>
         <div class="nav-item" onclick="showSection('settings', this)">
           <i data-lucide="settings"></i><span>الإعدادات</span>
         </div>
@@ -1651,12 +1657,12 @@
           <div class="map-card-header">
             <h3 style="display:flex;align-items:center;gap:8px;font-size:1rem;font-weight:700;color:var(--gray-800);">
               <i data-lucide="map-pin" style="width:20px;height:20px;color:var(--primary);"></i>
-              تتبع السائقين المباشر
+              خريطة العمليات الحية
               <span class="online-dot"></span>
               <span id="map-driver-count" style="font-size:0.8rem;color:var(--gray-500);font-weight:500;">0 سائق متصل</span>
             </h3>
             <div style="display:flex;gap:8px;align-items:center;">
-              <span style="font-size:0.75rem;color:var(--gray-500);">يتحدث كل 15 ثانية</span>
+              <span style="font-size:0.75rem;color:var(--gray-500);">المواقع كل 15 ثانية • الدفعات من Backend</span>
               <button class="btn btn-outline btn-sm" onclick="refreshDriverLocations()" title="تحديث">
                 <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
               </button>
@@ -1667,16 +1673,30 @@
           </div>
           <div id="gps-map-container" style="position:relative;">
             <div id="gps-map"></div>
-            <div id="map-no-drivers" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--gray-400);">
+            <div id="map-loading-state" style="display:flex;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:rgba(255,255,255,0.82);z-index:900;color:var(--gray-600);">
+              <i data-lucide="loader-circle" style="width:34px;height:34px;color:var(--primary);animation:spin 1s linear infinite;"></i>
+              <p>جاري تحميل مواقع السائقين والدفعات...</p>
+            </div>
+            <div id="map-error-state" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:rgba(255,255,255,0.9);z-index:910;color:#B91C1C;text-align:center;padding:20px;">
+              <i data-lucide="wifi-off" style="width:34px;height:34px;margin-bottom:2px;"></i>
+              <p id="map-error-message">تعذّر تحميل بيانات العمليات</p>
+              <button class="btn btn-outline btn-sm" style="border-color:#EF4444;color:#EF4444;" onclick="refreshDriverLocations(true)">إعادة المحاولة</button>
+            </div>
+            <div id="map-no-drivers" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--gray-400);z-index:920;">
               <i data-lucide="wifi-off" style="width:40px;height:40px;margin-bottom:8px;"></i>
-              <p>لا يوجد سائقون متصلون الآن</p>
+              <p>لا يوجد سائقون لديهم موقع صالح حالياً</p>
             </div>
             <!-- Locate Me button overlay -->
-            <button id="btn-locate-me" onclick="locateAdminOnMap()" title="تحديد موقعي" style="position:absolute;bottom:16px;left:16px;z-index:1000;background:#fff;border:2px solid #E86520;border-radius:10px;padding:8px 14px;font-family:'Cairo',sans-serif;font-size:0.82rem;font-weight:700;color:#E86520;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.15);transition:all 0.2s;">
+            <button id="btn-locate-me" onclick="locateAdminOnMap()" title="تحديد موقعي" style="position:absolute;bottom:16px;left:16px;z-index:1000;background:#fff;border:2px solid #FB5B21;border-radius:10px;padding:8px 14px;font-family:'Cairo',sans-serif;font-size:0.82rem;font-weight:700;color:#FB5B21;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.15);transition:all 0.2s;">
               <i data-lucide="navigation" style="width:15px;height:15px;"></i>
               موقعي
             </button>
           </div>
+          <div id="map-operations-summary" style="padding:12px 20px;border-top:1px solid var(--gray-100);background:#FCFCFD;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:0.8rem;">
+            <span id="map-batch-count" style="font-weight:700;color:var(--gray-700);">0 دفعات نشطة</span>
+            <span id="map-last-updated" style="color:var(--gray-500);">لم يتم التحديث بعد</span>
+          </div>
+          <div id="map-active-batches" style="display:none;padding:0 20px 14px;background:#FCFCFD;"></div>
           <!-- Driver legend -->
           <div style="padding:12px 20px;border-top:1px solid var(--gray-100);display:flex;gap:20px;font-size:0.8rem;">
             <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10B981;display:inline-block;"></span> متاح</span>
@@ -1913,7 +1933,7 @@
       <div style="background:#fff;border-radius:20px;width:900px;max-width:98vw;position:relative;">
         <div style="padding:18px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:20px 20px 0 0;z-index:10;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <div style="background:#FFF3E0;border-radius:10px;padding:8px;"><i data-lucide="package" style="width:18px;height:18px;color:#E86520;"></i></div>
+            <div style="background:#FFF3E0;border-radius:10px;padding:8px;"><i data-lucide="package" style="width:18px;height:18px;color:#FB5B21;"></i></div>
             <div>
               <h3 id="mprods-title" style="margin:0;font-size:1rem;font-weight:800;">منتجات التاجر</h3>
               <div id="mprods-subtitle" style="font-size:0.75rem;color:#9CA3AF;"></div>
@@ -2248,7 +2268,7 @@
     <!-- Discount Modal -->
     <div id="discount-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:18px;width:360px;max-width:94vw;box-shadow:0 8px 40px rgba(0,0,0,0.22);overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#E86520,#E86520);padding:18px 22px;display:flex;align-items:center;gap:12px;">
+        <div style="background:linear-gradient(135deg,#FB5B21,#FB5B21);padding:18px 22px;display:flex;align-items:center;gap:12px;">
           <i data-lucide="percent" style="width:20px;height:20px;color:#fff;"></i>
           <span style="color:#fff;font-size:1.05rem;font-weight:700;">تطبيق التخفيض</span>
           <button onclick="closeDiscountModal()" style="margin-right:auto;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.8);font-size:1.4rem;line-height:1;">&times;</button>
@@ -2258,28 +2278,28 @@
             <img id="discount-product-img" src="" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">
             <div>
               <div id="discount-product-name" style="font-weight:700;font-size:0.95rem;color:#1a1a2e;"></div>
-              <div style="font-size:0.82rem;color:#6B7280;margin-top:2px;">السعر الحالي: <span id="discount-current-price" style="font-weight:700;color:#E86520;"></span></div>
+              <div style="font-size:0.82rem;color:#6B7280;margin-top:2px;">السعر الحالي: <span id="discount-current-price" style="font-weight:700;color:#FB5B21;"></span></div>
             </div>
           </div>
           <label style="font-size:0.88rem;font-weight:600;color:#374151;display:block;margin-bottom:8px;">نسبة التخفيض (%)</label>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
             <input type="number" id="discount-pct-input" min="1" max="90" placeholder="مثال: 20"
               style="flex:1;border:2px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:1rem;direction:ltr;text-align:center;outline:none;transition:border 0.2s;"
-              oninput="updateDiscountPreview()" onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='#E5E7EB'">
+              oninput="updateDiscountPreview()" onfocus="this.style.borderColor='#FB5B21'" onblur="this.style.borderColor='#E5E7EB'">
             <span style="font-size:1.1rem;font-weight:700;color:#374151;">%</span>
           </div>
           <div id="discount-preview" style="display:none;background:linear-gradient(135deg,#FFF5F3,#FFF0EC);border:1.5px solid #F3B9AC;border-radius:12px;padding:14px;margin-bottom:20px;text-align:center;">
             <div style="font-size:0.8rem;color:#9CA3AF;margin-bottom:4px;">السعر بعد التخفيض</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
               <span id="discount-old-price" style="font-size:0.95rem;color:#9CA3AF;text-decoration:line-through;"></span>
-              <span style="color:#E86520;font-size:0.85rem;">←</span>
-              <span id="discount-new-price" style="font-size:1.3rem;font-weight:800;color:#E86520;"></span>
+              <span style="color:#FB5B21;font-size:0.85rem;">←</span>
+              <span id="discount-new-price" style="font-size:1.3rem;font-weight:800;color:#FB5B21;"></span>
             </div>
             <div id="discount-saving" style="font-size:0.8rem;color:#10B981;margin-top:4px;font-weight:600;"></div>
           </div>
           <div style="display:flex;gap:10px;">
             <button onclick="closeDiscountModal()" style="flex:1;padding:11px;border-radius:10px;border:1.5px solid #E5E7EB;background:#fff;cursor:pointer;font-size:0.92rem;font-weight:600;color:#6B7280;">إلغاء</button>
-            <button onclick="applyDiscount()" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#E86520,#E86520);color:#fff;cursor:pointer;font-size:0.95rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <button onclick="applyDiscount()" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#FB5B21,#FB5B21);color:#fff;cursor:pointer;font-size:0.95rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
               <i data-lucide="check" style="width:16px;height:16px;"></i>
               تطبيق التخفيض
             </button>
@@ -2346,7 +2366,7 @@
         <div class="card" style="max-width:640px;margin:0 auto 24px;">
           <div class="card-header">
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#E86520,#f59e42);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#FB5B21,#f59e42);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 <i data-lucide="bell" style="width:18px;height:18px;color:#fff;"></i>
               </div>
               <div>
@@ -2360,14 +2380,14 @@
               <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">عنوان الإشعار *</label>
               <input type="text" id="notif-title" placeholder="مثال: عرض خاص اليوم!" maxlength="100"
                 style="width:100%;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:0.95rem;font-family:inherit;outline:none;transition:border 0.2s;box-sizing:border-box;"
-                onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='var(--gray-200)'" />
+                onfocus="this.style.borderColor='#FB5B21'" onblur="this.style.borderColor='var(--gray-200)'" />
               <div id="notif-title-count" style="font-size:0.75rem;color:var(--gray-400);text-align:left;margin-top:4px;">0 / 100</div>
             </div>
             <div class="form-group" style="margin-bottom:20px;">
               <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">نص الإشعار *</label>
               <textarea id="notif-body" rows="4" placeholder="اكتب رسالتك هنا..." maxlength="300"
                 style="width:100%;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:0.95rem;font-family:inherit;outline:none;resize:vertical;transition:border 0.2s;box-sizing:border-box;"
-                onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='var(--gray-200)'"></textarea>
+                onfocus="this.style.borderColor='#FB5B21'" onblur="this.style.borderColor='var(--gray-200)'"></textarea>
               <div id="notif-body-count" style="font-size:0.75rem;color:var(--gray-400);text-align:left;margin-top:4px;">0 / 300</div>
             </div>
 
@@ -2375,7 +2395,7 @@
             <div id="notif-preview" style="display:none;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:12px;padding:14px 16px;margin-bottom:20px;">
               <div style="font-size:0.75rem;color:var(--gray-400);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">معاينة الإشعار</div>
               <div style="display:flex;align-items:flex-start;gap:10px;">
-                <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#E86520,#f59e42);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#FB5B21,#f59e42);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
                   <i data-lucide="bell" style="width:16px;height:16px;color:#fff;"></i>
                 </div>
                 <div style="flex:1;min-width:0;">
@@ -2414,8 +2434,8 @@
         <div style="max-width:640px;margin:0 auto;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px;">
-              <div style="width:40px;height:40px;border-radius:10px;background:rgba(232,101,32,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <i data-lucide="users" style="width:18px;height:18px;color:#E86520;"></i>
+              <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,91,33,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i data-lucide="users" style="width:18px;height:18px;color:#FB5B21;"></i>
               </div>
               <div>
                 <div style="font-size:1.4rem;font-weight:700;color:var(--gray-800);" id="notif-users-count">—</div>
@@ -2504,7 +2524,7 @@
             <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
               <input type="text" id="users-search" placeholder="بحث بالاسم أو رقم الهاتف..." oninput="filterUsers()"
                 style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;"
-                onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='var(--gray-200)'" />
+                onfocus="this.style.borderColor='#FB5B21'" onblur="this.style.borderColor='var(--gray-200)'" />
               <select id="users-gender-filter" onchange="filterUsers()"
                 style="padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;background:#fff;cursor:pointer;">
                 <option value="">الجنس: الكل</option>
@@ -2935,7 +2955,7 @@
             <button class="btn btn-outline order-filter" data-status="in_delivery" onclick="filterOrders('in_delivery', this)">جاري التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
-            <button class="btn btn-outline order-filter" data-status="issue" onclick="filterOrders('issue', this)" style="color:#E86520;border-color:#E86520;">مشكلة</button>
+            <button class="btn btn-outline order-filter" data-status="issue" onclick="filterOrders('issue', this)" style="color:#FB5B21;border-color:#FB5B21;">مشكلة</button>
             <button class="btn btn-outline order-filter" data-status="rejected_flag" onclick="filterOrders('rejected_flag', this)" style="color:#DC2626;border-color:#DC2626;">انرفض</button>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -2980,6 +3000,32 @@
     </div>
 
     <!-- Settings / Archive Section -->
+    <div id="adminUsers-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>المشرفون والصلاحيات</h2>
+          <p style="font-size:0.85rem;color:var(--gray-500);">حسابات مستقلة مع أدوار وصلاحيات واضحة</p>
+        </div>
+        <button class="btn btn-primary" data-admin-permission="admin_users.manage" onclick="openAdminUserForm()"><i data-lucide="user-plus"></i> إضافة مشرف</button>
+      </header>
+      <div class="content">
+        <div class="card" id="admin-user-form-card" style="display:none;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h3 id="admin-user-form-title">إضافة مشرف</h3><button class="btn btn-outline btn-sm" onclick="closeAdminUserForm()">إلغاء</button></div>
+          <input type="hidden" id="admin-user-id">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+            <label>اسم المستخدم<input class="form-control" id="admin-user-username" autocomplete="off"></label>
+            <label>الاسم الظاهر<input class="form-control" id="admin-user-display-name"></label>
+            <label>البريد الإلكتروني<input class="form-control" id="admin-user-email" type="email"></label>
+            <label>الدور<select class="form-control" id="admin-user-role"></select></label>
+            <label>كلمة المرور<input class="form-control" id="admin-user-password" type="password" autocomplete="new-password" placeholder="8 أحرف على الأقل"></label>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;align-items:center;"><button class="btn btn-primary" data-admin-permission="admin_users.manage" onclick="saveAdminUser()">حفظ</button><span id="admin-user-form-error" style="color:#dc2626;font-size:0.85rem;"></span></div>
+        </div>
+        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h3>الحسابات الإدارية</h3><span id="admin-users-count" style="color:var(--gray-500);font-size:0.85rem;"></span></div><div class="table-container"><table><thead><tr><th>المستخدم</th><th>الاسم</th><th>الدور</th><th>الحالة</th><th>آخر دخول</th><th>إجراء</th></tr></thead><tbody id="admin-users-table-body"><tr><td colspan="6" style="text-align:center;padding:22px;">جاري التحميل...</td></tr></tbody></table></div></div>
+        <div class="card" style="margin-top:20px;"><h3>مصفوفة الأدوار والصلاحيات</h3><div class="table-container"><table><thead><tr><th>الدور</th><th>الصلاحيات</th></tr></thead><tbody id="admin-roles-table-body"></tbody></table></div></div>
+      </div>
+    </div>
+
     <div id="settings-section" class="section">
       <header class="header">
         <div class="header-title">
@@ -3346,8 +3392,8 @@
                 <div style="font-size:1.8rem;font-weight:800;color:#10B981;" id="settings-total-revenue">—</div>
                 <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">إجمالي المبيعات</div>
               </div>
-              <div style="text-align:center;padding:20px;background:#E8652010;border-radius:12px;">
-                <div style="font-size:1.8rem;font-weight:800;color:#E86520;" id="settings-owner-earnings">—</div>
+              <div style="text-align:center;padding:20px;background:#FB5B2110;border-radius:12px;">
+                <div style="font-size:1.8rem;font-weight:800;color:#FB5B21;" id="settings-owner-earnings">—</div>
                 <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">أرباح التطبيق الصافية</div>
               </div>
               <div style="text-align:center;padding:20px;background:#3B82F610;border-radius:12px;">
@@ -3450,9 +3496,9 @@
       </header>
       <div class="content">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
-          <div class="stat-card" style="border-right:4px solid #E86520;">
+          <div class="stat-card" style="border-right:4px solid #FB5B21;">
             <div class="stat-card-title">مستحقات التجار (على التطبيق)</div>
-            <div class="stat-card-value" id="fin-vendor-receivables" style="color:#E86520;">—</div>
+            <div class="stat-card-value" id="fin-vendor-receivables" style="color:#FB5B21;">—</div>
           </div>
           <div class="stat-card" style="border-right:4px solid #EF4444;">
             <div class="stat-card-title">مبالغ على المندوبين (للتطبيق)</div>
@@ -3478,6 +3524,87 @@
               <thead><tr><th>التاريخ</th><th>العملية</th><th>المنفّذ</th><th>الهدف</th><th>المبلغ</th><th>المرجع</th><th>ملاحظات</th></tr></thead>
               <tbody id="fin-audit-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF;">—</td></tr></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ AUDIT LOG ══════════════════════ -->
+    <div id="auditLog-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>سجل التدقيق</h2>
+          <p>سجل قراءة فقط للعمليات الإدارية مع هوية المنفّذ والموارد المتأثرة</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadAuditLog, 'سجل التدقيق')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header"><h3><i data-lucide="filter"></i> فلاتر السجل</h3></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;align-items:end;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" for="audit-filter-actor">اسم المنفّذ</label>
+              <input id="audit-filter-actor" class="form-input" type="text" autocomplete="off" placeholder="اسم المستخدم أو اسم العرض">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" for="audit-filter-actor-id">معرّف المنفّذ</label>
+              <input id="audit-filter-actor-id" class="form-input" type="text" autocomplete="off" placeholder="actor ID">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" for="audit-filter-action">العملية</label>
+              <input id="audit-filter-action" class="form-input" type="text" autocomplete="off" placeholder="مثال: settlement.complete">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" for="audit-filter-from">من تاريخ</label>
+              <input id="audit-filter-from" class="form-input" type="datetime-local">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" for="audit-filter-to">إلى تاريخ</label>
+              <input id="audit-filter-to" class="form-input" type="datetime-local">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary" type="button" onclick="applyAuditLogFilters()" style="background:var(--primary);border-color:var(--primary);">
+                <i data-lucide="search"></i> تطبيق
+              </button>
+              <button class="btn btn-outline" type="button" onclick="resetAuditLogFilters()">مسح الفلاتر</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <h3><i data-lucide="shield-check"></i> العمليات المسجلة</h3>
+            <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--gray-500);">
+              لكل صفحة
+              <select id="audit-log-page-size" class="form-input" style="width:82px;padding:6px 8px;" onchange="changeAuditLogPageSize(this.value)">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+          </div>
+          <div id="audit-log-status" aria-live="polite" style="min-height:22px;padding:0 0 10px;color:var(--gray-500);font-size:.82rem;"></div>
+          <div class="table-container">
+            <table id="audit-log-table">
+              <thead><tr>
+                <th>التاريخ والوقت</th><th>المنفّذ</th><th>العملية</th><th>المورد</th><th>Resource ID</th><th>ملاحظات</th><th>التفاصيل</th>
+              </tr></thead>
+              <tbody id="audit-log-tbody">
+                <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="audit-log-pagination" style="display:flex;align-items:center;justify-content:center;gap:12px;padding-top:16px;">
+            <button id="audit-log-prev" class="btn btn-outline btn-sm" type="button" onclick="moveAuditLogPage(-1)" disabled>
+              <i data-lucide="chevron-right"></i> السابق
+            </button>
+            <span id="audit-log-page" style="min-width:90px;text-align:center;font-size:.85rem;color:var(--gray-600);">صفحة 1</span>
+            <button id="audit-log-next" class="btn btn-outline btn-sm" type="button" onclick="moveAuditLogPage(1)" disabled>
+              التالي <i data-lucide="chevron-left"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -3519,7 +3646,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:28px 0 12px;">
           <div>
             <h3 style="display:flex;align-items:center;gap:8px;font-size:1.05rem;">
-              <i data-lucide="store" style="width:18px;height:18px;color:#E86520;"></i>
+              <i data-lucide="store" style="width:18px;height:18px;color:#FB5B21;"></i>
               سجل أصحاب المتاجر
             </h3>
             <p style="font-size:0.8rem;color:var(--gray-500);margin-top:2px;">يُضاف كل تاجر تلقائياً عند تسجيله — طلبات اليوم/الأسبوع/الشهر، مع تصدير Excel لسجل التسويات لكل تاجر.</p>
@@ -3733,11 +3860,11 @@
   <!-- Driver Tracking Modal -->
   <div id="tracking-modal" class="modal-overlay" style="z-index:9999;">
     <div class="modal" style="max-width:700px;width:95%;">
-      <div class="modal-header" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;border-radius:16px 16px 0 0;">
-        <h3 id="tracking-modal-title" style="display:flex;align-items:center;gap:8px;color:white;">
+      <div class="modal-header" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#1F2937;border-radius:16px 16px 0 0;">
+        <h3 id="tracking-modal-title" style="display:flex;align-items:center;gap:8px;color:#1F2937;">
           <span class="online-dot"></span> تتبع السائق
         </h3>
-        <button class="modal-close" onclick="closeTrackingModal()" style="color:white;">
+        <button class="modal-close" onclick="closeTrackingModal()" style="color:#1F2937;">
           <i data-lucide="x"></i>
         </button>
       </div>
@@ -4560,6 +4687,8 @@
       
       // Stop polling when leaving orders
       if (section !== 'orders') stopOrdersPolling();
+      if (section === 'dashboard') startDashboardMapPolling();
+      else stopDashboardMapPolling();
       
       if (section === 'categories') loadCategories();
       if (section === 'banners') loadBanners();
@@ -4578,10 +4707,12 @@
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'settlementRequests') loadSettlementRequests();
       if (section === 'financialDashboard') loadFinancialDashboard();
+      if (section === 'auditLog') loadAuditLog();
       if (section === 'ratingsManagement') loadAdminRatings();
       if (section === 'storeRanking') loadStoreRanking();
       if (section === 'businessCategories') loadBusinessCategories();
       if (section === 'appUsers') loadAppUsers();
+      if (section === 'adminUsers') { loadAdminUsers(); loadAdminRoles(); }
       if (section === 'supportChat') {
         loadSupportChats();
         if (supportPollInterval) clearInterval(supportPollInterval);
@@ -4818,7 +4949,7 @@
           <td>${status}</td>
         </tr>`;
       }).join('');
-      const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>الحسابات المالية</title><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:7px 10px;border:1px solid #ddd;font-size:0.82rem;}th{background:#E86520;color:#fff;}h2{color:#E86520;}tfoot td{font-weight:700;background:#f9fafb;}</style></head><body><h2>OnWay — الحسابات المالية للسائقين</h2><p>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-IQ')} | عدد السائقين: ${allDriverAccounts.length}</p><table><thead><tr><th>اسم السائق</th><th>رقم الهاتف</th><th>الطلبات</th><th>طلبات الشهر</th><th>إجمالي الأرباح</th><th>أرباح الشهر</th><th>إجمالي العمولات</th><th>المسدّد</th><th>المستحق</th><th>آخر دفعة</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+      const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>الحسابات المالية</title><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:7px 10px;border:1px solid #ddd;font-size:0.82rem;}th{background:#FB5B21;color:#fff;}h2{color:#FB5B21;}tfoot td{font-weight:700;background:#f9fafb;}</style></head><body><h2>OnWay — الحسابات المالية للسائقين</h2><p>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-IQ')} | عدد السائقين: ${allDriverAccounts.length}</p><table><thead><tr><th>اسم السائق</th><th>رقم الهاتف</th><th>الطلبات</th><th>طلبات الشهر</th><th>إجمالي الأرباح</th><th>أرباح الشهر</th><th>إجمالي العمولات</th><th>المسدّد</th><th>المستحق</th><th>آخر دفعة</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
       const w = window.open('','_blank');
       w.document.write(html);
       w.document.close();
@@ -4957,6 +5088,198 @@
       }
     }
 
+    // ── Audit Log (read-only; backed by GET /api/admin/audit-log) ─────────────
+    const auditLogState = { page: 1, pageSize: 50, hasMore: false, loading: false, requestId: 0 };
+    let auditLogEntries = new Map();
+    const AUDIT_SENSITIVE_KEY = /(password|passwd|secret|token|authorization|credential|api[_-]?key|private[_-]?key|hash|cookie|session|otp)/i;
+
+    function auditSanitizeValue(value, depth = 0) {
+      if (depth > 5 || value === null || value === undefined) return value ?? null;
+      if (typeof value !== 'object') return typeof value === 'string' && depth > 1 && AUDIT_SENSITIVE_KEY.test(value) ? '[بيانات محجوبة]' : value;
+      if (Array.isArray(value)) return value.slice(0, 100).map(item => auditSanitizeValue(item, depth + 1));
+      const clean = {};
+      Object.entries(value).forEach(([key, nested]) => {
+        if (!AUDIT_SENSITIVE_KEY.test(key)) clean[key] = auditSanitizeValue(nested, depth + 1);
+      });
+      return clean;
+    }
+
+    function auditSafeText(value) {
+      const text = String(value == null ? '' : value);
+      return text && AUDIT_SENSITIVE_KEY.test(text) ? '[بيانات محجوبة]' : text;
+    }
+
+    function auditFormatValue(value) {
+      const clean = auditSanitizeValue(value);
+      if (clean === null || clean === undefined || clean === '') return 'لا توجد بيانات';
+      if (typeof clean === 'string') return auditSafeText(clean) || 'لا توجد بيانات';
+      try { return JSON.stringify(clean, null, 2); } catch { return 'تعذّر عرض البيانات'; }
+    }
+
+    function auditCreatedAtMs(value) {
+      if (!value) return NaN;
+      if (typeof value === 'number') return value < 100000000000 ? value * 1000 : value;
+      if (typeof value === 'string') return Date.parse(value);
+      if (typeof value === 'object' && Number.isFinite(value._seconds)) return value._seconds * 1000 + Math.floor((value._nanoseconds || 0) / 1000000);
+      if (typeof value === 'object' && Number.isFinite(value.seconds)) return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000);
+      return NaN;
+    }
+
+    function auditFormatDate(value) {
+      const ms = auditCreatedAtMs(value);
+      return Number.isFinite(ms) ? new Date(ms).toLocaleString('ar-IQ') : '—';
+    }
+
+    function auditDateQueryValue(raw) {
+      if (!raw) return '';
+      const date = new Date(raw);
+      return Number.isFinite(date.getTime()) ? date.toISOString() : raw;
+    }
+
+    function auditFilterParams() {
+      const params = new URLSearchParams({ page: String(auditLogState.page), pageSize: String(auditLogState.pageSize) });
+      const actor = document.getElementById('audit-filter-actor')?.value.trim();
+      const actorId = document.getElementById('audit-filter-actor-id')?.value.trim();
+      const action = document.getElementById('audit-filter-action')?.value.trim();
+      const from = document.getElementById('audit-filter-from')?.value;
+      const to = document.getElementById('audit-filter-to')?.value;
+      if (actor) params.set('actorUsername', actor);
+      if (actorId) params.set('actorId', actorId);
+      if (action) params.set('action', action);
+      if (from) params.set('from', auditDateQueryValue(from));
+      if (to) params.set('to', auditDateQueryValue(to));
+      return params;
+    }
+
+    function setAuditLogState(message, kind = 'normal') {
+      const status = document.getElementById('audit-log-status');
+      if (!status) return;
+      status.textContent = message || '';
+      status.style.color = kind === 'error' ? '#DC2626' : kind === 'success' ? '#15803D' : 'var(--gray-500)';
+    }
+
+    function renderAuditLogPagination() {
+      const page = document.getElementById('audit-log-page');
+      const prev = document.getElementById('audit-log-prev');
+      const next = document.getElementById('audit-log-next');
+      if (page) page.textContent = `صفحة ${auditLogState.page}`;
+      if (prev) prev.disabled = auditLogState.loading || auditLogState.page <= 1;
+      if (next) next.disabled = auditLogState.loading || !auditLogState.hasMore;
+    }
+
+    function renderAuditLogRows(entries) {
+      const tbody = document.getElementById('audit-log-tbody');
+      if (!tbody) return;
+      auditLogEntries = new Map((entries || []).filter(entry => entry && entry.id != null).map(entry => [String(entry.id), auditSanitizeValue(entry)]));
+      if (!entries || entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--gray-400);">لا توجد سجلات مطابقة للفلاتر الحالية</td></tr>';
+        return;
+      }
+      tbody.innerHTML = entries.map(entry => {
+        const id = String(entry.id || '');
+        const actorName = entry.actorName || entry.actorUsername || '—';
+        const actorUsername = entry.actorUsername && entry.actorUsername !== actorName ? `<div style="font-size:.74rem;color:var(--gray-500);direction:ltr;text-align:right;">${escapeHtml(entry.actorUsername)}</div>` : '';
+        const resourceType = entry.targetType || entry.resourceType || '—';
+        const resourceId = entry.resourceId || entry.targetId || '—';
+        const notes = auditSafeText(entry.notes || '');
+        const shortNotes = notes.length > 160 ? notes.slice(0, 160) + '…' : notes;
+        return `<tr style="border-bottom:1px solid #F3F4F6;">
+          <td style="font-size:.78rem;color:var(--gray-600);white-space:nowrap;">${escapeHtml(auditFormatDate(entry.createdAt))}</td>
+          <td><strong>${escapeHtml(actorName)}</strong>${actorUsername}</td>
+          <td style="font-weight:600;">${escapeHtml(AUDIT_ACTION_LABELS[entry.action] || entry.action || '—')}<div style="font-size:.72rem;color:var(--gray-500);direction:ltr;text-align:right;">${escapeHtml(entry.action || '')}</div></td>
+          <td>${escapeHtml(resourceType)}</td>
+          <td style="direction:ltr;text-align:right;font-size:.78rem;">${escapeHtml(resourceId)}</td>
+          <td style="font-size:.8rem;color:var(--gray-600);max-width:250px;">${escapeHtml(shortNotes || '—')}</td>
+          <td><button class="btn btn-outline btn-sm" type="button" onclick="openAuditLogDetails('${escapeJsInAttr(id)}')" aria-label="عرض تفاصيل سجل التدقيق"><i data-lucide="eye" style="width:13px;height:13px;"></i> عرض</button></td>
+        </tr>`;
+      }).join('');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function loadAuditLog() {
+      const tbody = document.getElementById('audit-log-tbody');
+      if (!tbody || auditLogState.loading) return;
+      auditLogState.loading = true;
+      const requestId = ++auditLogState.requestId;
+      tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+      setAuditLogState('جارٍ تحميل سجل التدقيق…');
+      renderAuditLogPagination();
+      try {
+        const res = await fetch(`${API_BASE}/admin/audit-log?${auditFilterParams().toString()}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || (res.status === 403 ? 'لا تملك صلاحية قراءة سجل التدقيق' : 'تعذّر تحميل سجل التدقيق'));
+        if (requestId !== auditLogState.requestId) return;
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        auditLogState.hasMore = Boolean(data.hasMore);
+        renderAuditLogRows(entries);
+        setAuditLogState(entries.length ? `تم تحميل ${entries.length} سجلًا — الأحدث أولًا` : 'لا توجد سجلات مطابقة', entries.length ? 'success' : 'normal');
+      } catch (error) {
+        if (requestId !== auditLogState.requestId) return;
+        auditLogEntries = new Map();
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:#DC2626;">تعذّر تحميل سجل التدقيق<br><button class="btn btn-outline btn-sm" type="button" onclick="loadAuditLog()" style="margin-top:12px;">إعادة المحاولة</button></td></tr>`;
+        auditLogState.hasMore = false;
+        setAuditLogState(error?.message || 'تعذّر تحميل سجل التدقيق', 'error');
+      } finally {
+        if (requestId === auditLogState.requestId) {
+          auditLogState.loading = false;
+          renderAuditLogPagination();
+        }
+      }
+    }
+
+    function applyAuditLogFilters() {
+      auditLogState.page = 1;
+      loadAuditLog();
+    }
+
+    function resetAuditLogFilters() {
+      ['audit-filter-actor', 'audit-filter-actor-id', 'audit-filter-action', 'audit-filter-from', 'audit-filter-to'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = '';
+      });
+      applyAuditLogFilters();
+    }
+
+    function changeAuditLogPageSize(value) {
+      const parsed = Number(value);
+      auditLogState.pageSize = [25, 50, 100].includes(parsed) ? parsed : 50;
+      auditLogState.page = 1;
+      loadAuditLog();
+    }
+
+    function moveAuditLogPage(delta) {
+      const nextPage = auditLogState.page + Number(delta || 0);
+      if (nextPage < 1 || (delta > 0 && !auditLogState.hasMore) || auditLogState.loading) return;
+      auditLogState.page = nextPage;
+      loadAuditLog();
+    }
+
+    function openAuditLogDetails(id) {
+      const entry = auditLogEntries.get(String(id));
+      if (!entry) return;
+      const summary = document.getElementById('audit-detail-summary');
+      const fields = [
+        ['المنفّذ', [entry.actorName || entry.actorUsername, entry.actorUsername && entry.actorUsername !== entry.actorName ? `(${entry.actorUsername})` : ''].filter(Boolean).join(' ') || '—'],
+        ['العملية', AUDIT_ACTION_LABELS[entry.action] ? `${AUDIT_ACTION_LABELS[entry.action]} (${entry.action})` : (entry.action || '—')],
+        ['المورد', entry.targetType || entry.resourceType || '—'],
+        ['Resource ID', entry.resourceId || entry.targetId || '—'],
+        ['التاريخ والوقت', auditFormatDate(entry.createdAt)],
+        ['المبلغ', entry.amount != null ? `${Number(entry.amount).toLocaleString('ar-IQ')} د.ع` : '—'],
+        ['المرجع', entry.referenceId || '—'],
+        ['الملاحظات', auditSafeText(entry.notes || '') || '—'],
+      ];
+      if (summary) summary.innerHTML = fields.map(([label, value]) => `<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;"><div style="font-size:.74rem;color:var(--gray-500);margin-bottom:3px;">${escapeHtml(label)}</div><div style="font-size:.86rem;word-break:break-word;">${escapeHtml(String(value))}</div></div>`).join('');
+      const metadata = document.getElementById('audit-detail-metadata');
+      const before = document.getElementById('audit-detail-before');
+      const after = document.getElementById('audit-detail-after');
+      if (metadata) metadata.textContent = auditFormatValue(entry.metadata);
+      if (before) before.textContent = auditFormatValue(entry.before);
+      if (after) after.textContent = auditFormatValue(entry.after);
+      const modal = document.getElementById('audit-log-details-modal');
+      if (modal) { modal.style.display = 'flex'; modal.classList.add('active'); }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     // ── Settlement Requests inbox (financial system phase 4) ────────────────
     const SR_STATUS = {
       pending: { label: 'قيد الانتظار', color: '#F59E0B', bg: '#FEF3C7' },
@@ -5052,7 +5375,7 @@
             <td style="font-weight:700;direction:ltr;text-align:right;">${escapeHtml(r.reference || String(r.id).slice(-6))}</td>
             <td>${escapeHtml(r.accountName || r.accountId)}</td>
             <td>${typeLabel}</td>
-            <td style="font-weight:700;color:#E86520;">${amt} د.ع</td>
+            <td style="font-weight:700;color:#FB5B21;">${amt} د.ع</td>
             <td style="text-align:center;">${r.pendingOrderCount || 0}</td>
             <td style="font-size:0.82rem;color:#6B7280;">${date}</td>
             <td><span style="padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${st.bg};color:${st.color};">${st.label}</span></td>
@@ -5923,7 +6246,7 @@
       const html = `
         <div style="font-family:'Cairo',sans-serif;direction:rtl;padding:32px;max-width:500px;margin:auto;border:1px solid #ddd;border-radius:12px;">
           <div style="text-align:center;margin-bottom:24px;">
-            <h2 style="color:#E86520;font-size:1.8rem;margin:0;">ONWAY</h2>
+            <h2 style="color:#FB5B21;font-size:1.8rem;margin:0;">ONWAY</h2>
             <p style="color:#888;margin:4px 0;">فاتورة توصيل</p>
           </div>
           <div style="margin-bottom:16px;padding:12px;background:#f9f9f9;border-radius:8px;">
@@ -5933,13 +6256,13 @@
             <p><strong>التاريخ:</strong> ${new Date(order.createdAt).toLocaleDateString('ar-IQ')}</p>
           </div>
           <table style="width:100%;border-collapse:collapse;">
-            <thead><tr style="background:#E86520;color:white;"><th style="padding:8px;">المنتج</th><th>الكمية</th><th>السعر</th></tr></thead>
+            <thead><tr style="background:#FB5B21;color:white;"><th style="padding:8px;">المنتج</th><th>الكمية</th><th>السعر</th></tr></thead>
             <tbody>${items}</tbody>
           </table>
           <div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:8px;text-align:left;">
             <p><strong>سعر الطلبية:</strong> ${(order.total||0).toLocaleString('ar-IQ')} د.ع</p>
             <p><strong>رسوم التوصيل:</strong> ${(order.deliveryFee||0).toLocaleString('ar-IQ')} د.ع</p>
-            <h3 style="color:#E86520;">الإجمالي: ${total.toLocaleString('ar-IQ')} د.ع</h3>
+            <h3 style="color:#FB5B21;">الإجمالي: ${total.toLocaleString('ar-IQ')} د.ع</h3>
           </div>
         </div>`;
       const printWindow = window.open('', '_blank', 'width=600,height=700');
@@ -5955,6 +6278,9 @@
     let _trackingCircle = null;
     let _trackingPhone = null;
     let _trackingInterval = null;
+    let _gpsRefreshInterval = null;
+    let _mapHasLoaded = false;
+    let _mapRequestInFlight = false;
 
     function getDriverIcon(isBusy) {
       const color = isBusy ? '#F59E0B' : '#10B981';
@@ -6017,7 +6343,24 @@
       _gpsMap = L.map('gps-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
       _addBaseLayers(_gpsMap);
       lucide.createIcons();
+      startDashboardMapPolling();
+    }
+
+    function startDashboardMapPolling() {
+      if (!_gpsMap) return;
+      if (_gpsRefreshInterval) {
+        refreshDriverLocations();
+        return;
+      }
       refreshDriverLocations();
+      _gpsRefreshInterval = setInterval(refreshDriverLocations, 15000);
+    }
+
+    function stopDashboardMapPolling() {
+      if (_gpsRefreshInterval) {
+        clearInterval(_gpsRefreshInterval);
+        _gpsRefreshInterval = null;
+      }
     }
 
     function locateAdminOnMap() {
@@ -6058,52 +6401,120 @@
       }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
     }
 
-    async function refreshDriverLocations() {
-      try {
-        const res = await fetch(API_BASE + '/admin/driver-locations');
-        const data = await res.json();
-        const locations = data.locations || [];
-        const countEl = document.getElementById('map-driver-count');
-        if (countEl) countEl.textContent = locations.length + (locations.length === 1 ? ' سائق متصل' : ' سائقون متصلون');
-        const noDrivers = document.getElementById('map-no-drivers');
-        if (noDrivers) noDrivers.style.display = locations.length === 0 ? 'flex' : 'none';
+    function isValidMapLocation(loc) {
+      const lat = Number(loc && loc.lat);
+      const lng = Number(loc && loc.lng);
+      return Number.isFinite(lat) && Number.isFinite(lng)
+        && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+        && !(lat === 0 && lng === 0);
+    }
 
+    function renderMapBatchSummary(batches) {
+      const countEl = document.getElementById('map-batch-count');
+      const box = document.getElementById('map-active-batches');
+      if (countEl) countEl.textContent = `${batches.length} ${batches.length === 1 ? 'دفعة نشطة' : 'دفعات نشطة'}`;
+      if (!box) return;
+      if (batches.length === 0) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+      box.style.display = 'block';
+      box.innerHTML = batches.map(b => {
+        const statusLabel = b.status === 'in_progress' ? 'قيد التوصيل' : 'بانتظار القبول';
+        const orderSummary = (b.orders || []).slice(0, 4).map(o => `#${escapeHtml(String(o.id || '').slice(-6))} · ${escapeHtml(o.status || 'غير معروف')}`).join('، ');
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--gray-100);font-size:0.78rem;">
+          <span style="font-weight:700;color:var(--gray-700);">دفعة #${escapeHtml(String(b.batchId || '').slice(-6))} · ${escapeHtml(b.driverName || b.driverPhone || 'سائق غير معروف')}</span>
+          <span style="color:${b.status === 'in_progress' ? '#16A34A' : '#B45309'};font-weight:700;">${statusLabel} · ${Number(b.orderCount || 0)} طلب</span>
+          ${orderSummary ? `<span style="width:100%;color:var(--gray-500);">${orderSummary}</span>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    async function refreshDriverLocations(force = false) {
+      if (_mapRequestInFlight && !force) return;
+      _mapRequestInFlight = true;
+      const loadingEl = document.getElementById('map-loading-state');
+      const errorEl = document.getElementById('map-error-state');
+      const errorMessageEl = document.getElementById('map-error-message');
+      const noDrivers = document.getElementById('map-no-drivers');
+      const lastUpdatedEl = document.getElementById('map-last-updated');
+      const firstLoad = !_mapHasLoaded;
+      if (firstLoad && loadingEl) loadingEl.style.display = 'flex';
+      if (firstLoad && errorEl) errorEl.style.display = 'none';
+      try {
+        const [locationsRes, batchesRes] = await Promise.all([
+          fetch(API_BASE + '/admin/driver-locations'),
+          fetch(API_BASE + '/admin/active-batches'),
+        ]);
+        if (!locationsRes.ok) throw new Error(`locations:${locationsRes.status}`);
+        if (!batchesRes.ok) throw new Error(`batches:${batchesRes.status}`);
+        const [locationsData, batchesData] = await Promise.all([locationsRes.json(), batchesRes.json()]);
+        const locations = (Array.isArray(locationsData.locations) ? locationsData.locations : []).filter(isValidMapLocation);
+        const batches = Array.isArray(batchesData.batches) ? batchesData.batches : [];
+        const batchesById = new Map(batches.map(b => [String(b.batchId), b]));
+        const countEl = document.getElementById('map-driver-count');
+        if (countEl) countEl.textContent = locations.length + (locations.length === 1 ? ' سائق لديه موقع' : ' سائقون لديهم مواقع');
+        if (noDrivers) noDrivers.style.display = locations.length === 0 ? 'flex' : 'none';
+        if (errorEl) errorEl.style.display = 'none';
+        if (lastUpdatedEl) {
+          const newest = locations.reduce((max, loc) => Math.max(max, Number(loc.updatedAt) || 0), 0);
+          lastUpdatedEl.textContent = newest ? `آخر بيانات موقع: ${getTimeAgo(newest)}` : 'لا توجد بيانات موقع صالحة';
+        }
+        renderMapBatchSummary(batches);
         if (!_gpsMap) return;
 
-        // Remove stale markers
-        const currentPhones = new Set(locations.map(l => l.phoneNumber));
+        const currentPhones = new Set(locations.map(l => String(l.phoneNumber)));
         for (const phone of Object.keys(_driverMarkers)) {
-          if (!currentPhones.has(phone)) { _gpsMap.removeLayer(_driverMarkers[phone]); delete _driverMarkers[phone]; }
+          if (!currentPhones.has(String(phone))) { _gpsMap.removeLayer(_driverMarkers[phone]); delete _driverMarkers[phone]; }
         }
 
-        // Add / update markers
         locations.forEach(loc => {
+          const phone = String(loc.phoneNumber);
           const isBusy = loc.status === 'busy';
-          const latlng = [loc.lat, loc.lng];
+          const batch = loc.currentBatchId ? batchesById.get(String(loc.currentBatchId)) : null;
+          const batchOrders = batch && Array.isArray(batch.orders) ? batch.orders.slice(0, 3) : [];
+          const orderHtml = batchOrders.length
+            ? `<br/><span style="font-size:0.78rem;color:#666;">${batchOrders.map(o => `#${escapeHtml(String(o.id || '').slice(-6))} · ${escapeHtml(o.status || 'غير معروف')}`).join('<br/>')}</span>`
+            : '';
+          const batchHtml = batch
+            ? `<br/><span style="font-size:0.8rem;color:#7C3AED;font-weight:700;">دفعة #${escapeHtml(String(batch.batchId).slice(-6))} · ${batch.status === 'in_progress' ? 'قيد التوصيل' : 'بانتظار القبول'}</span>${orderHtml}`
+            : '';
+          const updatedHtml = loc.updatedAt ? `<br/><span style="font-size:0.75rem;color:#888;">آخر تحديث: ${escapeHtml(getTimeAgo(Number(loc.updatedAt)))}</span>` : '';
           const popupHtml = `
-            <div style="font-family:'Cairo',sans-serif;direction:rtl;min-width:160px;padding:4px;">
-              <strong style="font-size:0.95rem;">${escapeHtml(loc.fullName || loc.phoneNumber)}</strong><br/>
-              <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:600;">${isBusy ? '🟡 مشغول بطلب' : '🟢 متاح'}</span>
-              ${loc.currentOrderId ? `<br/><span style="font-size:0.8rem;color:#666;">طلب: #${escapeHtml(String(loc.currentOrderId).slice(-6))}</span>` : ''}
-              <br/><a href="#" style="color:#E86520;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal(&quot;${escapeAttr(loc.phoneNumber)}&quot;,&quot;${escapeAttr(loc.fullName||loc.phoneNumber)}&quot;);return false;">📍 تتبع مباشر</a>
+            <div style="font-family:'Cairo',sans-serif;direction:rtl;min-width:190px;padding:4px;">
+              <strong style="font-size:0.95rem;">${escapeHtml(loc.fullName || phone)}</strong><br/>
+              <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:600;">${isBusy ? '🟡 مشغول' : '🟢 متاح'}</span>
+              ${batchHtml}${updatedHtml}
+              <br/><a href="#" style="color:#FB5B21;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal(&quot;${escapeAttr(phone)}&quot;,&quot;${escapeAttr(loc.fullName || phone)}&quot;);return false;">📍 تتبع مباشر</a>
             </div>`;
-          if (_driverMarkers[loc.phoneNumber]) {
-            _driverMarkers[loc.phoneNumber].setLatLng(latlng);
-            _driverMarkers[loc.phoneNumber].setIcon(getDriverIcon(isBusy));
+          const latlng = [Number(loc.lat), Number(loc.lng)];
+          if (_driverMarkers[phone]) {
+            _driverMarkers[phone].setLatLng(latlng);
+            _driverMarkers[phone].setIcon(getDriverIcon(isBusy));
+            _driverMarkers[phone].setPopupContent(popupHtml);
           } else {
-            const marker = L.marker(latlng, { icon: getDriverIcon(isBusy) })
+            _driverMarkers[phone] = L.marker(latlng, { icon: getDriverIcon(isBusy) })
               .addTo(_gpsMap)
-              .bindPopup(popupHtml, { maxWidth: 220 });
-            _driverMarkers[loc.phoneNumber] = marker;
+              .bindPopup(popupHtml, { maxWidth: 260 });
           }
         });
 
-        // Fit bounds if drivers exist
-        if (locations.length > 0 && !_trackingPhone) {
-          const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lng]));
+        if (firstLoad && locations.length > 0 && !_trackingPhone) {
+          const bounds = L.latLngBounds(locations.map(l => [Number(l.lat), Number(l.lng)]));
           _gpsMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
         }
-      } catch(e) { console.error('GPS refresh:', e); }
+        _mapHasLoaded = true;
+      } catch (e) {
+        console.error('GPS refresh:', e);
+        if (errorMessageEl) errorMessageEl.textContent = 'تعذّر تحميل مواقع السائقين أو الدفعات. حاول مرة أخرى.';
+        if (errorEl) errorEl.style.display = 'flex';
+        if (firstLoad && noDrivers) noDrivers.style.display = 'none';
+      } finally {
+        _mapRequestInFlight = false;
+        if (loadingEl) loadingEl.style.display = 'none';
+        lucide.createIcons();
+      }
     }
 
     // ---- Tracking Modal ----
@@ -6157,7 +6568,7 @@
         if (statusEl) statusEl.innerHTML = `
           <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:700;">${isBusy?'🟡 مشغول بطلب':'🟢 متاح'}</span>
           &nbsp;·&nbsp;<span style="color:#888;font-size:0.85rem;">آخر موقع: ${timeAgo}</span>
-          ${loc.currentOrderId ? `&nbsp;·&nbsp;<span style="color:#E86520;font-size:0.85rem;">طلب #${loc.currentOrderId.slice(-6)}</span>` : ''}`;
+          ${loc.currentBatchId ? `&nbsp;·&nbsp;<span style="color:#7C3AED;font-size:0.85rem;">دفعة #${escapeHtml(String(loc.currentBatchId).slice(-6))}</span>` : ''}`;
         if (_trackingMarker) {
           _trackingMarker.setLatLng(latlng);
         } else {
@@ -6170,11 +6581,8 @@
       } catch(e) { console.error('Tracking error:', e); }
     }
 
-    // Start GPS polling when on dashboard
-    setInterval(() => {
-      const dashSection = document.getElementById('dashboard-section');
-      if (dashSection && dashSection.classList.contains('active')) refreshDriverLocations();
-    }, 15000);
+    // Dashboard map polling is started only while the dashboard is active and is
+    // cleared when the admin leaves it, preventing background requests and leaks.
 
     // Poll for driver batch rejection events every 8 seconds
     let _lastRejectionCheck = new Date().toISOString();
@@ -6403,13 +6811,13 @@
           <div style="position:relative;flex-shrink:0;">
             <img src="${escapeHtml(p.image || p.imageUrl || '')}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'"
               style="width:45px;height:45px;border-radius:8px;object-fit:cover;">
-            ${hasDiscount ? `<span style="position:absolute;top:-4px;left:-4px;background:#E86520;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 4px;">-${p.discount}%</span>` : ''}
+            ${hasDiscount ? `<span style="position:absolute;top:-4px;left:-4px;background:#FB5B21;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 4px;">-${p.discount}%</span>` : ''}
           </div>
           <div class="info">
             <span class="name">${escapeHtml(p.name)}</span>
             ${hasDiscount ? `
               <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                <span style="color:#E86520;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+                <span style="color:#FB5B21;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
                 <span style="color:#9CA3AF;font-size:0.75rem;text-decoration:line-through;">${p.originalPrice.toLocaleString('ar-IQ')} د.ع</span>
               </div>
             ` : `<span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>`}
@@ -6432,12 +6840,12 @@
         return `
           <div class="product-select-card ${isSelected ? 'selected' : ''}" onclick="togglePromotionalProduct('${type}', '${p.id}')">
             <div class="check-icon"><i data-lucide="check" style="width: 14px; height: 14px;"></i></div>
-            ${hasDiscount ? `<span style="position:absolute;top:6px;right:6px;background:#E86520;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 5px;z-index:2;">-${p.discount}%</span>` : ''}
+            ${hasDiscount ? `<span style="position:absolute;top:6px;right:6px;background:#FB5B21;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 5px;z-index:2;">-${p.discount}%</span>` : ''}
             <img src="${escapeHtml(p.image || p.imageUrl || '')}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/80'">
             <span class="name">${escapeHtml(p.name)}</span>
             ${hasDiscount ? `
               <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                <span style="color:#E86520;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+                <span style="color:#FB5B21;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
                 <span style="color:#9CA3AF;font-size:0.72rem;text-decoration:line-through;">${p.originalPrice.toLocaleString('ar-IQ')} د.ع</span>
               </div>
             ` : `<span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>`}
@@ -7115,8 +7523,8 @@
         const cnt = counts[t.id] || 0;
         const active = _merchantTypeFilter === t.id;
         return `<button onclick="_setMerchantType('${t.id}')"
-          style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:24px;border:1px solid ${active ? '#E86520' : '#E5E7EB'};
-          background:${active ? '#E86520' : '#fff'};color:${active ? '#fff' : '#6B7280'};font-size:0.8rem;font-weight:${active ? '700' : '500'};
+          style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:24px;border:1px solid ${active ? '#FB5B21' : '#E5E7EB'};
+          background:${active ? '#FB5B21' : '#fff'};color:${active ? '#fff' : '#6B7280'};font-size:0.8rem;font-weight:${active ? '700' : '500'};
           cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;">
           <i data-lucide="${t.icon}" style="width:13px;height:13px;"></i>
           ${t.label}
@@ -7214,7 +7622,7 @@
               <i data-lucide="x" style="width:10px;height:10px;"></i> رفض</button>
           </div>
         </div>` : ''}
-        <div style="height:3px;background:#E86520;flex-shrink:0;"></div>
+        <div style="height:3px;background:#FB5B21;flex-shrink:0;"></div>
         <div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:10px;">
           <!-- Header row -->
           <div style="display:flex;align-items:flex-start;gap:10px;">
@@ -7225,7 +7633,7 @@
             <div style="flex:1;min-width:0;">
               <div style="font-weight:800;font-size:0.9rem;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(name)}</div>
               <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
-                <span style="background:#FFF3E0;color:#E86520;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;border:1px solid #FFD9BB;">${typeLabel}</span>
+                <span style="background:#FFF3E0;color:#FB5B21;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;border:1px solid #FFD9BB;">${typeLabel}</span>
                 <span style="background:${sCfg.bg};color:${sCfg.color};border:1px solid ${sCfg.border};padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">${sCfg.label}</span>
                 ${v.isVerified ? '<span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">موثّق ✓</span>' : ''}
                 ${v.isPinned   ? '<span style="background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">مثبّت 📌</span>' : ''}
@@ -7290,7 +7698,7 @@
           <!-- Quick action buttons -->
           <div style="display:flex;gap:6px;">
             <button onclick="openMerchantProducts('${v.id}','${nameEsc}')"
-              style="flex:1;background:linear-gradient(135deg,#E86520,#FF9A4D);color:#fff;border:none;padding:8px;border-radius:9px;font-size:0.76rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;">
+              style="flex:1;background:linear-gradient(135deg,#FB5B21,#FF9A4D);color:#fff;border:none;padding:8px;border-radius:9px;font-size:0.76rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;">
               <i data-lucide="package" style="width:12px;height:12px;"></i> المنتجات
             </button>
             <button onclick="openMerchantEdit('${v.id}')"
@@ -7749,7 +8157,7 @@
           <div style="font-weight:700;font-size:0.82rem;color:#111827;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.name||'')}">${escapeHtml(p.name || '—')}</div>
           <!-- Price + Approval status -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <span style="font-size:0.78rem;font-weight:700;color:#E86520;">${(p.price || 0).toLocaleString('ar-IQ')} د.ع</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#FB5B21;">${(p.price || 0).toLocaleString('ar-IQ')} د.ع</span>
             <span style="font-size:0.62rem;font-weight:700;color:${STATUS_COLORS[p.status]||'#9CA3AF'};">${STATUS_LABELS[p.status]||p.status}</span>
           </div>
           <!-- Action buttons -->
@@ -7926,7 +8334,7 @@
             <div>
               <div style="font-size:1rem;font-weight:800;">${escapeHtml(displayName)}</div>
               <div style="font-size:0.78rem;color:#9CA3AF;">${escapeHtml(v.location || v.address || '')}</div>
-              ${v.commissionPercent != null ? `<div style="font-size:0.75rem;color:#E86520;font-weight:600;">عمولة التطبيق: ${v.commissionPercent}%</div>` : ''}
+              ${v.commissionPercent != null ? `<div style="font-size:0.75rem;color:#FB5B21;font-weight:600;">عمولة التطبيق: ${v.commissionPercent}%</div>` : ''}
             </div>
             <button class="btn btn-sm btn-outline" style="margin-inline-start:auto;padding:6px 12px;"
               onclick="openLedgerStatement('vendor','${escapeJsInAttr(id)}','${escapeJsInAttr(displayName)}')">
@@ -7935,7 +8343,7 @@
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
             <div style="background:#F8FAFC;border-radius:12px;padding:14px;text-align:center;">
-              <div style="font-size:1.4rem;font-weight:800;color:#E86520;">${data.orders}</div>
+              <div style="font-size:1.4rem;font-weight:800;color:#FB5B21;">${data.orders}</div>
               <div style="font-size:0.78rem;color:#9CA3AF;margin-top:2px;">عدد الطلبات</div>
             </div>
             <div style="background:#F8FAFC;border-radius:12px;padding:14px;text-align:center;">
@@ -7952,9 +8360,9 @@
               <span style="color:#EF4444;font-size:0.9rem;">عمولة التطبيق (${data.commissionPercent}%)</span>
               <span style="font-weight:700;color:#EF4444;">- ${(data.appCommission || 0).toLocaleString()} د.ع</span>
             </div>
-            <div style="border-top:1px dashed #E86520;padding-top:10px;display:flex;justify-content:space-between;">
-              <span style="font-size:1rem;font-weight:700;color:#E86520;">صافي التاجر</span>
-              <span style="font-size:1.1rem;font-weight:800;color:#E86520;">${(data.vendorNet || 0).toLocaleString()} د.ع</span>
+            <div style="border-top:1px dashed #FB5B21;padding-top:10px;display:flex;justify-content:space-between;">
+              <span style="font-size:1rem;font-weight:700;color:#FB5B21;">صافي التاجر</span>
+              <span style="font-size:1.1rem;font-weight:800;color:#FB5B21;">${(data.vendorNet || 0).toLocaleString()} د.ع</span>
             </div>
           </div>
           ${v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;gap:8px;text-decoration:none;display:flex;margin-top:16px;">
@@ -8377,7 +8785,7 @@
         delivering: '#06B6D4',
         delivered: '#10B981',
         cancelled: '#EF4444',
-        issue: '#E86520'
+        issue: '#FB5B21'
       };
       return colors[status] || '#6B7280';
     }
@@ -8582,7 +8990,7 @@
         // both exist. The driver is holding the order in `picked_up` and
         // `in_delivery` alike, which is exactly when tracking is useful.
         if (['picked_up', 'in_delivery'].includes(order.status) && order.driverPhone) {
-          actionButtons += `<button class="btn btn-sm" style="background:#1a1a2e;color:white;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${escapeJsInAttr(order.driverPhone)}','${escapeJsInAttr(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
+          actionButtons += `<button class="btn btn-sm" style="background:var(--primary);color:#1F2937;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${escapeJsInAttr(order.driverPhone)}','${escapeJsInAttr(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
         }
         // WhatsApp button
         const waPhone = ((order.customerPhone && order.customerPhone !== order.phoneNumber ? order.customerPhone : order.phoneNumber) || '').replace(/^0/, '964');
@@ -8607,11 +9015,11 @@
             <td>
               ${(order.vendorName || order.storeName || order.restaurantName)
                 ? `<div style="display:flex;align-items:center;gap:6px;">
-                    <span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">${escapeHtml(order.vendorName || order.storeName || order.restaurantName)}</span>
+                    <span style="background:#FFF3E0;color:#FB5B21;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">${escapeHtml(order.vendorName || order.storeName || order.restaurantName)}</span>
                     ${order.vendorWhatsapp ? `<a href="https://wa.me/${order.vendorWhatsapp}?text=${encodeURIComponent('طلب جديد من OnWay - يرجى التحضير')}" target="_blank" onclick="event.stopPropagation()" title="إشعار المطعم" style="color:#25D366;"><i data-lucide="send" style="width:13px;height:13px;"></i></a>` : ''}
                    </div>`
                 : order.vendorId
-                  ? `<span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">متجر شريك</span>`
+                  ? `<span style="background:#FFF3E0;color:#FB5B21;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">متجر شريك</span>`
                   : `<span style="background:#F0FDF4;color:#16A34A;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">متجر OnWay</span>`
               }
             </td>
@@ -8630,7 +9038,7 @@
                 ${getOrderStatusLabel(order.status)}
               </span>
               ${order.rejectedAt && !['delivered','cancelled'].includes(order.status) ? `<br><span style="background:#FEE2E2;color:#DC2626;padding:2px 7px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-top:3px;display:inline-block;" title="رفض: ${escapeHtml(order.rejectedByDriver||'')}">انرفض</span>` : ''}
-              ${order.status === 'issue' && order.issueType ? `<br><span style="font-size:0.7rem;color:#E86520;margin-top:3px;display:inline-block;">${order.issueType === 'no_answer' ? 'الزبون ما يرد' : order.issueType === 'unclear_address' ? 'العنوان غير واضح' : 'مشكلة أخرى'}</span>` : ''}
+              ${order.status === 'issue' && order.issueType ? `<br><span style="font-size:0.7rem;color:#FB5B21;margin-top:3px;display:inline-block;">${order.issueType === 'no_answer' ? 'الزبون ما يرد' : order.issueType === 'unclear_address' ? 'العنوان غير واضح' : 'مشكلة أخرى'}</span>` : ''}
             </td>
             <td style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">${timeAgo}</td>
             <td>
@@ -8706,7 +9114,7 @@
               <i data-lucide="store" style="width: 18px; height: 18px; color: var(--primary);"></i>
               المتجر / المطعم
             </h4>
-            <div style="font-weight: 700; font-size: 1rem; color: #E86520;">
+            <div style="font-weight: 700; font-size: 1rem; color: #FB5B21;">
               ${escapeHtml(order.storeName || order.vendorName || order.restaurantName || 'متجر شريك')}
             </div>
             ${order.vendorId ? `<div style="font-size: 0.75rem; color: var(--gray-400); margin-top: 4px; direction: ltr; text-align: right;">ID: ${escapeHtml(order.vendorId)}</div>` : ''}
@@ -8755,7 +9163,7 @@
           </div>
 
           <!-- Customer Order Summary -->
-          <div style="background: linear-gradient(135deg, #E8652015, #F28B4E15); border: 1px solid #E8652030; border-radius: 12px; padding: 16px;">
+          <div style="background: linear-gradient(135deg, #FB5B2115, #F28B4E15); border: 1px solid #FB5B2130; border-radius: 12px; padding: 16px;">
             <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
               <i data-lucide="bar-chart-3" style="width: 18px; height: 18px; color: var(--primary);"></i>
               مجموع طلبات العميل
@@ -9773,6 +10181,81 @@
     // invalidates every session. No second authentication system is introduced —
     // this only gives the endpoint the surface it never had.
 
+    let currentAdminSession = { permissions: [], role: null, adminId: null, username: null };
+    const ADMIN_ROLE_LABELS = {
+      super_admin: 'مدير عام', operations_admin: 'مدير العمليات', finance_admin: 'مدير المالية',
+      support_admin: 'مدير الدعم', catalog_admin: 'مدير المحتوى والكتالوج'
+    };
+    function canAdmin(permission) {
+      return currentAdminSession.permissions.includes('*') || currentAdminSession.permissions.includes(permission);
+    }
+    function applyAdminPermissions() {
+      document.querySelectorAll('[data-admin-permission]').forEach(el => {
+        el.style.display = canAdmin(el.getAttribute('data-admin-permission')) ? '' : 'none';
+      });
+    }
+    async function loadAdminSessionInfo() {
+      try {
+        const res = await fetch(API_BASE + '/admin/session');
+        if (!res.ok) throw new Error(res.status);
+        currentAdminSession = await res.json();
+        applyAdminPermissions();
+      } catch (e) { console.error('loadAdminSessionInfo error', e); }
+    }
+    let adminUsersCache = [];
+    async function loadAdminUsers() {
+      const tbody = document.getElementById('admin-users-table-body');
+      if (!tbody) return;
+      try {
+        const res = await fetch(API_BASE + '/admin/admin-users');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.status);
+        adminUsersCache = data.users || [];
+        document.getElementById('admin-users-count').textContent = adminUsersCache.length + ' مشرف';
+        tbody.innerHTML = adminUsersCache.map(u => {
+          const last = u.lastLoginAt && u.lastLoginAt._seconds ? new Date(u.lastLoginAt._seconds * 1000).toLocaleString('ar-IQ') : 'لم يسجل الدخول';
+          const status = u.isActive ? '<span style="color:#16a34a">نشط</span>' : '<span style="color:#dc2626">معطل</span>';
+          return `<tr><td><strong>${escHtml(u.username || '')}</strong><br><small>${escHtml(u.email || '')}</small></td><td>${escHtml(u.displayName || '')}</td><td>${escHtml(ADMIN_ROLE_LABELS[u.role] || u.role || '')}</td><td>${status}</td><td>${escHtml(last)}</td><td><button class="btn btn-outline btn-sm" data-admin-permission="admin_users.manage" onclick="editAdminUser(${JSON.stringify(String(u.adminId || ''))})">تعديل</button> <button class="btn btn-outline btn-sm" data-admin-permission="admin_users.manage" onclick="toggleAdminUser(${JSON.stringify(String(u.adminId || ''))}, ${!u.isActive})">${u.isActive ? 'تعطيل' : 'تفعيل'}</button></td></tr>`;
+        }).join('') || '<tr><td colspan="6" style="text-align:center;padding:22px;">لا يوجد مشرفون</td></tr>';
+        applyAdminPermissions();
+      } catch (e) { tbody.innerHTML = `<tr><td colspan="6" style="color:#dc2626;padding:22px;">${escHtml(e.message || 'تعذّر التحميل')}</td></tr>`; }
+    }
+    async function loadAdminRoles() {
+      try {
+        const [rolesRes] = await Promise.all([fetch(API_BASE + '/admin/roles')]);
+        const data = await rolesRes.json();
+        const roleSelect = document.getElementById('admin-user-role');
+        const roleBody = document.getElementById('admin-roles-table-body');
+        if (roleSelect) roleSelect.innerHTML = (data.roles || []).map(r => `<option value="${escHtml(r.role)}">${escHtml(r.label)}</option>`).join('');
+        if (roleBody) roleBody.innerHTML = (data.roles || []).map(r => `<tr><td><strong>${escHtml(r.label)}</strong><br><small>${escHtml(r.role)}</small></td><td style="font-size:.78rem;direction:ltr;text-align:left">${escHtml((r.permissions || []).join(', '))}</td></tr>`).join('');
+      } catch (e) { console.error('loadAdminRoles error', e); }
+    }
+    function openAdminUserForm(user) {
+      const card = document.getElementById('admin-user-form-card');
+      if (!card) return;
+      const u = user || {};
+      document.getElementById('admin-user-form-title').textContent = u.adminId ? 'تعديل مشرف' : 'إضافة مشرف';
+      document.getElementById('admin-user-id').value = u.adminId || '';
+      document.getElementById('admin-user-username').value = u.username || '';
+      document.getElementById('admin-user-display-name').value = u.displayName || '';
+      document.getElementById('admin-user-email').value = u.email || '';
+      document.getElementById('admin-user-password').value = '';
+      if (u.role) document.getElementById('admin-user-role').value = u.role;
+      card.style.display = '';
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function editAdminUser(id) { const u = adminUsersCache.find(x => x.adminId === id); if (u) openAdminUserForm(u); }
+    function closeAdminUserForm() { document.getElementById('admin-user-form-card').style.display = 'none'; document.getElementById('admin-user-form-error').textContent = ''; }
+    async function saveAdminUser() {
+      const id = document.getElementById('admin-user-id').value;
+      const body = { username: document.getElementById('admin-user-username').value.trim(), displayName: document.getElementById('admin-user-display-name').value.trim(), email: document.getElementById('admin-user-email').value.trim(), role: document.getElementById('admin-user-role').value };
+      const password = document.getElementById('admin-user-password').value; if (password) body.password = password;
+      const errorEl = document.getElementById('admin-user-form-error'); errorEl.textContent = '';
+      try { const res = await fetch(API_BASE + '/admin/admin-users' + (id ? '/' + encodeURIComponent(id) : ''), { method: id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const data = await res.json(); if (!res.ok) throw new Error(data.error || 'فشل الحفظ'); closeAdminUserForm(); await loadAdminUsers(); showToast('success', 'تم', 'تم حفظ بيانات المشرف'); } catch (e) { errorEl.textContent = e.message || 'فشل الحفظ'; }
+    }
+    async function toggleAdminUser(id, active) {
+      try { const res = await fetch(API_BASE + '/admin/admin-users/' + encodeURIComponent(id) + '/' + (active ? 'activate' : 'deactivate'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); const data = await res.json(); if (!res.ok) throw new Error(data.error || 'فشل التحديث'); await loadAdminUsers(); showToast('success', 'تم', active ? 'تم تفعيل المشرف' : 'تم تعطيل المشرف'); } catch (e) { showToast('error', 'خطأ', e.message || 'فشل التحديث'); }
+    }
     async function loadAdminCredentialsInfo() {
       try {
         const res = await fetch(`${API_BASE}/admin/credentials-info`);
@@ -10160,7 +10643,7 @@
       const total = values.reduce((s, v) => s + v, 0);
 
       const palette = [
-        '#E86520','#10B981','#3B82F6','#8B5CF6','#F59E0B',
+        '#FB5B21','#10B981','#3B82F6','#8B5CF6','#F59E0B',
         '#EF4444','#06B6D4','#EC4899','#14B8A6','#F97316',
       ];
       const bgColors = labels.map((_, i) => palette[i % palette.length]);
@@ -10237,7 +10720,7 @@
         delivering:{ label: 'جاري التوصيل',     color: '#06B6D4' },
         delivered: { label: 'تم التوصيل',       color: '#10B981' },
         cancelled: { label: 'ملغية',            color: '#EF4444' },
-        issue:     { label: 'مشكلة',            color: '#E86520' },
+        issue:     { label: 'مشكلة',            color: '#FB5B21' },
       };
 
       const counts = {};
@@ -10407,7 +10890,7 @@
       }
 
       const entries = [
-        { label: 'أرباح المطاعم',        value: restaurantProfit, color: '#E86520' },
+        { label: 'أرباح المطاعم',        value: restaurantProfit, color: '#FB5B21' },
         { label: 'أرباح الخدمات الأخرى', value: otherProfit,       color: '#F59E0B' },
       ].filter(e => e.value > 0);
 
@@ -10626,6 +11109,7 @@
           if (window.innerWidth <= 1024) closeSidebar();
         });
       });
+      loadAdminSessionInfo();
       loadDashboard();
     });
   </script>
@@ -10709,7 +11193,7 @@
     <div style="background:#fff;border-radius:20px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
       <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#E86520,#F0913C);display:flex;align-items:center;justify-content:center;">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#FB5B21,#F0913C);display:flex;align-items:center;justify-content:center;">
             <i data-lucide="trending-up" style="width:20px;height:20px;color:#fff;"></i>
           </div>
           <div>
@@ -10724,7 +11208,7 @@
       <div style="padding:24px;">
         <div style="text-align:center;margin-bottom:6px;">
           <div style="font-size:0.78rem;color:#9CA3AF;">إجمالي أرباح التطبيق</div>
-          <div id="revenue-total-val" style="font-size:1.6rem;font-weight:800;color:#E86520;direction:ltr;">0 د.ع</div>
+          <div id="revenue-total-val" style="font-size:1.6rem;font-weight:800;color:#FB5B21;direction:ltr;">0 د.ع</div>
         </div>
         <div style="height:240px;margin-bottom:20px;">
           <canvas id="revenue-canvas"></canvas>
@@ -10911,6 +11395,25 @@
     </div>
   </div>
 
+  <!-- ── Audit Log read-only details modal ─────────────────────────────── -->
+  <div id="audit-log-details-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('audit-log-details-modal')">
+    <div class="modal" style="max-width:760px;width:calc(100% - 32px);max-height:88vh;overflow:hidden;">
+      <div class="modal-header">
+        <h3><i data-lucide="shield-check"></i> تفاصيل سجل التدقيق</h3>
+        <button class="modal-close" type="button" onclick="closeModal('audit-log-details-modal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto;max-height:76vh;">
+        <div id="audit-detail-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:18px;"></div>
+        <div style="display:grid;gap:14px;">
+          <div><div class="form-label">Metadata</div><pre id="audit-detail-metadata" style="direction:ltr;text-align:left;white-space:pre-wrap;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px;min-height:44px;max-height:180px;overflow:auto;font:12px/1.55 monospace;"></pre></div>
+          <div><div class="form-label">Before</div><pre id="audit-detail-before" style="direction:ltr;text-align:left;white-space:pre-wrap;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px;min-height:44px;max-height:180px;overflow:auto;font:12px/1.55 monospace;"></pre></div>
+          <div><div class="form-label">After</div><pre id="audit-detail-after" style="direction:ltr;text-align:left;white-space:pre-wrap;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px;min-height:44px;max-height:180px;overflow:auto;font:12px/1.55 monospace;"></pre></div>
+        </div>
+        <p style="margin:16px 0 0;color:var(--gray-500);font-size:.78rem;">هذا العرض للقراءة فقط. تُحجب الحقول الحساسة مثل كلمات المرور والرموز والمفاتيح.</p>
+      </div>
+    </div>
+  </div>
+
   <div id="assign-driver-modal" class="modal-overlay" onclick="if(event.target===this)closeAssignDriverModal()">
     <div style="background:white;border-radius:16px;width:90%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
       <div style="background:var(--primary);color:white;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;">
@@ -10978,7 +11481,7 @@ function renderSupportChatsList(chats) {
     const unread = c.unreadByAdmin || 0;
     const time = c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString('ar-IQ', {hour:'2-digit',minute:'2-digit'}) : '';
     return `<div onclick="openSupportChat(&quot;${escapeAttr(c.phoneNumber)}&quot;,&quot;${escapeAttr(c.userName||'')}&quot;,&quot;${escapeAttr(c.phoneNumber)}&quot;)"
-      style="padding:12px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:${isActive?'rgba(232,101,32,0.08)':'transparent'};border:${isActive?'1px solid rgba(232,101,32,0.2)':'1px solid transparent'};">
+      style="padding:12px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:${isActive?'rgba(251,91,33,0.08)':'transparent'};border:${isActive?'1px solid rgba(251,91,33,0.2)':'1px solid transparent'};">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:38px;height:38px;border-radius:19px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;">
           ${escapeHtml((c.userName||'م').charAt(0))}
@@ -11332,7 +11835,7 @@ function renderFinancialKpis(data) {
     { label: 'إجمالي المبيعات', value: fmt(data.totalRevenue) + ' د.ع', icon: 'shopping-cart', color: '#3B82F6', bg: '#EFF6FF' },
     { label: 'صافي أرباح OnWay', value: fmt(data.onwayProfit) + ' د.ع', icon: 'trending-up', color: '#10B981', bg: '#ECFDF5' },
     { label: 'مستحقات السائقين', value: fmt(data.totalDriverEarnings) + ' د.ع', icon: 'truck', color: '#009688', bg: '#E0F2F1' },
-    { label: 'عدد الطلبات', value: (data.totalOrders||0).toLocaleString('ar-IQ'), icon: 'package', color: '#E86520', bg: '#FEF2F2' },
+    { label: 'عدد الطلبات', value: (data.totalOrders||0).toLocaleString('ar-IQ'), icon: 'package', color: '#FB5B21', bg: '#FEF2F2' },
   ];
   document.getElementById('fr-kpi-cards').innerHTML = kpis.map(k =>
     `<div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:14px;">
@@ -11381,7 +11884,7 @@ function renderFrDailyChart(dailySales) {
     data: {
       labels,
       datasets: [
-        { label: 'المبيعات', data: dailySales.map(d => d.revenue), backgroundColor: '#E8652030', borderColor: '#E86520', borderWidth: 2, borderRadius: 6 },
+        { label: 'المبيعات', data: dailySales.map(d => d.revenue), backgroundColor: '#FB5B2130', borderColor: '#FB5B21', borderWidth: 2, borderRadius: 6 },
         { label: 'عمولة OnWay', data: dailySales.map(d => d.commission), backgroundColor: '#10B98130', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 },
       ]
     },

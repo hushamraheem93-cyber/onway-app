@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <title>تسجيل الدخول — لوحة التحكم</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, #FFF8F5 0%, #F5F6F8 50%, #FFFFFF 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -19,14 +20,14 @@
     }
 
     .card {
-      background: rgba(255, 255, 255, 0.05);
+      background: #FFFFFF;
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid #E5E7EB;
       border-radius: 24px;
       padding: 48px 40px;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 25px 50px rgba(16,24,40,0.10);
     }
 
     .logo {
@@ -35,14 +36,14 @@
     }
 
     .logo h1 {
-      color: #ffffff;
+      color: #1F2937;
       font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.5px;
     }
 
     .logo p {
-      color: rgba(255,255,255,0.5);
+      color: #6B7280;
       font-size: 13px;
       margin-top: 4px;
     }
@@ -88,11 +89,11 @@
       content: '';
       flex: 1;
       height: 1px;
-      background: rgba(255,255,255,0.12);
+      background: #E5E7EB;
     }
 
     .divider span {
-      color: rgba(255,255,255,0.35);
+      color: #6B7280;
       font-size: 12px;
       white-space: nowrap;
     }
@@ -103,7 +104,7 @@
 
     label {
       display: block;
-      color: rgba(255,255,255,0.7);
+      color: #4B5563;
       font-size: 13px;
       font-weight: 600;
       margin-bottom: 8px;
@@ -112,10 +113,10 @@
     input[type="text"], input[type="password"] {
       width: 100%;
       padding: 13px 16px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
+      background: #FFFFFF;
+      border: 1px solid #D1D5DB;
       border-radius: 12px;
-      color: #ffffff;
+      color: #1F2937;
       font-size: 14px;
       font-family: inherit;
       outline: none;
@@ -124,36 +125,36 @@
     }
 
     input[type="text"]:focus, input[type="password"]:focus {
-      border-color: #E86520;
-      background: rgba(232,101,32,0.08);
+      border-color: #FB5B21;
+      background: #FFF8F5;
     }
 
-    input::placeholder { color: rgba(255,255,255,0.3); }
+    input::placeholder { color: #9CA3AF; }
 
     .btn {
       width: 100%;
       padding: 14px;
-      background: linear-gradient(135deg, #E86520, #FF8C4B);
+      background: linear-gradient(135deg, #FB5B21, #D94A17);
       border: none;
       border-radius: 12px;
-      color: #ffffff;
+      color: #1F2937;
       font-size: 15px;
       font-weight: 700;
       font-family: inherit;
       cursor: pointer;
       margin-top: 4px;
       transition: opacity 0.2s, transform 0.1s;
-      box-shadow: 0 4px 16px rgba(232,101,32,0.4);
+      box-shadow: 0 4px 16px rgba(251,91,33,0.25);
     }
 
     .btn:hover { opacity: 0.92; }
     .btn:active { transform: scale(0.98); }
 
     .error {
-      background: rgba(239,68,68,0.15);
-      border: 1px solid rgba(239,68,68,0.3);
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
       border-radius: 10px;
-      color: #fca5a5;
+      color: #B91C1C;
       font-size: 13px;
       padding: 12px 14px;
       margin-bottom: 18px;
@@ -161,10 +162,10 @@
     }
 
     .success {
-      background: rgba(16,185,129,0.15);
-      border: 1px solid rgba(16,185,129,0.3);
+      background: #ECFDF5;
+      border: 1px solid #A7F3D0;
       border-radius: 10px;
-      color: #6ee7b7;
+      color: #047857;
       font-size: 13px;
       padding: 12px 14px;
       margin-bottom: 18px;
@@ -187,8 +188,8 @@
     .spinner {
       width: 48px;
       height: 48px;
-      border: 4px solid rgba(255,255,255,0.1);
-      border-top-color: #E86520;
+      border: 4px solid #E5E7EB;
+      border-top-color: #FB5B21;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -207,7 +208,7 @@
 
   <div class="card">
     <div class="logo">
-      <img src="/uploads/onway-logo.png" alt="OnWay" style="width:80px;height:80px;border-radius:20px;object-fit:cover;margin:0 auto 14px;display:block;box-shadow:0 8px 24px rgba(232,101,32,0.35);" />
+      <img src="/uploads/onway-logo.png" alt="OnWay" style="width:80px;height:80px;border-radius:20px;object-fit:cover;margin:0 auto 14px;display:block;box-shadow:0 8px 24px rgba(251,91,33,0.25);" />
       <h1>OnWay</h1>
       <p>لوحة التحكم</p>
     </div>

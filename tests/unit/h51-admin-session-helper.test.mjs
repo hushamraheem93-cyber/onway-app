@@ -239,8 +239,9 @@ describe("H-51 · the old format is gone from the helper", () => {
 
   test("production admin auth was not touched", () => {
     const auth = readFileSync(join(root, "server/adminAuth.ts"), "utf8");
-    assert.match(auth, /export function createSession\(username: string\): string \{/);
-    assert.match(auth, /jwt\.sign\(\s*\{ username, type: "admin", jti \}/);
+    assert.match(auth, /export function createSession\(username: string\): string;/);
+    assert.match(auth, /adminId:.*username,.*displayName:.*role: "super_admin"/s);
+    assert.match(auth, /jwt\.sign\(claims/);
     assert.doesNotMatch(auth, /createHmac/,
       "the server was changed to match the test instead of the other way round");
   });

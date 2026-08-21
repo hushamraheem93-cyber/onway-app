@@ -1,21 +1,7 @@
-import { useEffect, useState } from "react";
-import { useColorScheme as useRNColorScheme } from "react-native";
-
 /**
- * To support static rendering, this value needs to be re-calculated on the client side for web
+ * OnWay ships one official light design on web. Do not read the browser's
+ * system appearance value: it must never activate a dark surface.
  */
 export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
-  }
-
-  return "light";
+  return "light" as const;
 }

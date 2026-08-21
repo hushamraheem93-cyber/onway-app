@@ -18,6 +18,8 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
+import { EmptyState as SharedEmptyState } from "@/components/EmptyState";
+import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
@@ -194,30 +196,6 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
   );
 }
 
-function EmptyState() {
-  const { theme } = useTheme();
-  return (
-    <View style={styles.emptyContainer}>
-      <View
-        style={[
-          styles.emptyIcon,
-          { backgroundColor: AppColors.primary + "15" },
-        ]}
-      >
-        <Feather name="message-circle" size={40} color={AppColors.primary} />
-      </View>
-      <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>
-        مرحباً بك في الدعم
-      </ThemedText>
-      <ThemedText
-        type="body"
-        style={[styles.emptySubtitle, { color: theme.textSecondary }]}
-      >
-        فريق الدعم متواجد لمساعدتك. اكتب رسالتك أو أرسل صورة أو شارك منتجاً
-      </ThemedText>
-    </View>
-  );
-}
 
 function ProductPickerModal({
   visible,
@@ -343,6 +321,7 @@ export default function SupportChatScreen() {
 
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [inputText, setInputText] = useState("");
+  const [loadError, setLoadError] = useState(false);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -359,11 +338,12 @@ export default function SupportChatScreen() {
           ? { Authorization: `Bearer ${customerToken}` }
           : {},
       });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-      }
+      if (!res.ok) throw new Error("failed to load support messages");
+      const data = await res.json();
+      setMessages(data.messages || []);
+      setLoadError(false);
     } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -480,9 +460,22 @@ export default function SupportChatScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <LoadingState
+        label="جاري تحميل المحادثة..."
+        style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      />
+    );
+  }
+
+  if (loadError && messages.length === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
         <GradientBackground />
-        <ActivityIndicator size="large" color={AppColors.primary} />
+        <ErrorState
+          title="تعذّر تحميل المحادثة"
+          onRetry={() => void fetchMessages()}
+          style={{ margin: Spacing.lg }}
+        />
       </View>
     );
   }
@@ -504,7 +497,13 @@ export default function SupportChatScreen() {
           styles.listContent,
           { paddingTop: headerHeight + Spacing.md, paddingBottom: Spacing.md },
         ]}
-        ListEmptyComponent={<EmptyState />}
+        ListEmptyComponent={
+          <SharedEmptyState
+            icon="chatbubbles-outline"
+            title="مرحباً بك في الدعم"
+            subtitle="فريق الدعم متواجد لمساعدتك. اكتب رسالتك أو أرسل صورة أو شارك منتجاً"
+          />
+        }
         showsVerticalScrollIndicator={false}
       />
 
@@ -651,23 +650,6 @@ const styles = StyleSheet.create({
   },
   productImage: { width: 70, height: 70 },
   productInfo: { flex: 1, padding: 8, justifyContent: "space-between" },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
-    paddingTop: 60,
-  },
-  emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
-  },
-  emptyTitle: { textAlign: "center", marginBottom: Spacing.sm },
-  emptySubtitle: { textAlign: "center", lineHeight: 22 },
   inputBar: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,

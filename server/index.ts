@@ -451,12 +451,25 @@ import {
   invalidateAllSessions,
   getSessionToken,
   getSessionUsername,
+  getAdminIdentity,
   isValidSession,
   loadRevocationState,
 } from "./adminAuth";
 import { loadCustomerRevocationState } from "./customerRevocation";
 import { startOtpSweeper } from "./otpStore";
 import { createAdminBoundary } from "./adminBoundary";
+import { registerAdminAuthorization } from "./adminAuthorization";
+import {
+  authenticateAdmin,
+  authenticateGoogleAdmin,
+  createAdminUser,
+  getAdminUserById,
+  getAdminUserByUsername,
+  hasAnyAdminUsers,
+  registerAdminRbacRoutes,
+  updateAdminUser,
+  verifyAdminPassword,
+} from "./adminRbac";
 
 function parseCookies(req: Request): void {
   const header = req.headers.cookie || "";
@@ -563,9 +576,14 @@ function configureExpoAndLanding(app: express.Application) {
 // POST /admin/login — validate credentials (checks Firestore first, then env vars)
   app.post("/admin/login", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
     const { username, password } = req.body || {};
-    const valid = await validateAdminCredentials(username, password);
-    if (valid) {
-      const token = createSession(username);
+    const auth = await authenticateAdmin(
+      String(username || ""),
+      String(password || ""),
+      () => validateAdminCredentials(String(username || ""), String(password || "")),
+    );
+    if (auth) {
+      if (auth.migrated) invalidateAllSessions();
+      const token = createSession(auth.identity);
       const maxAge = 60 * 60 * 24 * 7; // 7 days
       const secureFlagAdmin = isRequestSecure(req) ? "; Secure" : "";
       res.setHeader(
@@ -584,9 +602,14 @@ function configureExpoAndLanding(app: express.Application) {
   // Returns { success: true, token } — client stores token in localStorage and sends as Bearer header.
   app.post("/api/admin/login", express.json(), async (req: Request, res: Response) => {
     const { username, password } = req.body || {};
-    const valid = await validateAdminCredentials(username, password);
-    if (!valid) return res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
-    const token = createSession(username);
+    const auth = await authenticateAdmin(
+      String(username || ""),
+      String(password || ""),
+      () => validateAdminCredentials(String(username || ""), String(password || "")),
+    );
+    if (!auth) return res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+    if (auth.migrated) invalidateAllSessions();
+    const token = createSession(auth.identity);
     const maxAge = 60 * 60 * 24 * 7;
     // CRITICAL: SameSite=None cookies are REJECTED OUTRIGHT by every modern browser
     // unless Secure is also present — this was previously gated on NODE_ENV, which is
@@ -648,8 +671,10 @@ function configureExpoAndLanding(app: express.Application) {
         return res.status(403).json({ error: `هذا الحساب (${payload.email}) غير مصرح له بالدخول` });
       }
 
-      // Valid — create session
-      const token = createSession(payload.email || "google-admin");
+      // Valid — resolve or bootstrap a real Admin User before creating a session.
+      const googleIdentity = await authenticateGoogleAdmin(String(payload.email));
+      if (!googleIdentity) return res.status(403).json({ error: "حساب Google غير مسجل كمسؤول" });
+      const token = createSession(googleIdentity);
       const maxAge = 60 * 60 * 24 * 7; // 7 days
       const secureFlagGoogle = isRequestSecure(req) ? "; Secure" : "";
       res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
@@ -703,32 +728,46 @@ function configureExpoAndLanding(app: express.Application) {
   // POST /api/admin/change-credentials — change from within admin panel
   app.post("/api/admin/change-credentials", express.json(), async (req: Request, res: Response) => {
     if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
+    const identity = getAdminIdentity(req);
+    if (!identity) return res.status(401).json({ error: "غير مصرح" });
     const { currentPassword, newUsername, newPassword, confirmPassword } = req.body || {};
     if (!currentPassword) return res.status(400).json({ error: "كلمة المرور الحالية مطلوبة" });
-    // Validate current password
-    const custom = await getCustomCredentials();
-    const currentUsername = custom ? custom.username : (process.env.ADMIN_USERNAME || "admin");
-    const valid = await validateAdminCredentials(currentUsername, currentPassword);
-    if (!valid) return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
     if (!newUsername || newUsername.length < 3) return res.status(400).json({ error: "اسم المستخدم يجب أن يكون 3 أحرف على الأقل" });
-    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
-    if (newPassword !== confirmPassword) return res.status(400).json({ error: "كلمتا المرور غير متطابقتين" });
+    if (!newPassword || newPassword.length < 8) return res.status(400).json({ error: "كلمة المرور يجب أن تكون 8 أحرف على الأقل" });
+    if (newPassword !== confirmPassword) return res.status(400).json({ error: "كلمتا المرور غير متطابقتان" });
     try {
-      await setCustomCredentials(newUsername, newPassword);
-      res.json({ success: true });
-    } catch {
-      res.status(500).json({ error: "فشل في الحفظ. حاول مرة أخرى." });
+      const current = await getAdminUserById(identity.adminId);
+      const currentUsername = identity.username;
+      const legacyValid = await validateAdminCredentials(currentUsername, currentPassword);
+      const bcryptValid = current ? await verifyAdminPassword(String(currentPassword), current.passwordHash) : false;
+      if (!current || (!bcryptValid && !legacyValid)) {
+        return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
+      }
+      await updateAdminUser({
+        adminId: identity.adminId,
+        actor: identity,
+        username: String(newUsername),
+        password: String(newPassword),
+      });
+      invalidateAllSessions();
+      return res.json({ success: true });
+    } catch (error: any) {
+      if (error?.message === "duplicate_username") return res.status(400).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+      return res.status(500).json({ error: "فشل في الحفظ. حاول مرة أخرى." });
     }
   });
 
   // GET /api/admin/credentials-info — current username info
   app.get("/api/admin/credentials-info", async (req: Request, res: Response) => {
-    if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
-    const custom = await getCustomCredentials();
+    const identity = getAdminIdentity(req);
+    if (!identity) return res.status(401).json({ error: "غير مصرح" });
+    const current = await getAdminUserById(identity.adminId);
     res.json({
-      username: custom ? custom.username : (process.env.ADMIN_USERNAME || "admin"),
-      isCustom: !!custom,
-      updatedAt: (custom as any)?.updatedAt || null,
+      username: identity.username,
+      displayName: identity.displayName,
+      role: identity.role,
+      isCustom: !!current,
+      updatedAt: (current as any)?.updatedAt || null,
     });
   });
 
@@ -741,7 +780,15 @@ function configureExpoAndLanding(app: express.Application) {
   // guard uses — signature, type, `jti` revocation and `revokedBefore` included.
   app.get("/api/admin/session", (req: Request, res: Response) => {
     if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
-    res.json({ valid: true, username: getSessionUsername(req) || null });
+    const identity = getAdminIdentity(req);
+    res.json({
+      valid: true,
+      username: identity?.username || getSessionUsername(req) || null,
+      adminId: identity?.adminId || null,
+      displayName: identity?.displayName || null,
+      role: identity?.role || null,
+      permissions: identity?.permissions || [],
+    });
   });
 
   // POST /api/admin/logout — invalidate the session for BOTH surfaces (A-1)
@@ -1186,8 +1233,10 @@ process.on("exit", (code) => {
   // guarded because of its path — wherever its handler is declared, and whatever
   // is added later.
   app.use("/api/admin", createAdminBoundary(isValidSession));
+  registerAdminAuthorization(app);
 
   configureExpoAndLanding(app);
+  registerAdminRbacRoutes(app);
 
   // Vendor partner portal routes
   app.use(vendorRouter);

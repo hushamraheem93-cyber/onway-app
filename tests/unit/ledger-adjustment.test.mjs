@@ -112,7 +112,7 @@ describe("H-07 — the adjustment leaves an immutable record", () => {
     // This is what GET /api/driver/statement and /api/admin/ledger-statement read,
     // so the adjustment is visible when a balance is disputed.
     assert.match(ADJUST_FN, /type: "adjustment"/);
-    assert.match(ADJUST_FN, /createdBy: adminName \|\| "admin"/);
+    assert.match(ADJUST_FN, /createdBy: adminActor\?\.username \|\| adminName \|\| "admin"/);
     // H-72 changed WHICH account this addresses — a driver's money is keyed by
     // walletId now, not by their phone — but not THAT the driver's statement
     // reads it, which is what this test is about.
@@ -130,7 +130,7 @@ describe("H-07 — the adjustment leaves an immutable record", () => {
 describe("H-07 — the adjuster is named from the session, never the body", () => {
   test("adminAuth exposes the session username", () => {
     assert.match(ADMIN_AUTH, /export function getSessionUsername\(req: Request\): string/);
-    assert.match(ADMIN_AUTH, /if \(decoded\?\.type !== "admin"\) return "";/);
+    assert.match(ADMIN_AUTH, /if \(decoded\?\.type !== "admin"\) return null;/);
   });
 
   test("the route no longer destructures adminName from the body", () => {
@@ -139,7 +139,7 @@ describe("H-07 — the adjuster is named from the session, never the body", () =
       /const \{ phoneNumber, amount, type, notes, adminName \} = req\.body;/,
       "REGRESSION: the adjuster's name is client-supplied again",
     );
-    assert.match(ADJUST_ROUTE, /const adminName = getSessionUsername\(req\) \|\| "admin";/);
+    assert.match(ADJUST_ROUTE, /const actor = adminIdentityFromRequest\(req\);[\s\S]*const adminName = actor\?\.username \|\| getSessionUsername\(req\) \|\| "admin";/);
   });
 
   test("the name that reaches the audit record is the session one", () => {
@@ -148,7 +148,7 @@ describe("H-07 — the adjuster is named from the session, never the body", () =
     // session's and reaches the call unmodified — is asserted unchanged.
     assert.match(
       ADJUST_ROUTE,
-      /adminAdjustLedger\("driver", accountId, amountNum, type as "add" \| "deduct", notes \|\| "", adminName\)/,
+      /adminAdjustLedger\("driver", accountId, amountNum, type as "add" \| "deduct", notes \|\| "", adminName, undefined, actor \|\| undefined\)/,
     );
     assert.doesNotMatch(ADJUST_ROUTE, /adminName \|\| ""\)/);
   });

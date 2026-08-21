@@ -30,7 +30,7 @@ import { fileURLToPath } from "node:url";
 import { stripComments as sharedStripComments } from "./_source.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const { computeVendorIds } = await import("../../scripts/backfill-order-vendor-ids.mjs");
+const { computeVendorIds } = await import("../../scripts/compute-vendor-ids.mjs");
 const VENDOR = readFileSync(join(here, "../../server/vendor.ts"), "utf8");
 const INDEXES = JSON.parse(readFileSync(join(here, "../../firestore.indexes.json"), "utf8"));
 const strip = sharedStripComments;

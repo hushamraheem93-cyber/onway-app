@@ -23,7 +23,7 @@ interface CartItemCardProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function CartItemCardComponent({ item }: CartItemCardProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { updateQuantity, removeFromCart } = useCart();
   const scale = useSharedValue(1);
 
@@ -81,9 +81,7 @@ function CartItemCardComponent({ item }: CartItemCardProps) {
           style={[
             styles.quantityContainer,
             {
-              backgroundColor: isDark
-                ? theme.backgroundSecondary
-                : AppColors.gray50,
+              backgroundColor: AppColors.gray50,
             },
           ]}
         >

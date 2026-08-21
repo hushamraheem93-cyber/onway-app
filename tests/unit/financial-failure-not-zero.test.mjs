@@ -183,7 +183,7 @@ describe("H-33 · the routes that consume these already answer 500", () => {
   for (const [label, src, marker] of [
     ["driver statement", ROUTES, "getAccountStatement(\"driver\""],
     ["admin ledger statement", ROUTES, "getAccountStatement(accountType"],
-    ["admin audit log", ROUTES, "listAuditLog({"],
+    ["admin audit log", ROUTES, "listAuditLog(filter,"],
     ["vendor statement", VENDOR, "getAccountStatement(\"vendor\""],
   ]) {
     test(`${label}: the call sits inside a handler that returns 500 on a throw`, () => {

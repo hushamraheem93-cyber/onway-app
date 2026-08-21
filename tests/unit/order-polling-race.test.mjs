@@ -372,7 +372,10 @@ describe("H-25 — the source keeps the shape the fix depends on", () => {
     assert.match(C, /\}, \[phoneNumber, customerToken, checkForStatusChanges\]\);/);
   });
 
-  test("OrdersScreen still fetches on mount — untouched", () => {
-    assert.match(code(ORDERS_SCREEN), /useEffect\(\(\) => \{\s*refreshOrders\(\);\s*\}, \[\]\);/);
+  test("OrdersScreen still fetches on mount and marks the first load", () => {
+    assert.match(
+      code(ORDERS_SCREEN),
+      /useEffect\(\(\) => \{\s*let active = true;[\s\S]*?refreshOrders\(\)\.finally\(\(\) => \{[\s\S]*?setHasLoadedOrders\(true\);[\s\S]*?\}, \[refreshOrders\]\);/,
+    );
   });
 });

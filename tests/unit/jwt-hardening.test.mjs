@@ -106,7 +106,9 @@ describe("H-09 — every verifier checks its own audience discriminator", () => 
 
 describe("H-09 — every token carries a discriminator to check", () => {
   test("admin tokens are typed", () => {
-    assert.match(FILES["server/adminAuth.ts"], /jwt\.sign\(\s*\n?\s*\{ username, type: "admin", jti \}/);
+    assert.match(FILES["server/adminAuth.ts"], /type: "admin"/);
+    assert.match(FILES["server/adminAuth.ts"], /adminId:/);
+    assert.match(FILES["server/adminAuth.ts"], /role:/);
   });
 
   test("driver, customer and vendor tokens carry a role", () => {
@@ -116,10 +118,11 @@ describe("H-09 — every token carries a discriminator to check", () => {
   });
 
   test("the admin discriminator is `type`, not `role` — they must not be confused", () => {
-    // An admin token has no `role`, so a `role`-checking verifier rejects it, and a
-    // `type`-checking verifier rejects every non-admin token. The asymmetry is what
+    // `type: "admin"` remains the audience discriminator; `role` is now an
+    // authorization claim within that Admin audience. A verifier must check both
+    // the discriminator and the signed identity claims.
     // keeps the admin audience separate; documented here so it is not "tidied up".
-    assert.doesNotMatch(FILES["server/adminAuth.ts"], /jwt\.sign\([^)]*role:/s);
+    assert.match(FILES["server/adminAuth.ts"], /decoded\?\.type !== "admin"/);
   });
 });
 

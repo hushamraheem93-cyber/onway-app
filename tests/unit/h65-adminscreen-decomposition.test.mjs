@@ -491,7 +491,7 @@ describe("H-65 · the tab bar renders exactly what it used to", () => {
 describe("H-65 · nothing outside the panel's rendering was touched", () => {
   test("the auth gate, the 401 handler and the logout still live in AdminScreen", () => {
     for (const rx of [
-      /const valid = await isAdminSessionValid\(\);/,
+      /const result = await checkAdminSession\(\);/,
       /setAdminUnauthorizedHandler\(/,
       /navigation\.replace\("AdminLogin"\)/,
       /const handleAdminLogout = useCallback\(/,

@@ -17,12 +17,7 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
-import {
-  useFonts,
-  Tajawal_400Regular,
-  Tajawal_500Medium,
-  Tajawal_700Bold,
-} from "@expo-google-fonts/tajawal";
+import { useFonts } from "expo-font";
 import {
   Poppins_400Regular,
   Poppins_600SemiBold,
@@ -70,9 +65,6 @@ I18nManager.forceRTL(true);
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
-    Tajawal_400Regular,
-    Tajawal_500Medium,
-    Tajawal_700Bold,
     Poppins_400Regular,
     Poppins_600SemiBold,
     Poppins_700Bold,
@@ -118,7 +110,7 @@ export default function App() {
                                   <NavigationContainer>
                                     <RootStackNavigator />
                                   </NavigationContainer>
-                                  <StatusBar style="auto" />
+                                  <StatusBar style="dark" />
                                 </KeyboardProvider>
                               </GestureHandlerRootView>
                             </SafeAreaProvider>

@@ -16,14 +16,12 @@ export function ThemedText({
   type = "body",
   ...rest
 }: ThemedTextProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
+  // `darkColor` is retained in the public props for compatibility only.
+  void darkColor;
 
   const getColor = () => {
-    if (isDark && darkColor) {
-      return darkColor;
-    }
-
-    if (!isDark && lightColor) {
+    if (lightColor) {
       return lightColor;
     }
 
@@ -56,25 +54,25 @@ export function ThemedText({
   };
 
   const fontFamily = Platform.select({
-    ios: "Tajawal_400Regular",
-    android: "Tajawal_400Regular",
-    web: "Tajawal, system-ui, sans-serif",
+    ios: "Cairo_400Regular",
+    android: "Cairo_400Regular",
+    web: "Cairo, system-ui, sans-serif",
   });
 
   const getFontFamily = () => {
     const typeStyle = getTypeStyle();
     if (typeStyle.fontWeight === "700") {
       return Platform.select({
-        ios: "Tajawal_700Bold",
-        android: "Tajawal_700Bold",
-        web: "Tajawal, system-ui, sans-serif",
+        ios: "Cairo_700Bold",
+        android: "Cairo_700Bold",
+        web: "Cairo, system-ui, sans-serif",
       });
     }
     if (typeStyle.fontWeight === "600") {
       return Platform.select({
-        ios: "Tajawal_500Medium",
-        android: "Tajawal_500Medium",
-        web: "Tajawal, system-ui, sans-serif",
+        ios: "Cairo_600SemiBold",
+        android: "Cairo_600SemiBold",
+        web: "Cairo, system-ui, sans-serif",
       });
     }
     return fontFamily;

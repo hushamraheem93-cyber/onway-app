@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
 import { isValidSession, getSessionUsername } from "./adminAuth";
+import { adminIdentityFromRequest } from "./adminAuthorization";
 import { isCustomerTokenRevoked, revokeCustomerTokens } from "./customerRevocation";
 import { DEFAULT_NOTIFICATION_PREFS, normalizeNotificationPrefs } from "../shared/notificationPrefs";
 import {
@@ -49,7 +50,7 @@ import {
   claimPromoUsage, releasePromoUsage, countPromoUsage,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
-  getOrdersByDriverPhone,
+  getOrdersByDriverPhone, getDriverPerformanceOrders, getDriverDeliveryLogs,
   getVendors as getFirestoreVendors, createVendor as createFirestoreVendor,
   updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
   initializeDefaultVendors,
@@ -63,6 +64,7 @@ import {
   uploadPrivateToFirebaseStorage, getSignedDriverDocUrl
 } from "./firebase";
 import { pickBestAddress, geocodeDiagnostics } from "./geocode";
+import { buildDriverPerformance } from "./driverPerformance";
 
 // Reverse-geocode result cache. Google charges per request and enforces a quota, and
 // the same coordinates are looked up repeatedly (a saved address, a store pin). Keyed
@@ -5600,6 +5602,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Driver performance metrics. The driver identity comes from requireDriverAuth;
+  // query/body phone numbers are never used as authority here.
+  app.get("/api/driver/performance", async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).driverPhone as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      const driver = (req as any).driver as { fullName?: string; rating?: number | null; ratingCount?: number } | undefined;
+      const [activities, completedOrders, orders, deliveryLogs] = await Promise.all([
+        getDriverActivityLog(phoneNumber, 500),
+        getCompletedOrders(phoneNumber),
+        getDriverPerformanceOrders(phoneNumber),
+        getDriverDeliveryLogs(phoneNumber),
+      ]);
+      return res.json(buildDriverPerformance({
+        activities,
+        completedOrders,
+        orders,
+        deliveryLogs,
+        driver,
+      }));
+    } catch (error: any) {
+      console.error("[API] GET /api/driver/performance", error?.message);
+      return res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
   // Get driver orders history
   app.get("/api/driver/orders", async (req: Request, res: Response) => {
     const phoneNumber = (req as any).driverPhone as string;
@@ -5893,12 +5922,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Immutable admin audit log (optionally filtered by target).
+  // Immutable admin audit log with identity/resource/date filters and pagination.
   app.get("/api/admin/audit-log", async (req: Request, res: Response) => {
-    const targetType = req.query.targetType as string | undefined;
-    const targetId = req.query.targetId as string | undefined;
+    const filter = {
+      targetType: req.query.targetType as string | undefined,
+      targetId: req.query.targetId as string | undefined,
+      resourceType: req.query.resourceType as string | undefined,
+      resourceId: req.query.resourceId as string | undefined,
+      actorId: req.query.actorId as string | undefined,
+      actorUsername: req.query.actorUsername as string | undefined,
+      action: req.query.action as string | undefined,
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+    };
+    const page = Math.max(1, Math.min(100, Number(req.query.page) || 1));
+    const pageSize = Math.max(1, Math.min(100, Number(req.query.pageSize) || 50));
     try {
-      res.json({ entries: await listAuditLog({ targetType, targetId }) });
+      const all = await listAuditLog(filter, Math.min(1000, page * pageSize + 1));
+      const start = (page - 1) * pageSize;
+      res.json({ entries: all.slice(start, start + pageSize), page, pageSize, hasMore: all.length > start + pageSize });
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
@@ -5940,10 +5982,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
     // Taking it from the body let anyone with panel access file a large payment
     // under a colleague's name, with no independent record to contradict it.
-    const adminName = getSessionUsername(req) || "admin";
+    const actor = adminIdentityFromRequest(req);
+    const adminName = actor?.username || getSessionUsername(req) || "admin";
     if (!requestId) return res.status(400).json({ error: "requestId required" });
     try {
-      const result = await transitionSettlementRequest(String(requestId), "approve", adminName);
+      const result = await transitionSettlementRequest(String(requestId), "approve", adminName, undefined, actor || undefined);
       if (!result.ok) {
         if (result.reason === "invalid_transition")
           return res.status(409).json({ error: `لا يمكن اعتماد طلب حالته: ${result.status}` });
@@ -5964,10 +6007,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
     // Taking it from the body let anyone with panel access file a large payment
     // under a colleague's name, with no independent record to contradict it.
-    const adminName = getSessionUsername(req) || "admin";
+    const actor = adminIdentityFromRequest(req);
+    const adminName = actor?.username || getSessionUsername(req) || "admin";
     if (!requestId) return res.status(400).json({ error: "requestId required" });
     try {
-      const result = await transitionSettlementRequest(String(requestId), "reject", adminName, reason);
+      const result = await transitionSettlementRequest(String(requestId), "reject", adminName, reason, actor || undefined);
       if (!result.ok) {
         if (result.reason === "invalid_transition")
           return res.status(409).json({ error: `لا يمكن رفض طلب حالته: ${result.status}` });
@@ -5989,7 +6033,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
     // Taking it from the body let anyone with panel access file a large payment
     // under a colleague's name, with no independent record to contradict it.
-    const adminName = getSessionUsername(req) || "admin";
+    const actor = adminIdentityFromRequest(req);
+    const adminName = actor?.username || getSessionUsername(req) || "admin";
     if (!accountType || !accountId || amount === undefined) {
       return res.status(400).json({ error: "accountType, accountId, amount required" });
     }
@@ -6000,7 +6045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // requestId already makes request-driven settlements idempotent on its own;
       // idempotencyKey lets a manual payment opt in the same way.
       const result = await completeSettlement({
-        accountType, accountId, amount: Number(amount), adminName, method, notes, requestId,
+        accountType, accountId, amount: Number(amount), adminName, adminActor: actor || undefined, method, notes, requestId,
         idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : undefined,
       });
       if (!result.ok) {
@@ -6077,7 +6122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
     // Taking it from the body let anyone with panel access file a large payment
     // under a colleague's name, with no independent record to contradict it.
-    const adminName = getSessionUsername(req) || "admin";
+    const actor = adminIdentityFromRequest(req);
+    const adminName = actor?.username || getSessionUsername(req) || "admin";
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
       // H-72: the panel sends a phone; the money lives under a walletId. Passing an
@@ -6086,7 +6132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const accountId = await resolveDriverAccountId(String(phoneNumber), getDriverByPhone);
       const result = await completeSettlement({
         accountType: "driver", accountId, amount: Number(amount),
-        notes: notes || "دفعة من الإدارة", method: "cash", adminName,
+        notes: notes || "دفعة من الإدارة", method: "cash", adminName, adminActor: actor || undefined,
       });
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
       res.json({ success: true, outstandingAfter: result.outstandingAfter, paymentId: result.paymentId });
@@ -6102,14 +6148,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
     // Taking it from the body let anyone with panel access file a large payment
     // under a colleague's name, with no independent record to contradict it.
-    const adminName = getSessionUsername(req) || "admin";
+    const actor = adminIdentityFromRequest(req);
+    const adminName = actor?.username || getSessionUsername(req) || "admin";
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
       // H-72: see the recharge endpoint — resolve the phone to the wallet account.
       const accountId = await resolveDriverAccountId(String(phoneNumber), getDriverByPhone);
       const result = await completeSettlement({
         accountType: "driver", accountId, amount: Number(amount),
-        notes: notes || "", method: paymentMethod || "cash", adminName,
+        notes: notes || "", method: paymentMethod || "cash", adminName, adminActor: actor || undefined,
       });
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
       res.json({ success: true, outstandingAfter: result.outstandingAfter, receiptNumber: result.receiptNumber, paymentId: result.paymentId });
@@ -6128,7 +6175,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // `adminName` used to come from req.body — and the admin panel never sent it at
     // all, so every manual adjustment was filed against "". The signed session is
     // the only trustworthy source; the body value is now ignored entirely.
-    const adminName = getSessionUsername(req) || "admin";
+    const actor = adminIdentityFromRequest(req);
+    const adminName = actor?.username || getSessionUsername(req) || "admin";
     // H-07: `Number("abc")` reached Math.abs(Math.round(NaN)) === NaN, and NaN <= 0
     // is false — so the guard inside adminAdjustLedger let it through and wrote
     // `outstandingTotal: NaN`, destroying the very balance this audit trail records.
@@ -6139,7 +6187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // H-72: adjustments are ledger writes, so they resolve to the wallet account too.
       const accountId = await resolveDriverAccountId(String(phoneNumber), getDriverByPhone);
-      const result = await adminAdjustLedger("driver", accountId, amountNum, type as "add" | "deduct", notes || "", adminName);
+      const result = await adminAdjustLedger("driver", accountId, amountNum, type as "add" | "deduct", notes || "", adminName, undefined, actor || undefined);
       if (!result.ok) return res.status(400).json({ error: result.reason || "فشل التعديل" });
       res.json({ success: true, outstandingBefore: result.outstandingBefore, outstandingAfter: result.outstandingAfter });
     } catch (error: any) {

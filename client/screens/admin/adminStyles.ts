@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
-    fontFamily: "Tajawal_400Regular",
+    fontFamily: "Cairo_400Regular",
     marginBottom: Spacing.md,
     textAlign: "right",
   },

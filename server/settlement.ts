@@ -17,6 +17,7 @@ import admin from "firebase-admin";
 import { createHash } from "node:crypto";
 import { getFirestore } from "./firebase";
 import { recordLedgerEntry, recordAudit } from "./financialLedger";
+import type { AdminIdentity } from "./adminTypes";
 
 export type SettlementAccountType = "driver" | "vendor";
 export type SettlementDirection = "collect" | "payout";
@@ -408,6 +409,7 @@ export async function transitionSettlementRequest(
   action: "approve" | "reject",
   adminName?: string,
   reason?: string,
+  adminActor?: AdminIdentity,
 ): Promise<{ ok: boolean; reason?: string; status?: string }> {
   const db = getFirestore();
   if (!db) return { ok: false, reason: "no_db" };
@@ -434,6 +436,7 @@ export async function transitionSettlementRequest(
       return {
         ok: true as const,
         status: action === "approve" ? "approved" : "rejected",
+        previousStatus: cur,
         accountType: r.accountType, accountId: r.accountId, reference: r.reference || requestId,
       };
     });
@@ -441,11 +444,19 @@ export async function transitionSettlementRequest(
     if (result.ok) {
       recordAudit({
         action: action === "approve" ? "settlement.approve" : "settlement.reject",
-        actorName: adminName || "",
+        actorType: "admin",
+        actorId: adminActor?.adminId,
+        actorUsername: adminActor?.username || adminName || "",
+        actorRole: adminActor?.role,
+        actorName: adminActor?.username || adminName || "",
         targetType: (result as any).accountType,
         targetId: (result as any).accountId,
+        resourceType: "settlementRequest",
+        resourceId: requestId,
         referenceId: (result as any).reference,
         notes: reason || "",
+        before: { status: (result as any).previousStatus },
+        after: { status: (result as any).status },
       }).catch(() => {});
     }
     return { ok: result.ok, reason: (result as any).reason, status: (result as any).status };
@@ -553,6 +564,7 @@ export interface CompleteSettlementInput {
   accountId: string;
   amount: number;
   adminName?: string;
+  adminActor?: AdminIdentity;
   method?: string;
   notes?: string;
   requestId?: string;
@@ -837,18 +849,26 @@ export async function completeSettlement(
         type: "settlement",
         debit: appliedOut,
         settlementRef: ref,
-        createdBy: input.adminName || "admin",
+        createdBy: input.adminActor?.username || input.adminName || "admin",
         entryId: `${paymentRef.id}__${input.accountType}__settlement`,
         description: "تسوية دفعة",
       }).catch(() => {});
       recordAudit({
         action: "settlement.complete",
-        actorName: input.adminName || "",
+        actorType: "admin",
+        actorId: input.adminActor?.adminId,
+        actorUsername: input.adminActor?.username || input.adminName || "",
+        actorRole: input.adminActor?.role,
+        actorName: input.adminActor?.username || input.adminName || "",
         targetType: input.accountType,
         targetId: input.accountId,
+        resourceType: input.accountType,
+        resourceId: input.accountId,
         amount: appliedOut,
         referenceId: ref,
         notes: input.notes || "",
+        before: { outstandingTotal: (result as any).outstandingBefore },
+        after: { outstandingTotal: (result as any).outstandingAfter },
       }).catch(() => {});
     }
     return result;
@@ -1157,6 +1177,7 @@ export async function adminAdjustLedger(
   notes: string,
   adminName?: string,
   dbOverride?: any,
+  adminActor?: AdminIdentity,
 ): Promise<{ ok: boolean; outstandingBefore?: number; outstandingAfter?: number; reason?: string; duplicate?: boolean }> {
   const db = dbOverride ?? getFirestore();
   if (!db) return { ok: false, reason: "no_ledger" };
@@ -1236,17 +1257,25 @@ export async function adminAdjustLedger(
         accountType, accountId,
         type: "adjustment",
         ...(adjustType === "add" ? { credit: delta } : { debit: delta }),
-        createdBy: adminName || "admin",
+        createdBy: adminActor?.username || adminName || "admin",
         entryId: `${markerIds[0]}__adjustment`,
         description: notes || "تعديل يدوي",
       }).catch(() => {});
       recordAudit({
         action: "ledger.adjust",
-        actorName: adminName || "",
+        actorType: "admin",
+        actorId: adminActor?.adminId,
+        actorUsername: adminActor?.username || adminName || "",
+        actorRole: adminActor?.role,
+        actorName: adminActor?.username || adminName || "",
         targetType: accountType,
         targetId: accountId,
+        resourceType: accountType,
+        resourceId: accountId,
         amount: delta,
         notes: `${adjustType}: ${notes || ""}`.trim(),
+        before: { outstandingTotal: (result as any).outstandingBefore },
+        after: { outstandingTotal: (result as any).outstandingAfter },
       }).catch(() => {});
     }
     return result;

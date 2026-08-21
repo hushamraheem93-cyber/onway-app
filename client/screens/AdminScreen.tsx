@@ -24,12 +24,14 @@ import * as Print from "expo-print";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors } from "@/constants/theme";
+import { LoadingState } from "@/components/ScreenState";
 import { Banner, Category } from "@/constants/categories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import {
-  isAdminSessionValid,
+  checkAdminSession,
   logoutAdmin,
   setAdminUnauthorizedHandler,
+  type AdminSessionInfo,
 } from "@/lib/adminAuth";
 import { escapeHtml as esc } from "@/utils/escapeHtml";
 import { processAndUploadImage } from "@/lib/imageUtils";
@@ -165,19 +167,25 @@ export default function AdminScreen() {
   const [adminAuthState, setAdminAuthState] = useState<"checking" | "ok">(
     "checking",
   );
+  const [adminSession, setAdminSession] = useState<AdminSessionInfo | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       // A-2: presence of a token is not a session. An expired or revoked one used
       // to pass this gate, render the whole panel, and then fail every query with
       // 401. The server is asked whether the session is still accepted.
-      const valid = await isAdminSessionValid();
+      const result = await checkAdminSession();
       if (cancelled) return;
-      // `null` = the check could not reach the server. Signing the admin out for a
-      // dropped connection would be worse than letting the panel open; a genuinely
-      // dead session is caught by the 401 handler below on the first real request.
-      if (valid === false) navigation.replace("AdminLogin");
-      else setAdminAuthState("ok");
+      if (!result.info && result.reachable) navigation.replace("AdminLogin");
+      else if (result.info) {
+        setAdminSession(result.info);
+        const p = result.info.permissions;
+        const firstAllowed = p.includes("*") ? "dashboard" : p.includes("operations.read") ? "dashboard" : p.includes("orders.read") ? "orders" : p.includes("products.read") ? "products" : p.includes("customers.read") ? "users" : p.includes("settings.read") ? "settings" : "dashboard";
+        setActiveTab(firstAllowed as TabType);
+        setAdminAuthState("ok");
+      } else {
+        setAdminAuthState("ok");
+      }
     })();
     return () => {
       cancelled = true;
@@ -2126,7 +2134,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   );
 
   const TABS: AdminTab<TabType>[] = useMemo(
-    () => [
+    (): AdminTab<TabType>[] => ([
       { key: "dashboard", label: "الرئيسية", icon: "home" },
       {
         key: "orders",
@@ -2162,12 +2170,33 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       { key: "settings", label: "الإعدادات", icon: "settings" },
       { key: "storage", label: "التخزين", icon: "hard-drive" },
       { key: "websiteCms", label: "الموقع", icon: "globe" },
-    ],
+    ] as AdminTab<TabType>[]).filter((tab) => {
+      const required: Partial<Record<TabType, string>> = {
+        dashboard: "operations.read",
+        orders: "orders.read",
+        drivers: "drivers.read",
+        users: "customers.read",
+        banners: "banners.read",
+        categories: "categories.read",
+        products: "products.read",
+        areas: "delivery.read",
+        promoCodes: "promotions.read",
+        notifications: "notifications.read",
+        vendors: "merchants.read",
+        settlements: "settlements.read",
+        settings: "settings.read",
+        storage: "storage.read",
+        websiteCms: "website_cms.read",
+      };
+      const permission = required[tab.key];
+      return !permission || !!adminSession?.permissions.includes("*") || !!adminSession?.permissions.includes(permission);
+    }),
     [
       pendingOrdersBadge,
       pendingDriversBadge,
       pendingVendorsBadge,
       settlementRequests.length,
+      adminSession,
     ],
   );
 
@@ -2185,16 +2214,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   // Rendering the tab bar first would already leak the operation structure.
   if (adminAuthState === "checking") {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: theme.backgroundRoot,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
+      <LoadingState
+        label="جاري التحقق من جلسة الإدارة..."
+        style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      />
     );
   }
 

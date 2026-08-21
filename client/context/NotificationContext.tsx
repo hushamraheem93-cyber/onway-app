@@ -24,6 +24,9 @@ export interface AppNotification {
 interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
+  loading: boolean;
+  error: boolean;
+  reloadNotifications: () => Promise<void>;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearNotifications: () => void;
@@ -62,6 +65,8 @@ const NON_CUSTOMER_NOTIFICATION_TYPES = new Set([
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
@@ -131,6 +136,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [recordExpoNotification]);
 
   const loadNotifications = async () => {
+    setLoading(true);
+    setError(false);
     try {
       const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
       if (stored) {
@@ -152,8 +159,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           setNotifications([]);
         }
       }
-    } catch (error) {
-      setNotifications([]);
+    } catch (loadError) {
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -215,6 +224,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     () => ({
       notifications,
       unreadCount,
+      loading,
+      error,
+      reloadNotifications: loadNotifications,
       markAsRead,
       markAllAsRead,
       clearNotifications,
@@ -223,6 +235,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [
       notifications,
       unreadCount,
+      loading,
+      error,
+      loadNotifications,
       markAsRead,
       markAllAsRead,
       clearNotifications,

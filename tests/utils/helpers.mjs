@@ -25,7 +25,7 @@ export function testPhone() {
 //
 // The values below mirror server/adminAuth.ts exactly:
 //   cookie name  ADMIN_COOKIE          = "onway_admin_session"
-//   payload      { username, type: "admin", jti }
+//   payload      { adminId, username, displayName, role, permissions, type: "admin", jti }
 //   signature    HS256 over JWT_SECRET  (JWT_VERIFY_OPTS pins the algorithm)
 //   lifetime     SESSION_TTL_SECS       = 7 days
 //
@@ -57,7 +57,16 @@ export function makeAdminSessionToken(overrides = {}) {
   }
   const { expiresIn = ADMIN_SESSION_TTL_SECS, ...claims } = overrides;
   return jwt.sign(
-    { username, type: "admin", jti: randomBytes(16).toString("hex"), ...claims },
+    {
+      adminId: `legacy_${username}`,
+      username,
+      displayName: username,
+      role: "super_admin",
+      permissions: ["*"],
+      type: "admin",
+      jti: randomBytes(16).toString("hex"),
+      ...claims,
+    },
     secret,
     { expiresIn },
   );

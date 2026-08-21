@@ -255,13 +255,34 @@ export async function getAccountStatement(
 export interface AuditInput {
   action: string; // e.g. "settlement.complete", "ledger.adjust"
   actorType?: "admin" | "system";
+  actorId?: string;
+  actorUsername?: string;
+  actorRole?: string;
   actorName?: string;
   targetType?: string; // "vendor" | "driver" | "settlementRequest" | …
   targetId?: string;
+  resourceType?: string;
+  resourceId?: string;
   amount?: number;
   referenceId?: string; // settlement ref / payment id
   notes?: string;
+  before?: Record<string, any> | null;
+  after?: Record<string, any> | null;
   metadata?: Record<string, any>;
+}
+
+const SENSITIVE_AUDIT_KEY = /(password|passwd|secret|token|authorization|credential|api[_-]?key|private[_-]?key|hash|cookie|session)/i;
+
+function sanitizeAuditValue(value: any, depth = 0): any {
+  if (depth > 5 || value === null || value === undefined) return value ?? null;
+  if (typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.slice(0, 100).map((item) => sanitizeAuditValue(item, depth + 1));
+  const out: Record<string, any> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (SENSITIVE_AUDIT_KEY.test(key)) continue;
+    out[key] = sanitizeAuditValue(nested, depth + 1);
+  }
+  return out;
 }
 
 /**
@@ -278,13 +299,20 @@ export async function recordAudit(
     await db.collection(AUDIT).add({
       action: input.action,
       actorType: input.actorType || "admin",
-      actorName: input.actorName || "",
-      targetType: input.targetType ?? null,
-      targetId: input.targetId ?? null,
+      actorId: input.actorId ?? null,
+      actorUsername: input.actorUsername ?? input.actorName ?? null,
+      actorRole: input.actorRole ?? null,
+      actorName: input.actorName ?? input.actorUsername ?? "",
+      targetType: input.targetType ?? input.resourceType ?? null,
+      targetId: input.targetId ?? input.resourceId ?? null,
+      resourceType: input.resourceType ?? input.targetType ?? null,
+      resourceId: input.resourceId ?? input.targetId ?? null,
       amount: input.amount ?? null,
       referenceId: input.referenceId ?? null,
-      notes: input.notes || "",
-      ...(input.metadata ? { metadata: input.metadata } : {}),
+      notes: typeof input.notes === "string" ? input.notes.slice(0, 2000) : "",
+      ...(input.before ? { before: sanitizeAuditValue(input.before) } : {}),
+      ...(input.after ? { after: sanitizeAuditValue(input.after) } : {}),
+      ...(input.metadata ? { metadata: sanitizeAuditValue(input.metadata) } : {}),
       createdAt: admin.firestore.Timestamp.now(),
     });
   } catch (err: any) {
@@ -295,8 +323,20 @@ export async function recordAudit(
 }
 
 /** Read the audit log, newest-first (optionally filtered by target). */
+export interface AuditLogFilter {
+  targetType?: string;
+  targetId?: string;
+  resourceType?: string;
+  resourceId?: string;
+  actorId?: string;
+  actorUsername?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+}
+
 export async function listAuditLog(
-  filter: { targetType?: string; targetId?: string } = {},
+  filter: AuditLogFilter = {},
   max = 200,
 ): Promise<any[]> {
   const db = getFirestore();
@@ -306,11 +346,20 @@ export async function listAuditLog(
   if (!db) throw new Error("audit log unavailable: no database");
   try {
     let q: any = db.collection(AUDIT);
-    if (filter.targetType) q = q.where("targetType", "==", filter.targetType);
-    if (filter.targetId) q = q.where("targetId", "==", filter.targetId);
-    const snap = await q.limit(max).get();
+    if (filter.targetType || filter.resourceType) q = q.where("targetType", "==", filter.targetType || filter.resourceType);
+    if (filter.targetId || filter.resourceId) q = q.where("targetId", "==", filter.targetId || filter.resourceId);
+    if (filter.actorId) q = q.where("actorId", "==", filter.actorId);
+    if (filter.action) q = q.where("action", "==", filter.action);
+    const snap = await q.limit(Math.min(Math.max(max, 1), 1000)).get();
+    const fromMs = filter.from ? Date.parse(filter.from) : NaN;
+    const toMs = filter.to ? Date.parse(filter.to) : NaN;
     return snap.docs
       .map((d: any) => ({ id: d.id, ...(d.data() as any) }))
+      .filter((entry: any) => {
+        const createdMs = entry.createdAt?.toMillis?.() ?? (typeof entry.createdAt === "string" ? Date.parse(entry.createdAt) : NaN);
+        return (!Number.isFinite(fromMs) || createdMs >= fromMs) && (!Number.isFinite(toMs) || createdMs <= toMs) &&
+          (!filter.actorUsername || entry.actorUsername === filter.actorUsername || entry.actorName === filter.actorUsername);
+      })
       .sort(
         (a: any, b: any) =>
           (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),

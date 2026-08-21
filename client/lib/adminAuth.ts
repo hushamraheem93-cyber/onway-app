@@ -11,8 +11,18 @@
 // interceptor stops hitting the Keychain on every /api/admin/* request.
 import { readToken, rememberToken, forgetToken } from "@/lib/authTokenCache";
 import { getApiUrl } from "@/lib/query-client";
+export type AdminRole = "super_admin" | "operations_admin" | "finance_admin" | "support_admin" | "catalog_admin";
 
 export const ADMIN_TOKEN_KEY = "@onway_admin_token";
+
+export interface AdminSessionInfo {
+  valid: boolean;
+  adminId: string | null;
+  username: string | null;
+  displayName: string | null;
+  role: AdminRole | null;
+  permissions: string[];
+}
 
 const LOGIN_PATH = "/api/admin/login";
 
@@ -82,19 +92,41 @@ export async function logoutAdmin(): Promise<void> {
  * reached the server); the caller keeps the session rather than signing the admin
  * out because the phone was briefly offline.
  */
-export async function isAdminSessionValid(): Promise<boolean | null> {
+export async function checkAdminSession(): Promise<{ info: AdminSessionInfo | null; reachable: boolean }> {
   const token = await getAdminToken();
-  if (!token) return false;
+  if (!token) return { info: null, reachable: true };
   try {
     const res = await fetch(
       new URL("/api/admin/session", getApiUrl()).toString(),
-      { credentials: "include" },
+      { credentials: "include", headers: { Authorization: `Bearer ${token}` } },
     );
-    if (res.status === 401) return false;
-    return res.ok ? true : null;
+    if (!res.ok) return { info: null, reachable: true };
+    const data = await res.json();
+    if (!data?.valid || !data?.adminId || !data?.role) return { info: null, reachable: true };
+    return {
+      reachable: true,
+      info: {
+        valid: true,
+        adminId: String(data.adminId),
+        username: data.username ? String(data.username) : null,
+        displayName: data.displayName ? String(data.displayName) : null,
+        role: data.role,
+        permissions: Array.isArray(data.permissions) ? data.permissions.map(String) : [],
+      },
+    };
   } catch {
-    return null;
+    return { info: null, reachable: false };
   }
+}
+
+export async function getAdminSessionInfo(): Promise<AdminSessionInfo | null> {
+  return (await checkAdminSession()).info;
+}
+
+export async function isAdminSessionValid(): Promise<boolean | null> {
+  const result = await checkAdminSession();
+  if (!result.reachable) return null;
+  return result.info ? true : false;
 }
 
 /**

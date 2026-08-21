@@ -218,6 +218,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Admin identities contain bcrypt hashes and RBAC state; access is backend-only.
+    match /adminUsers/{adminId} {
+      allow read, write: if false;
+    }
+
     // ── Financial / Settlement ─────────────────────────────────────────────
     // settlementLedger: read by vendor/driver client SDK via onSnapshot (VendorWalletScreen).
     // Document IDs are in the format "vendor:{uuid}" or "driver:{phone}" — obscure enough
