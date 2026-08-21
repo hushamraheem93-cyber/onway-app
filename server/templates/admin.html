@@ -10218,7 +10218,8 @@
         tbody.innerHTML = adminUsersCache.map(u => {
           const last = u.lastLoginAt && u.lastLoginAt._seconds ? new Date(u.lastLoginAt._seconds * 1000).toLocaleString('ar-IQ') : 'لم يسجل الدخول';
           const status = u.isActive ? '<span style="color:#16a34a">نشط</span>' : '<span style="color:#dc2626">معطل</span>';
-          return `<tr><td><strong>${escHtml(u.username || '')}</strong><br><small>${escHtml(u.email || '')}</small></td><td>${escHtml(u.displayName || '')}</td><td>${escHtml(ADMIN_ROLE_LABELS[u.role] || u.role || '')}</td><td>${status}</td><td>${escHtml(last)}</td><td><button class="btn btn-outline btn-sm" data-admin-permission="admin_users.manage" onclick="editAdminUser(${JSON.stringify(String(u.adminId || ''))})">تعديل</button> <button class="btn btn-outline btn-sm" data-admin-permission="admin_users.manage" onclick="toggleAdminUser(${JSON.stringify(String(u.adminId || ''))}, ${!u.isActive})">${u.isActive ? 'تعطيل' : 'تفعيل'}</button></td></tr>`;
+          const adminIdArg = escHtml(JSON.stringify(String(u.adminId || '')));
+          return `<tr><td><strong>${escHtml(u.username || '')}</strong><br><small>${escHtml(u.email || '')}</small></td><td>${escHtml(u.displayName || '')}</td><td>${escHtml(ADMIN_ROLE_LABELS[u.role] || u.role || '')}</td><td>${status}</td><td>${escHtml(last)}</td><td><button class="btn btn-outline btn-sm" data-admin-permission="admin_users.manage" onclick="editAdminUser(${adminIdArg})">تعديل</button> <button class="btn btn-outline btn-sm" data-admin-permission="admin_users.manage" onclick="toggleAdminUser(${adminIdArg}, ${!u.isActive})">${u.isActive ? 'تعطيل' : 'تفعيل'}</button></td></tr>`;
         }).join('') || '<tr><td colspan="6" style="text-align:center;padding:22px;">لا يوجد مشرفون</td></tr>';
         applyAdminPermissions();
       } catch (e) { tbody.innerHTML = `<tr><td colspan="6" style="color:#dc2626;padding:22px;">${escHtml(e.message || 'تعذّر التحميل')}</td></tr>`; }

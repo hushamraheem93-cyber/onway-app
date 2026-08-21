@@ -316,7 +316,12 @@ export async function updateAdminUser(input: {
     targetId: updated.adminId,
     metadata: { username: updated.username, role: updated.role, isActive: updated.isActive },
   });
-  if (input.role !== undefined || input.isActive !== undefined || input.password || input.username !== undefined) {
+  // Updating another admin must not revoke the actor's live session. The old
+  // behavior invalidated every session after any edit/disable, so the Admin Web
+  // request succeeded but its follow-up refresh immediately received 401 and the
+  // button appeared broken. Self-credential changes still revoke the current
+  // session; the dedicated credentials endpoint also handles its own logout.
+  if (input.adminId === input.actor.adminId && (input.role !== undefined || input.isActive !== undefined || input.password || input.username !== undefined)) {
     invalidateAllSessions();
   }
   return updated;
