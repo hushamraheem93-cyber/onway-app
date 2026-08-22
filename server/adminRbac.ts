@@ -12,6 +12,7 @@ import {
   AdminRole,
   AdminUserRecord,
   ROLE_LABELS_AR,
+  identityFromClaims,
   identityFromRecord,
   isAdminRole,
   permissionsForRole,
@@ -160,10 +161,10 @@ export async function authenticateAdmin(
 
   // Bootstrap-only compatibility: the old environment credentials can create the
   // first Super Admin, but cannot authenticate after the first Admin User exists.
-  if (await hasAnyAdminUsers()) { console.error("DEBUG authenticateAdmin: hasAnyAdminUsers=true"); return null; }
-  if (!(await legacyValidator())) { console.error("DEBUG authenticateAdmin: legacyValidator=false"); return null; }
+  if (await hasAnyAdminUsers()) return null;
+  if (!(await legacyValidator())) return null;
   const db = getFirestore();
-  if (!db) { console.error("DEBUG authenticateAdmin: getFirestore=null"); return null; }
+  if (!db) return null;
   const normalized = normalizeUsername(username);
   const adminId = adminIdForUsername(username);
   const userRef = db.collection(ADMIN_USERS_COLLECTION).doc(adminId);
@@ -400,14 +401,12 @@ async function updateAdminUserRoute(req: Request, res: Response): Promise<Respon
   }
 }
 
+/**
+ * Second entry point for the same job as adminTypes.identityFromClaims, kept for
+ * callers outside this module. It delegates rather than reimplementing: it carried
+ * its own copy of the claim-list logic R-04 removed, so two places decided what an
+ * admin may do and only one of them was ever fixed.
+ */
 export function adminIdentityFromClaims(claims: any): AdminIdentity | null {
-  if (!claims?.adminId || !claims?.username || !isAdminRole(claims.role)) return null;
-  return {
-    adminId: String(claims.adminId),
-    username: String(claims.username),
-    displayName: String(claims.displayName || claims.username),
-    ...(claims.email ? { email: String(claims.email) } : {}),
-    role: claims.role,
-    permissions: Array.isArray(claims.permissions) ? claims.permissions.map(String) : permissionsForRole(claims.role),
-  };
+  return identityFromClaims(claims);
 }

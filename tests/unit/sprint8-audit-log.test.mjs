@@ -31,12 +31,18 @@ function responseProbe() {
   };
 }
 
+// R-04: permissions are derived from the role, so an identity can no longer carry
+// a permission its role does not grant. This fixture used to be an operations admin
+// with "audit.read" appended by hand — a combination the server never mints and
+// which the boundary now ignores. `audit.read` belongs to super_admin in
+// ROLE_PERMISSIONS, so that is the role that exercises the allowed path. The test's
+// subject is unchanged: the boundary lets audit.read through and stops everyone else.
 const auditAdmin = {
   adminId: "audit-admin",
   username: "audit-admin",
   displayName: "Audit Admin",
-  role: "operations_admin",
-  permissions: [...types.permissionsForRole("operations_admin"), "audit.read"],
+  role: "super_admin",
+  permissions: types.permissionsForRole("super_admin"),
 };
 const nonAuditAdmin = {
   adminId: "no-audit",

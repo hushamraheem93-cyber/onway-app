@@ -145,6 +145,21 @@ export function identityFromRecord(record: AdminUserRecord): AdminIdentity {
   };
 }
 
+/**
+ * Rebuild an admin identity from verified session claims.
+ *
+ * R-04: the permission list is DERIVED from the role, never read from the token.
+ * It used to prefer `claims.permissions`, which meant `role` took no part in any
+ * authorization decision — a token saying `role: "support_admin"` with
+ * `permissions: ["*"]` was a super admin, and the two fields could describe
+ * different people. Signing one needs the secret, so nothing was reachable from
+ * outside; what was missing was the layer that makes them unable to disagree.
+ *
+ * This changes no real admin's access: every write path already stores
+ * `permissionsForRole(role)` — createAdminUser, updateAdminUser and both bootstrap
+ * paths — so the derived set is the set that was being carried. There is no
+ * per-admin custom permission feature for it to discard.
+ */
 export function identityFromClaims(claims: any): AdminIdentity | null {
   if (!claims?.adminId || !claims?.username || !isAdminRole(claims.role)) return null;
   return {
@@ -153,6 +168,6 @@ export function identityFromClaims(claims: any): AdminIdentity | null {
     displayName: String(claims.displayName || claims.username),
     ...(claims.email ? { email: String(claims.email) } : {}),
     role: claims.role,
-    permissions: Array.isArray(claims.permissions) ? claims.permissions.map(String) : permissionsForRole(claims.role),
+    permissions: permissionsForRole(claims.role),
   };
 }
