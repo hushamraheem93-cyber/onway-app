@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           # Pin the registry for anything this job resolves. NOTE: this alone does
           # NOT fix a lockfile that already points elsewhere — `npm ci` fetches each

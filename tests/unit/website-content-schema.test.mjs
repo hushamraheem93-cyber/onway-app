@@ -364,7 +364,7 @@ describe("H-17 — the dangerous pattern cannot come back", () => {
     );
     assert.match(body, /const parsed = parseWebsiteContent\(section as CmsSection, req\.body\);/);
     assert.match(body, /if \(!parsed\.ok\)/);
-    assert.match(body, /const payload = \{ \.\.\.parsed\.data, updatedAt: new Date\(\)\.toISOString\(\) \};/);
+    assert.match(body, /const payload = \{ \.\.\.parsed\.data, updatedAt: (?:new Date\(\)\.toISOString\(\)|Timestamp\.now\(\)) \};/);
   });
 
   test("`...req.body` never reaches ANY Firestore write in routes.ts", () => {

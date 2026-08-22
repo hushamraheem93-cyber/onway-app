@@ -37,7 +37,7 @@ set_env() {
   CURRENT=$(grep "^${KEY}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
 
   if [[ "$SECRET" == "true" ]]; then
-    read -rsp "$(echo -e "${YELLOW}${PROMPT}${NC} [${CURRENT:0:8}...]: ")" VALUE
+    read -rsp "$(echo -e "${YELLOW}${PROMPT}${NC} [configured]: ")" VALUE
     echo ""
   else
     read -rp "$(echo -e "${YELLOW}${PROMPT}${NC} [${CURRENT}]: ")" VALUE

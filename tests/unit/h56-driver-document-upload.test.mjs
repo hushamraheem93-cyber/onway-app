@@ -369,7 +369,10 @@ describe("H-56 · privacy and authorisation", () => {
     const handler = ROUTES.slice(ROUTES.indexOf('app.post("/api/drivers"'));
     // The phone in the path comes from the body, but the body phone must equal the
     // OTP-verified phone on the JWT, checked before any upload happens.
-    const ownership = handler.indexOf('(req as any).customerPhone !== phoneNumber');
+    const ownership = Math.max(
+      handler.indexOf('sameLocalPhone((req as any).customerPhone, phoneNumber)'),
+      handler.indexOf('(req as any).customerPhone !== phoneNumber'),
+    );
     const upload = handler.indexOf("storeDriverDocument(");
     assert.ok(ownership !== -1 && ownership < upload,
       "the ownership check does not precede the upload");

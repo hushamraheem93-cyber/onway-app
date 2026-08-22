@@ -140,7 +140,7 @@ describe("H-09 — the secret is still a single required env var", () => {
   test("adminAuth refuses to sign without it", () => {
     assert.match(
       FILES["server/adminAuth.ts"],
-      /throw new Error\("JWT_SECRET environment variable is required but not set\."\)/,
+      /throw new Error\("SESSION_SECRET environment variable is required but not set\."\)/,
     );
   });
 

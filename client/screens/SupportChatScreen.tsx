@@ -9,6 +9,7 @@ import {
   Platform,
   Modal,
   ScrollView,
+  AppState,
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -215,6 +216,7 @@ function ProductPickerModal({
     if (!visible) return;
     setLoading(true);
     const url = new URL("/api/products", getApiUrl());
+    url.searchParams.set("limit", "100");
     fetch(url.toString())
       .then((r) => r.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
@@ -350,10 +352,17 @@ export default function SupportChatScreen() {
   }, [phoneNumber, customerToken]);
 
   useEffect(() => {
-    fetchMessages();
-    pollRef.current = setInterval(fetchMessages, POLL_INTERVAL);
+    const pollWhenActive = () => {
+      if (AppState.currentState === "active") void fetchMessages();
+    };
+    pollWhenActive();
+    pollRef.current = setInterval(pollWhenActive, POLL_INTERVAL);
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") void fetchMessages();
+    });
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      subscription.remove();
     };
   }, [fetchMessages]);
 

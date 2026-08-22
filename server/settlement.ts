@@ -81,6 +81,24 @@ export function vendorCommissionBase(order: {
   );
 }
 
+export function promoSettlementAmounts(order: {
+  restaurantSubtotal?: number | null;
+  total?: number | null;
+  deliveryFee?: number | null;
+  serviceFee?: number | null;
+  promoDiscount?: number | null;
+}): { orderValue: number; grossBeforeDiscount: number; promoFundingAmount: number; promoDiscount: number } {
+  const orderValue = vendorCommissionBase(order);
+  const promoDiscount = Math.max(0, Math.round(Number(order.promoDiscount) || 0));
+  const promoFundingAmount = order.restaurantSubtotal == null ? promoDiscount : 0;
+  return {
+    orderValue,
+    grossBeforeDiscount: orderValue + promoFundingAmount,
+    promoFundingAmount,
+    promoDiscount,
+  };
+}
+
 export interface OrderSettlementInput {
   accountType: SettlementAccountType;
   accountId: string;        // driver phone number / vendorId
@@ -91,6 +109,10 @@ export interface OrderSettlementInput {
   grossAmount: number;      // driver: cashCollected (order.total); vendor: orderValue (restaurantSubtotal)
   commission: number;       // driver: driverCommission; vendor: platformCommission
   outstandingAmount: number; // precomputed by the caller (clamped ≥ 0 here)
+  promoDiscount?: number;
+  grossBeforeDiscount?: number;
+  customerChargedAmount?: number;
+  promoFundingAmount?: number;
 }
 
 /**
@@ -734,6 +756,8 @@ export async function completeSettlement(
             ok: true as const,
             duplicate: true as const,
             applied: prev.amount ?? 0,
+            requestedAmount: prev.requestedAmount ?? prev.amount ?? 0,
+            overpaymentAmount: prev.overpaymentAmount ?? 0,
             outstandingBefore: prev.outstandingBefore ?? 0,
             outstandingAfter: prev.outstandingAfter ?? 0,
             fullySettled: (prev.outstandingAfter ?? 0) <= 0,
@@ -752,7 +776,9 @@ export async function completeSettlement(
       if (outstanding <= 0) return { ok: false, reason: "nothing_due" as const };
       let amount = Math.round(input.amount || 0);
       if (amount <= 0) return { ok: false, reason: "invalid_amount" as const };
-      amount = Math.min(amount, outstanding); // clamp: never overpay, never go negative
+      const requestedAmount = amount;
+      amount = Math.min(amount, outstanding); // preserve applied amount; record any overpayment explicitly
+      const overpaymentAmount = Math.max(0, requestedAmount - amount);
 
       const now = admin.firestore.Timestamp.now();
       const newOutstanding = Math.max(0, outstanding - amount);
@@ -780,6 +806,8 @@ export async function completeSettlement(
         accountKey: key,
         accountName: ledger.accountName ?? input.accountId,
         amount,
+        requestedAmount,
+        overpaymentAmount,
         method: input.method || "cash",
         adminName: input.adminName || "",
         notes: input.notes || "",
@@ -808,6 +836,8 @@ export async function completeSettlement(
       return {
         ok: true as const,
         applied: amount,
+        requestedAmount,
+        overpaymentAmount,
         outstandingBefore: outstanding,
         outstandingAfter: newOutstanding,
         fullySettled,

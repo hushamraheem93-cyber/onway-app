@@ -35,7 +35,10 @@ async function main() {
       const bucket = admin.storage().bucket(bucketName);
       const [exists] = await bucket.exists();
       if (exists) {
-        console.log(`  ✅ الـ bucket موجود بالفعل: ${bucketName}`);
+        await bucket.setMetadata({
+          iamConfiguration: { uniformBucketLevelAccess: { enabled: true } },
+        });
+        console.log(`  ✅ الـ bucket موجود بالفعل ومُفعّل عليه Uniform Bucket-Level Access: ${bucketName}`);
         process.exit(0);
       }
       console.log(`  ⚙️  الـ bucket غير موجود — جاري الإنشاء...`);
@@ -45,9 +48,10 @@ async function main() {
       });
       console.log(`  ✅ تم إنشاء الـ bucket بنجاح: ${bucketName}`);
 
-      // ضبط قواعد الوصول العامة للقراءة (مثل Firebase Storage rules)
+      // M-28: keep access control at the bucket IAM layer. Do not re-enable
+      // per-object ACLs for a bucket that may contain private driver documents.
       await bucket.setMetadata({
-        iamConfiguration: { uniformBucketLevelAccess: { enabled: false } },
+        iamConfiguration: { uniformBucketLevelAccess: { enabled: true } },
       });
       console.log(`  ✅ قواعد الوصول ضُبطت`);
       process.exit(0);

@@ -239,7 +239,7 @@ describe("H-33 · the push-token route no longer reports a false success", () =>
   });
 
   test("the ownership guard is untouched", () => {
-    assert.match(ROUTE, /\(req as any\)\.customerPhone !== phoneNumber/,
+    assert.match(ROUTE, /(?:sameLocalPhone\(\(req as any\)\.customerPhone, phoneNumber\)|\(req as any\)\.customerPhone !== phoneNumber)/,
       "the H-2 ownership check disappeared from this route");
   });
 });

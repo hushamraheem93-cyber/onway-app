@@ -10,6 +10,8 @@ import {
 import { canonicalIraqiPhone, IRAQ_CANONICAL_PHONE_RE } from "../shared/phone";
 import { mintDriverWalletId } from "./walletIdentity";
 import { issueOtp, consumeOtp } from "./otpStore";
+import { timestampMillis } from "./time";
+import { resolveFirebaseStorageBucket } from "../shared/storageConfig";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -44,9 +46,10 @@ export function initializeFirebase() {
       // stay UNSET. Verified externally: `.firebasestorage.app` answers 401
       // (exists, private) while `.appspot.com` answers 404 (does not exist) — so
       // setting the legacy name here would break every upload.
-      const storageBucket =
-        process.env.FIREBASE_STORAGE_BUCKET ||
-        `${serviceAccount.project_id}.firebasestorage.app`;
+      const storageBucket = resolveFirebaseStorageBucket(
+        process.env.FIREBASE_STORAGE_BUCKET,
+        serviceAccount.project_id,
+      );
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         storageBucket,
@@ -878,8 +881,8 @@ export async function getOrdersByDriverPhone(driverPhone: string, driverName?: s
     }
 
     return allOrders.sort((a: any, b: any) => {
-      const aTime = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
-      const bTime = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+      const aTime = timestampMillis(a.updatedAt) ?? timestampMillis(a.createdAt) ?? 0;
+      const bTime = timestampMillis(b.updatedAt) ?? timestampMillis(b.createdAt) ?? 0;
       return bTime - aTime;
     });
   } catch (error) {
@@ -934,6 +937,8 @@ export async function getDriverPerformanceOrders(driverPhone: string): Promise<a
 }
 
 export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "updatedAt">): Promise<(FirestoreOrder & { id: string }) | null> {
+  const requestedStockDeltas = (data as any).__stockDeltas ?? [];
+  if (requestedStockDeltas.length > 0) return createOrderWithInventory(data, requestedStockDeltas);
   if (!db) return null;
   
   try {
@@ -946,6 +951,58 @@ export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "upda
     return { id: docRef.id, ...orderDoc };
   } catch (error) {
     console.error("Error creating order:", error);
+    return null;
+  }
+}
+
+/**
+ * Create an order and decrement tracked vendor-product stock in one Firestore
+ * transaction. The order is not written when any line lacks sufficient stock,
+ * so concurrent checkouts cannot oversell the same product.
+ */
+export async function createOrderWithInventory(
+  data: Omit<FirestoreOrder, "createdAt" | "updatedAt">,
+  stockDeltas: Array<{ productId: string; quantity: number }>,
+): Promise<(FirestoreOrder & { id: string }) | null> {
+  if (!db) return null;
+  const firestore = db;
+
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const orderDoc: FirestoreOrder = { ...data, createdAt: now, updatedAt: now };
+    const orderRef = firestore.collection("orders").doc();
+
+    await firestore.runTransaction(async (tx: any) => {
+      const refs = stockDeltas.map((delta) => firestore.collection("vendorProducts").doc(delta.productId));
+      const snapshots = [];
+      for (const ref of refs) snapshots.push(await tx.get(ref));
+
+      for (let i = 0; i < stockDeltas.length; i++) {
+        const delta = stockDeltas[i];
+        const snap = snapshots[i];
+        const current = snap.exists ? Number((snap.data() as any)?.stock) : NaN;
+        const quantity = Math.max(1, Math.floor(Number(delta.quantity) || 0));
+        if (!snap.exists || !Number.isFinite(current) || current < quantity) {
+          throw Object.assign(new Error("insufficient_stock"), { code: "insufficient_stock" });
+        }
+      }
+
+      for (let i = 0; i < stockDeltas.length; i++) {
+        const delta = stockDeltas[i];
+        const current = Number((snapshots[i].data() as any).stock);
+        const quantity = Math.max(1, Math.floor(Number(delta.quantity) || 0));
+        tx.update(refs[i], {
+          stock: Math.max(0, Math.floor(current - quantity)),
+          updatedAt: now,
+        });
+      }
+      tx.create?.(orderRef, orderDoc) ?? tx.set(orderRef, orderDoc);
+    });
+
+    orderEvents.emit("order:status", { orderId: orderRef.id, status: orderDoc.status });
+    return { id: orderRef.id, ...orderDoc };
+  } catch (error: any) {
+    if (error?.code !== "insufficient_stock") console.error("Error creating order with inventory:", error);
     return null;
   }
 }
@@ -996,12 +1053,22 @@ export async function updateOrderStatus(
           console.warn(`[StateMachine] Blocked: ${current ?? "?"} → ${status} (order ${id})`);
           return false;
         }
-        tx.update(orderRef, { status, updatedAt: admin.firestore.Timestamp.now() });
+        const updatedAt = admin.firestore.Timestamp.now();
+        tx.update(orderRef, {
+          status,
+          updatedAt,
+          ...(status === "confirmed" ? { confirmedAt: updatedAt } : {}),
+        });
         return true;
       });
     } else {
       // Force mode: direct update without transition check (admin-only override).
-      await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
+      const updatedAt = admin.firestore.Timestamp.now();
+      await db.collection("orders").doc(id).update({
+        status,
+        updatedAt,
+        ...(status === "confirmed" ? { confirmedAt: updatedAt } : {}),
+      });
       changed = true;
     }
 

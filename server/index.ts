@@ -9,6 +9,7 @@ import {
   requireAdminCsrf,
   selfOriginFromHeaders,
 } from "./originGuard";
+import { resolveRateLimit } from "./rateLimitPolicy";
 import { initializeFirebase, getFirestore } from "./firebase";
 import { isExpoGoSurfaceEnabled } from "./env";
 import vendorRouter from "./vendor";
@@ -94,12 +95,16 @@ async function validateAdminCredentials(username: string, password: string): Pro
 const app = express();
 
 // ── JWT startup guard ─────────────────────────────────────────────────────
-if (!process.env.JWT_SECRET) {
+if (!process.env.JWT_SECRET || !process.env.SESSION_SECRET) {
+  const missing = [
+    !process.env.JWT_SECRET ? "JWT_SECRET" : null,
+    !process.env.SESSION_SECRET ? "SESSION_SECRET" : null,
+  ].filter(Boolean).join(", ");
   if (process.env.NODE_ENV === "production") {
-    console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start in production. Add JWT_SECRET to Replit Secrets.");
+    console.error(`[FATAL] ${missing} environment variable(s) missing. Refusing to start in production.`);
     process.exit(1);
   }
-  console.warn("[SECURITY] JWT_SECRET not set — server running in DEVELOPMENT mode with insecure defaults.");
+  console.warn(`[SECURITY] ${missing} not set — server running in DEVELOPMENT mode.`);
 }
 
 declare module "http" {
@@ -150,6 +155,17 @@ function setupRateLimiter(app: express.Application) {
     "/api/drivers": 10,
     // Proxies our billable Google Maps key — cap it so a leaked token cannot run up cost.
     "/api/reverse-geocode": 60,
+    // M-19: settlement mutations are financially sensitive and must not inherit
+    // the permissive 600/min default.
+    "/api/driver/settlement/request": 10,
+    "/api/vendor/settlement/request": 10,
+    "/api/admin/settlements/approve": 20,
+    "/api/admin/settlements/reject": 20,
+    "/api/admin/settlements/complete": 20,
+    // M-14: parameterized endpoints need the same policy as their static route.
+    "/api/users/:phoneNumber": 30,
+    "/api/orders/:orderId/cancel": 30,
+    "/api/orders/:orderId/rate": 30,
     default: 600,
   };
 
@@ -158,7 +174,7 @@ function setupRateLimiter(app: express.Application) {
       const ip = trustedClientIp(req);
       const key = `${ip}:${pathKey}`;
       const now = Date.now();
-      const limit = overrideLimit ?? LIMITS[pathKey] ?? LIMITS.default;
+      const limit = overrideLimit ?? resolveRateLimit(pathKey, LIMITS);
 
       let entry = rateLimitStore.get(key);
       if (!entry || now > entry.resetAt) {
@@ -248,7 +264,7 @@ function setupRateLimiter(app: express.Application) {
     const fullPath = "/api" + req.path;
     const key = `${ip}:${fullPath}`;
     const now = Date.now();
-    const limit = LIMITS[fullPath] ?? LIMITS.default;
+    const limit = resolveRateLimit(fullPath, LIMITS);
 
     let entry = rateLimitStore.get(key);
     if (!entry || now > entry.resetAt) {
@@ -328,13 +344,17 @@ function setupCors(app: express.Application) {
 }
 
 function setupBodyParsing(app: express.Application) {
-  app.use(
-    express.json({
-      limit: "10mb",
-    }),
-  );
-
-  app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+  // M-16: keep the default parser small so unauthenticated/public endpoints cannot
+  // allocate a 10MB body buffer before auth. Driver registration is the sole JSON
+  // endpoint that legitimately carries Base64 identity documents, so it gets the
+  // larger ceiling only on its exact POST path; multipart uploads are unaffected.
+  const largeJsonParser = express.json({ limit: "10mb" });
+  const defaultJsonParser = express.json({ limit: "1mb" });
+  app.use((req, res, next) => {
+    const isLargeJsonPath = req.method === "POST" && req.path === "/api/drivers";
+    return (isLargeJsonPath ? largeJsonParser : defaultJsonParser)(req, res, next);
+  });
+  app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 }
 
 function setupRequestLogging(app: express.Application) {

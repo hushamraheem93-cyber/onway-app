@@ -9,9 +9,10 @@
 // (approve driver, update order, etc.) to silently return 401 — the mobile
 // admin app had no onError handlers so the user saw nothing happen.
 //
-// Fix: sessions are now self-verifying JWTs signed with JWT_SECRET. The server
+// Fix: sessions are now self-verifying JWTs signed with SESSION_SECRET. The server
 // verifies the signature on each request — no in-memory state required — so
-// restarts do NOT invalidate existing admin sessions.
+// restarts do NOT invalidate existing admin sessions. A JWT_SECRET fallback remains
+// only for older test/development environments that have not provisioned SESSION_SECRET.
 //
 // PREVIOUS BUG (2026-07-25): revocation was in-memory only, so it did not survive
 // a restart — while the tokens it had to outlive live for 7 days. JWT_SECRET does
@@ -87,12 +88,13 @@ function persistRevocationState(): void {
 }
 
 function getJwtSecret(): string {
-  // No fallback on purpose: a hardcoded default would let anyone who reads the
-  // source forge admin session tokens if JWT_SECRET were ever missing. index.ts and
-  // routes.ts already refuse to boot without it, so this only closes the loophole.
-  const secret = process.env.JWT_SECRET;
+  // Admin sessions have their own rotation boundary. Rotating SESSION_SECRET
+  // invalidates every admin cookie without rotating customer/vendor/driver tokens.
+  // The JWT_SECRET fallback preserves compatibility for legacy test/dev invocations;
+  // production deployment requires SESSION_SECRET in the environment template.
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error("JWT_SECRET environment variable is required but not set.");
+    throw new Error("SESSION_SECRET environment variable is required but not set.");
   }
   return secret;
 }

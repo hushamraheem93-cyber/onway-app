@@ -4,7 +4,7 @@ import type { IncomingMessage } from "http";
 import { createServer, type Server } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
-import { AggregateField, Filter } from "firebase-admin/firestore";
+import { AggregateField, Filter, Timestamp } from "firebase-admin/firestore";
 import multer from "multer";
 import sharp from "sharp";
 import { randomUUID, createHash } from "crypto";
@@ -30,7 +30,7 @@ import {
   getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
-  getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, updateOrderStatus,
+  getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, createOrderWithInventory, updateOrderStatus,
   updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
   getMarketingPushTokens, getUserNotificationPrefs, setUserNotificationPrefs,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
@@ -65,6 +65,7 @@ import {
   uploadPrivateToFirebaseStorage, getSignedDriverDocUrl
 } from "./firebase";
 import { pickBestAddress, geocodeDiagnostics } from "./geocode";
+import { timestampMillis } from "./time";
 import { buildDriverPerformance } from "./driverPerformance";
 
 // Reverse-geocode result cache. Google charges per request and enforces a quota, and
@@ -89,7 +90,7 @@ import {
   getSettlementHistory, listSettlementRequests, completeSettlement,
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
   listSettlementAccounts, getSettlementPayments, getSettlementLedger,
-  adminAdjustLedger, retryOrderSettlements, vendorCommissionBase,
+  adminAdjustLedger, retryOrderSettlements, vendorCommissionBase, promoSettlementAmounts,
   transitionSettlementRequest, markLedgerOwnerDeleted,
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
@@ -154,6 +155,13 @@ const uploadWebP = multer({
     cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
   },
 });
+
+function detectedUploadImageMime(file: Express.Multer.File): string | null {
+  const detected = sniffImageMime(file.buffer);
+  return detected && ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(detected)
+    ? detected
+    : null;
+}
 
 // ── Image content-hash deduplication map ─────────────────────────────────────
 // sha256(fileBuffer) → Firebase Storage URL; prevents storing duplicate images.
@@ -653,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const inStock = req.body.inStock === true || req.body.inStock === "true";
       await db.collection("vendorProducts").doc(pid).update({
         inStock,
-        updatedAt: new Date().toISOString(),
+        updatedAt: Timestamp.now(),
       });
       res.json({ success: true, inStock });
     } catch (err) {
@@ -1160,7 +1168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (allDone) {
               // Mark stale batch as completed so it won't block drivers
               db.collection("delivery_batches").doc(bDoc.id)
-                .update({ status: "completed", updatedAt: new Date() })
+                .update({ status: "completed", updatedAt: Timestamp.now() })
                 .catch(() => {});
               // Clear hasActiveBatch in Firestore for this driver (if they have no other active batch)
               if (bData.driverId) {
@@ -1307,6 +1315,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "لم يتم رفع أي صورة" });
+      }
+      const detected = detectedUploadImageMime(req.file);
+      if (!detected) {
+        return res.status(400).json({ error: "نوع الملف غير مدعوم — محتوى الصورة غير صالح" });
       }
       const fileBuffer = req.file.buffer;
       // Content-hash deduplication: reuse the Base64 data URI for identical images
@@ -2154,6 +2166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build every accrual up front so the exact same inputs can be replayed by
       // the recovery sweep if a write fails.
       const settlementInputs: OrderSettlementInput[] = [];
+      const promoDiscount = Math.max(0, Math.round(Number((order as any).promoDiscount) || 0));
+      const customerChargedAmount = Math.max(0, Math.round(Number((order as any).total) || 0));
 
       // Driver — cash-collection settlement (only when a driver delivered it).
       if (driverPhone) {
@@ -2174,6 +2188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           grossAmount: cashCollected,
           commission: driverEarning,
           outstandingAmount: Math.max(0, cashCollected - driverEarning),
+          promoDiscount,
+          customerChargedAmount,
         });
       }
 
@@ -2184,7 +2200,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (order.vendorId) {
         const vendorSnap = await db.collection("vendors").doc(order.vendorId).get();
         const v = vendorSnap.exists ? (vendorSnap.data() as any) : {};
-        const orderValue = vendorCommissionBase(order as any);
+        const discountedOrderValue = vendorCommissionBase(order as any);
+        const promoAmounts = promoSettlementAmounts(order as any);
+        const promoFundingAmount = promoAmounts.promoFundingAmount;
+        const orderValue = discountedOrderValue + promoFundingAmount;
+        const grossBeforeDiscount = orderValue;
+        const settlementPromoDiscount = promoAmounts.promoDiscount;
+        // Marketplace vendor settlement is owed on the pre-promo goods value. The
+        // customer pays the discounted total, so the platform explicitly carries the
+        // promo funding instead of silently reducing the vendor's sale or commission.
         const platformCommission =
           (order as any).vendorCommissionAmount ??
           Math.round((orderValue * commissionPercentOf(v.commissionPercent)) / 100);
@@ -2195,9 +2219,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderId,
           storeId: order.vendorId,
           storeName: v.storeName || v.name || null,
-          grossAmount: orderValue,
+          grossAmount: grossBeforeDiscount,
           commission: platformCommission,
-          outstandingAmount: Math.max(0, orderValue - platformCommission),
+          outstandingAmount: Math.max(0, grossBeforeDiscount - platformCommission),
+          promoDiscount: settlementPromoDiscount,
+          grossBeforeDiscount,
+          customerChargedAmount,
+          promoFundingAmount,
         });
       }
 
@@ -2223,7 +2251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             settlementFailedTypes: failed.map((f) => f.accountType),
             settlementRetryInputs: failed,
             settlementLastError: new Date().toISOString(),
-            updatedAt: new Date(),
+            updatedAt: Timestamp.now(),
           })
           .catch((markErr: any) =>
             console.error(
@@ -2278,6 +2306,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 type: "platform_commission", debit: inp.commission, orderId,
                 entryId: orderEntryId(orderId, "vendor", "platform_commission"), description: "عمولة التطبيق" },
             );
+            if ((inp.promoFundingAmount || 0) > 0) {
+              ledgerEntries.push({
+                accountType: "platform", accountId: "onway", accountName: "OnWay",
+                type: "adjustment", debit: inp.promoFundingAmount, orderId,
+                entryId: orderEntryId(orderId, "platform", "adjustment"),
+                description: "تمويل خصم ترويجي للمتجر",
+                metadata: {
+                  promoDiscount: inp.promoDiscount || 0,
+                  grossBeforeDiscount: inp.grossBeforeDiscount || inp.grossAmount,
+                  customerChargedAmount: inp.customerChargedAmount || 0,
+                },
+              });
+            }
           }
         }
         // Platform revenue for this order: vendor commission + owner's delivery cut +
@@ -2971,6 +3012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const unknownProductIds: string[] = [];
       const priceMismatchProductIds: string[] = [];
       const outOfStockNames: string[] = [];
+      const stockRequirements = new Map<string, { productId: string; quantity: number }>();
 
       let allItemsAreRestaurant = items.length > 0;
 
@@ -3130,6 +3172,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const quantity = sanitizeQuantity(it.quantity);
+        const trackedProduct = !legacyProduct || !isValidProductPrice(legacyProduct.price)
+          ? vendorProductById.get(it.productId)
+          : null;
+        if (trackedProduct && Number.isFinite(Number(trackedProduct.stock))) {
+          const current = stockRequirements.get(it.productId) ?? { productId: it.productId, quantity: 0 };
+          current.quantity += quantity;
+          stockRequirements.set(it.productId, current);
+        }
         if (Math.abs((Number(it.price) || 0) - realPrice) > 1) {
           priceMismatchProductIds.push(it.productId);
         }
@@ -3497,6 +3547,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const stockDeltas = [...stockRequirements.values()];
+      Object.defineProperty(orderData, "__stockDeltas", {
+        value: stockDeltas,
+        enumerable: false,
+        configurable: true,
+      });
       const newOrder = await createOrder(orderData);
       if (!newOrder && promoCodeCanonical) {
         // The order never came into existence — do not burn the customer's coupon.
@@ -3542,7 +3598,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           vendorWhatsappUrl,
         });
       }
-      return res.status(500).json({ error: "Failed to create order" });
+      return res.status(stockDeltas.length > 0 ? 409 : 500).json({
+        error: stockDeltas.length > 0 ? "الكمية المطلوبة لم تعد متاحة" : "Failed to create order",
+      });
     }
     res.status(500).json({ error: "Database not configured" });
   });
@@ -3560,9 +3618,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     
     if (db) {
-      // Admin may override any transition (force: true) — the status string
-      // was already validated against the allowed enum above.
-      const success = await updateOrderStatus(orderId, status, { force: true });
+      // M-26: admin status changes use the same server-side state machine as every
+      // other caller. The admin boundary authorizes the actor; it must not bypass
+      // order transition rules merely because the request came from the dashboard.
+      const existingOrder = await getOrderById(orderId);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      const success = await updateOrderStatus(orderId, status);
       if (success) {
         // Real-time: push status change to all connected clients so vendor,
         // driver, and customer screens refresh without polling delay.
@@ -3606,7 +3669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   order,
                   (order as any).driverPhone || null,
                 );
-                await orderRef.update({ deliveredAt: new Date(), updatedAt: new Date() }).catch(() => {});
+                await orderRef.update({ deliveredAt: Timestamp.now(), updatedAt: Timestamp.now() }).catch(() => {});
               } else {
                 // Couldn't read the order — release the claim so a retry can credit.
                 await orderRef.update({ earningsCredited: false }).catch(() => {});
@@ -3665,7 +3728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         return res.json({ success: true, id: orderId, status });
       }
-      return res.status(404).json({ error: "Order not found" });
+      return res.status(409).json({ error: "انتقال حالة الطلب غير مسموح" });
     }
     res.status(500).json({ error: "Database not configured" });
   });
@@ -3800,7 +3863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       driverPhone: FieldValue.delete(),
       driverName: FieldValue.delete(),
       batchId: FieldValue.delete(),
-      updatedAt: new Date(),
+      updatedAt: Timestamp.now(),
     }).catch(() => {});
     if (notifyOldDriver && holder) {
       getDriverPushToken(String(holder))
@@ -3897,7 +3960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         driverPhone, driverName, batchId,
         status: newStatus,
         rejectedAt: FieldValue.delete(), rejectedByDriver: FieldValue.delete(), rejectedByPhone: FieldValue.delete(),
-        updatedAt: new Date(),
+        updatedAt: Timestamp.now(),
       }).catch(() => {});
       batchedOrderIds.add(orderId);
       driverAssignments.set(orderId, driverPhone);
@@ -3953,7 +4016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const order = (await getOrderById(orderId)) as any;
       if (!order) return res.status(404).json({ error: "الطلب غير موجود" });
-      if ((order.phoneNumber || order.customerPhone) !== callerPhone) return res.status(403).json({ error: "غير مصرح" });
+      if (!sameLocalPhone(order.phoneNumber || order.customerPhone, callerPhone)) return res.status(403).json({ error: "غير مصرح" });
       if (order.status !== "delivered") return res.status(400).json({ error: "يمكن التقييم بعد التسليم فقط" });
       if (order.driverRated) return res.status(409).json({ error: "تم التقييم مسبقاً" });
       const driverPhone = order.driverPhone;
@@ -3972,8 +4035,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const d = dSnap.data() as any;
         const sum = (Number(d?.ratingSum) || 0) + rating;
         const count = (Number(d?.ratingCount) || 0) + 1;
-        tx.update(driverRef, { ratingSum: sum, ratingCount: count, rating: Math.round((sum / count) * 100) / 100, updatedAt: new Date() });
-        tx.update(orderRef, { driverRated: true, driverRating: rating, updatedAt: new Date() });
+        tx.update(driverRef, { ratingSum: sum, ratingCount: count, rating: Math.round((sum / count) * 100) / 100, updatedAt: Timestamp.now() });
+        tx.update(orderRef, { driverRated: true, driverRating: rating, updatedAt: Timestamp.now() });
       });
       return res.json({ success: true });
     } catch (error: any) {
@@ -3986,7 +4049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Address book (server-synced, owner-only) ────────────────────────────────
   app.get("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
-    if ((req as any).customerPhone !== phoneNumber) {
+    if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     try {
@@ -3999,7 +4062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
-    if ((req as any).customerPhone !== phoneNumber) {
+    if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     const list = Array.isArray(req.body?.addresses) ? req.body.addresses : null;
@@ -4021,7 +4084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     // Ownership (H2): only the authenticated user may set their own push token,
     // otherwise anyone could hijack another phone's notifications.
-    if ((req as any).customerPhone !== phoneNumber) {
+    if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
       return res.status(403).json({ error: "غير مصرح" });
     }
 
@@ -4157,7 +4220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
-    const user = userProfiles.find(u => u.phoneNumber === req.params.phoneNumber);
+    const user = userProfiles.find(u => sameLocalPhone(u.phoneNumber, phoneNumber));
     if (!user) {
       return res.status(404).json({ error: "User not found", profileComplete: false });
     }
@@ -4172,7 +4235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "All fields are required" });
     }
     // Ownership (C3): the profile being written must be the authenticated user's own.
-    if ((req as any).customerPhone !== phoneNumber) {
+    if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
       return res.status(403).json({ error: "غير مصرح" });
     }
 
@@ -4260,7 +4323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to save user to Firestore" });
     }
 
-    const existingIndex = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
+    const existingIndex = userProfiles.findIndex(u => sameLocalPhone(u.phoneNumber, phoneNumber));
     const now = new Date().toISOString();
     
     if (existingIndex !== -1) {
@@ -4294,7 +4357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
     // Ownership (C3): a customer may only update their OWN profile.
-    if ((req as any).customerPhone !== phoneNumber) {
+    if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     const { fullName, gender, region, address, profileImage } = req.body;
@@ -4327,7 +4390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
-    const index = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
+    const index = userProfiles.findIndex(u => sameLocalPhone(u.phoneNumber, phoneNumber));
     if (index === -1) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -4350,7 +4413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
     // Ownership: a user may only delete their OWN account. Without this, anyone could
     // delete any account by phone number (unauthenticated account destruction).
-    if ((req as any).customerPhone !== phoneNumber) {
+    if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     const db = getFirestore();
@@ -4394,6 +4457,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (d.startsWith("07"))    return d;                 // already local
     if (d.startsWith("7"))     return "0" + d;           // 7...      → 07...
     return d;
+  }
+
+  // M-23: ownership compares must use the same canonical identity on both sides.
+  // Invalid/empty values never compare equal, even if both are empty strings.
+  function sameLocalPhone(a: unknown, b: unknown): boolean {
+    const left = toLocalPhone(String(a ?? ""));
+    const right = toLocalPhone(String(b ?? ""));
+    return /^07\d{9}$/.test(left) && left === right;
   }
 
   app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
@@ -4521,7 +4592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Expiry is handled correctly on the client instead: driverAuth.ts re-exchanges
       // the stored customer JWT automatically on a 401. If that JWT has also expired,
       // re-running OTP is the intended and correct recovery.
-      if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
+      if (!verifiedPhone || !sameLocalPhone(verifiedPhone, String(phoneNumber))) {
         return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
       }
 
@@ -4545,7 +4616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/drivers/check/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     try {
       const phoneNumber = req.params.phoneNumber as string;
-      if ((req as any).customerPhone !== phoneNumber) {
+      if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
         return res.status(403).json({ error: "غير مصرح" });
       }
       const driver = await getDriverByPhone(phoneNumber);
@@ -4585,7 +4656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!phoneNumber || !fullName || !nationalIdImage) {
         return res.status(400).json({ error: "All fields are required" });
       }
-      if ((req as any).customerPhone !== phoneNumber) {
+      if (!sameLocalPhone((req as any).customerPhone, phoneNumber)) {
         return res.status(403).json({ error: "غير مصرح — رقم الهاتف لا يطابق حسابك" });
       }
 
@@ -4840,7 +4911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
             // Mark batch as completed in Firestore
             const db2 = getFirestore();
-            if (db2) db2.collection("delivery_batches").doc(batchDoc.id).update({ status: "completed", updatedAt: new Date() }).catch(() => {});
+            if (db2) db2.collection("delivery_batches").doc(batchDoc.id).update({ status: "completed", updatedAt: Timestamp.now() }).catch(() => {});
             // Move driver to end of queue (joinedAt reset = lowest priority until next pickup)
             updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
             // Immediately try to assign new orders to this now-available driver
@@ -4944,7 +5015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const order = (await getOrderById(orderId)) as any;
         const ownerPhone = order?.phoneNumber || order?.customerPhone;
-        if (!order || ownerPhone !== callerPhone) {
+        if (!order || !sameLocalPhone(ownerPhone, callerPhone)) {
           return res.status(403).json({ error: "غير مصرح" });
         }
       } catch {
@@ -5111,7 +5182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!db) return res.status(500).json({ error: "Database not configured" });
 
       // Update order in Firestore: status="issue" + issueType + issuedAt
-      const now = new Date();
+      const now = Timestamp.now();
       await db.collection("orders").doc(orderId).update({
         status: "issue",
         issueType,
@@ -5311,9 +5382,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
-      const now = new Date();
+      const now = Timestamp.now();
       await db.collection("orders").doc(orderId).update({
-        arrivedAtStoreAt: now.toISOString(),
+        arrivedAtStoreAt: now.toDate().toISOString(),
         updatedAt: now,
       });
       // Notify vendor (single-doc read, not a full scan)
@@ -5352,7 +5423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
-      const now = new Date();
+      const now = Timestamp.now();
       // The return value MUST be honoured. updateOrderStatus returns false when the
       // state machine blocks the transition; ignoring it wrote pickedUpAt, pushed
       // "on the way" to the customer and returned success while the order stayed
@@ -5388,9 +5459,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
-      const now = new Date();
+      const now = Timestamp.now();
 
       // Read the order BEFORE claiming the flag.
+
       //
       // getOrderById swallows every error and returns null. When the read was done
       // AFTER the claim, a transient Firestore failure left earningsCredited
@@ -5457,7 +5529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const completedEntry = {
           orderId, deliveryFee: order.deliveryFee || 0, driverEarning, ownerEarning: deductionAmount,
           total: order.total || 0, customerName: customerProfile?.fullName || "زبون",
-          completedAt: now.toISOString(), isRestaurant: isRestaurantOrder,
+          completedAt: now.toDate().toISOString(), isRestaurant: isRestaurantOrder,
         };
         // ── The one non-idempotent step. Past this point the claim must NOT be
         //    released, or a retry would append this entry a second time. ──────────
@@ -5498,7 +5570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: "completed",
               completedOrders: completedCount,
               totalEarnings: batchEarnings,
-              endTime: now.toISOString(),
+              endTime: now.toDate().toISOString(),
             });
             const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = undefined;
@@ -6631,7 +6703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           distance: r.distance,
           estimatedTime: r.estimatedTime,
           estimated_time: r.estimatedTime,
-          updatedAt: new Date(),
+          updatedAt: Timestamp.now(),
         }).catch(() => {});
       }
 
@@ -6710,7 +6782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "preparing",
         deliverySequence: seq, delivery_sequence: seq,
         rejectedAt: FieldValue.delete(), rejectedByDriver: FieldValue.delete(), rejectedByPhone: FieldValue.delete(),
-        updatedAt: new Date(),
+        updatedAt: Timestamp.now(),
       }).catch(() => {});
       batchedOrderIds.add(orderId);
       driverAssignments.set(orderId, driverPhone);
@@ -7294,7 +7366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Ownership: only the order's customer can cancel it
       const orderPhone = data.customerPhone || data.phoneNumber;
-      if (orderPhone && orderPhone !== callerPhone) {
+      if (orderPhone && !sameLocalPhone(orderPhone, callerPhone)) {
         return res.status(403).json({ error: "غير مصرح — هذا الطلب ليس لك" });
       }
 
@@ -7308,14 +7380,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد أن بدأ التاجر التجهيز — تواصل مع الدعم" });
       }
 
-      const createdAt: FirebaseFirestore.Timestamp = data.createdAt;
-      const createdMs = createdAt.toMillis();
-      const nowMs     = Date.now();
+      const nowMs = Date.now();
 
       if (data.status === "confirmed") {
-        // 5 minutes grace after merchant accepted
+        // M-04/M-05: the grace window starts when the merchant accepted, not when
+        // the customer placed the order. Legacy orders fall back to createdAt.
+        const confirmationMs = timestampMillis(data.confirmedAt ?? data.vendorStatusAt_confirmed ?? data.createdAt);
+        if (confirmationMs === null) {
+          return res.status(400).json({ error: "تعذّر تحديد وقت قبول الطلب" });
+        }
         const CONFIRM_GRACE_MS = 5 * 60 * 1000;
-        if (nowMs - createdMs > CONFIRM_GRACE_MS) {
+        if (nowMs - confirmationMs > CONFIRM_GRACE_MS) {
           return res.status(400).json({ error: "انتهت مهلة الإلغاء (5 دقائق بعد قبول التاجر)" });
         }
       }
@@ -7407,7 +7482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const orderRef = db.collection("orders").doc(req.params.orderId as string);
       const capturedOrderId: string = req.params.orderId as string;
-      const ratedAt = new Date().toISOString();
+      const ratedAt = Timestamp.now();
       let didUpdateVendor = false;
       let capturedVendorId: string | undefined;
 
@@ -7418,7 +7493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!orderSnap.exists) throw Object.assign(new Error("الطلب غير موجود"), { status: 404 });
         const order = orderSnap.data() as any;
 
-        if (order.phoneNumber !== callerPhone) {
+        if (!sameLocalPhone(order.phoneNumber, callerPhone)) {
           throw Object.assign(new Error("غير مصرح"), { status: 403 });
         }
         if (order.status !== "delivered") {
@@ -7515,9 +7590,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/promo-codes/apply", async (req: Request, res: Response) => {
+  app.post("/api/promo-codes/apply", requireCustomerAuth, async (req: Request, res: Response) => {
     try {
-      const { code, userId, cartTotal } = req.body;
+      const { code, cartTotal } = req.body;
+      const userId = (req as any).customerPhone as string;
       if (!code || !userId || cartTotal === undefined) {
         return res.status(400).json({ error: "الرجاء إدخال جميع البيانات المطلوبة" });
       }
@@ -8063,7 +8139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.json({ newOrders: 0, preparingOrders: 0, inDelivery: 0, onlineDrivers: 0, activeBatches: 0, lateOrders: 0, issues: 0, recentOrders: [], lateOrdersList: [] });
       const now = new Date();
-      const since = new Date(now.getTime() - 24 * 3600000).toISOString();
+      const since = Timestamp.fromMillis(now.getTime() - 24 * 3600000);
 
       const [ordersSnap, driversSnap, batchesSnap] = await Promise.all([
         db.collection("orders").where("createdAt", ">=", since).orderBy("createdAt", "desc").limit(100).get(),
@@ -8079,7 +8155,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Late orders: pending > 30 min
       const lateOrders = orders.filter((o: any) => {
         if (o.status !== "pending" && o.status !== "confirmed") return false;
-        const age = now.getTime() - new Date(o.createdAt).getTime();
+        const createdMs = timestampMillis(o.createdAt);
+        if (createdMs === null) return false;
+        const age = now.getTime() - createdMs;
         return age > 30 * 60000;
       });
 
@@ -8118,7 +8196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
       }
       const days = parseInt((req.query.days as string) || "30", 10);
-      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const since = Timestamp.fromMillis(Date.now() - days * 86400000);
 
       // C-13: every page is bounded and only the fields used by this endpoint are
       // projected. Aggregation happens as pages arrive, so the process never holds
@@ -8335,7 +8413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!doc.exists) return res.status(404).json({ error: "التقييم غير موجود" });
 
       const data = doc.data() as any;
-      if (data.customerPhone !== callerPhone) return res.status(403).json({ error: "غير مصرح" });
+      if (!sameLocalPhone(data.customerPhone, callerPhone)) return res.status(403).json({ error: "غير مصرح" });
 
       // 7-day edit window
       const createdAt = new Date(data.createdAt).getTime();
@@ -8352,7 +8430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
       }
 
-      const updatedAt = new Date().toISOString();
+      const updatedAt = Timestamp.now();
       const updates: any = { comment, image, updatedAt };
       if (!isNaN(stars) && stars >= 1) updates.stars = stars;
 
@@ -8474,7 +8552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
       }
 
-      const now = new Date().toISOString();
+      const now = Timestamp.now();
       const ratingRef = await db.collection("ratings").add({
         orderId:      null,
         vendorId,
@@ -8527,7 +8605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!doc.exists) return res.status(404).json({ error: "التقييم غير موجود" });
 
       const { action, note, reply } = req.body;
-      const updates: any = { updatedAt: new Date().toISOString() };
+      const updates: any = { updatedAt: Timestamp.now() };
 
       if (action === "hide")    updates.hidden  = true;
       if (action === "show")    updates.hidden  = false;
@@ -8553,7 +8631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendorId = req.params["id"] as string;
       const { featured, pinnedToTop, manualRank, priority, featuredUntil } = req.body;
 
-      const updates: any = { vendorId, updatedAt: new Date().toISOString() };
+      const updates: any = { vendorId, updatedAt: Timestamp.now() };
       if (featured    !== undefined) updates.featured    = Boolean(featured);
       if (pinnedToTop !== undefined) updates.pinnedToTop = Boolean(pinnedToTop);
       if (manualRank  !== undefined) updates.manualRank  = manualRank === null ? null : Number(manualRank);
@@ -8950,7 +9028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const now = new Date().toISOString();
+      const now = Timestamp.now();
       const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       interface DemoProduct { name: string; description: string; price: number; category: string; categoryId: string; stock: number; unit: string; imageUrl: string; }
@@ -9495,7 +9573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.ok) {
         return res.status(400).json({ error: "بيانات غير صالحة", fields: parsed.fields });
       }
-      const payload = { ...parsed.data, updatedAt: new Date().toISOString() };
+      const payload = { ...parsed.data, updatedAt: Timestamp.now() };
       await db.collection("websiteContent").doc(section).set(payload, { merge: true });
       cmsPublicCache = null; // invalidate public cache
       return res.json({ success: true });
@@ -9516,6 +9594,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "القسم غير موجود" });
         }
         if (!req.file) return res.status(400).json({ error: "لم يتم رفع أي صورة" });
+
+        const detected = detectedUploadImageMime(req.file);
+        if (!detected) {
+          return res.status(400).json({ error: "نوع الملف غير مدعوم — محتوى الصورة غير صالح" });
+        }
 
         // H-17: `field` came straight from the request body, so any key at all could
         // be created in the public document — including one that overwrites text
@@ -9539,7 +9622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const db = getFirestore();
         if (db && persistField) {
           await db.collection("websiteContent").doc(section).set(
-            { [field]: url, updatedAt: new Date().toISOString() },
+            { [field]: url, updatedAt: Timestamp.now() },
             { merge: true }
           );
         }
@@ -9570,7 +9653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const db = getFirestore();
         if (db) {
           await db.collection("websiteContent").doc(section as CmsSection).set(
-            { [field as string]: "", updatedAt: new Date().toISOString() },
+            { [field as string]: "", updatedAt: Timestamp.now() },
             { merge: true }
           );
         }

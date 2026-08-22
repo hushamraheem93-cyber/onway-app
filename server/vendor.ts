@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
+import { Timestamp } from "firebase-admin/firestore";
 import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage, uploadToFirebaseStorage } from "./firebase";
 import {
@@ -14,6 +15,7 @@ import {
   normaliseStock,
   parseProductPrice,
   JWT_VERIFY_OPTS,
+  sniffImageMime,
 } from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory, settlementId } from "./settlement";
@@ -572,7 +574,7 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId;
     const { storeName, bio, address, deliveryTime, deliveryPrice, workingHours, rating, latitude, longitude } = req.body;
-    const updates: any = { updatedAt: new Date().toISOString() };
+    const updates: any = { updatedAt: Timestamp.now() };
     if (storeName !== undefined && String(storeName).trim()) updates.storeName = String(storeName).trim();
     if (bio !== undefined) updates.bio = bio;
     if (address !== undefined) updates.address = address;
@@ -605,7 +607,7 @@ router.patch("/api/vendor/availability", requireVendor, async (req, res) => {
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId;
     const { isVacation, isBusy } = req.body;
-    const updates: any = { updatedAt: new Date().toISOString() };
+    const updates: any = { updatedAt: Timestamp.now() };
     if (typeof isVacation === "boolean") updates.isVacation = isVacation;
     if (typeof isBusy === "boolean") updates.isBusy = isBusy;
     await db.collection("vendors").doc(vid).update(updates);
@@ -630,6 +632,13 @@ const profileUpload = multer({
     }
   },
 });
+
+function assertImageMagicBytes(file: Express.Multer.File): void {
+  const detected = sniffImageMime(file.buffer);
+  if (!detected || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(detected)) {
+    throw new Error("invalid_image_content");
+  }
+}
 
 async function saveProfileImage(
   buffer: Buffer,
@@ -684,12 +693,14 @@ router.post(
       const oldLogoUrl: string = existingData?.profileImageUrl ?? "";
       const oldCoverUrl: string = existingData?.coverImageUrl ?? "";
 
-      const updates: any = { updatedAt: new Date().toISOString() };
+      const updates: any = { updatedAt: Timestamp.now() };
 
       if (files?.profileImage?.[0]) {
+        assertImageMagicBytes(files.profileImage[0]);
         updates.profileImageUrl = await saveProfileImage(files.profileImage[0].buffer, "avatar", vid);
       }
       if (files?.coverImage?.[0]) {
+        assertImageMagicBytes(files.coverImage[0]);
         updates.coverImageUrl = await saveProfileImage(files.coverImage[0].buffer, "cover", vid);
       }
 
@@ -710,7 +721,10 @@ router.post(
       if (updates.coverImageUrl && oldCoverUrl && oldCoverUrl !== updates.coverImageUrl) {
         deleteFromFirebaseStorage(oldCoverUrl).catch(() => {});
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message === "invalid_image_content") {
+        return res.status(400).json({ error: "نوع الملف غير مدعوم — محتوى الصورة غير صالح" });
+      }
       console.error("profile images:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
     }
@@ -721,6 +735,7 @@ router.post(
 async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; imageThumbs: string[] }> {
   const results = await Promise.all(
     files.map(async (file) => {
+      assertImageMagicBytes(file);
       const hash = generateImageHash(file.buffer);
       const duplicate = await findDuplicateImage(hash);
       if (duplicate) {
@@ -793,6 +808,7 @@ router.post(
 
       const pid = productId();
       const now = new Date().toISOString();
+      const updatedAt = Timestamp.now();
       const vData = vDoc.data() as any;
 
       const extraDataRaw = req.body.extraData;
@@ -823,7 +839,7 @@ router.post(
         status: "approved",
         approvedAt: now,
         createdAt: now,
-        updatedAt: now,
+        updatedAt,
         ...(extraData ? { extraData } : {}),
         ...(variants ? { variants } : {}),
         ...(addons ? { addons } : {}),
@@ -832,7 +848,7 @@ router.post(
       // Increment vendor's totalProducts counter
       try {
         const { FieldValue: FV } = await import("firebase-admin/firestore");
-        await db.collection("vendors").doc(vid).update({ totalProducts: FV.increment(1), updatedAt: now });
+        await db.collection("vendors").doc(vid).update({ totalProducts: FV.increment(1), updatedAt: Timestamp.now() });
       } catch {}
 
       res.status(201).json({
@@ -841,6 +857,9 @@ router.post(
         product: { id: pid, name, price: priceNum, imageUrl, imageUrls, status: "approved" },
       });
     } catch (err: any) {
+      if (err?.message === "invalid_image_content") {
+        return res.status(400).json({ error: "نوع الملف غير مدعوم — محتوى الصورة غير صالح" });
+      }
       console.error("add product:", err);
       res.status(500).json({ error: "حدث خطأ في إضافة المنتج" });
     }
@@ -894,8 +913,7 @@ router.put(
       }
 
       const { name, description, price, category, stock, unit, existingImages } = req.body;
-      const now = new Date().toISOString();
-      const updates: Record<string, any> = { updatedAt: now };
+      const updates: Record<string, any> = { updatedAt: Timestamp.now() };
 
       if (name) updates.name = name;
       if (description !== undefined) updates.description = description;
@@ -999,7 +1017,10 @@ router.put(
           }
         })().catch(() => {});
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message === "invalid_image_content") {
+        return res.status(400).json({ error: "نوع الملف غير مدعوم — محتوى الصورة غير صالح" });
+      }
       console.error("update product:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
     }
@@ -1578,7 +1599,7 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     // → delivered or → cancelled). Routing this through updateOrderStatus() instead
     // would hand the store those transitions, and would still need a second,
     // unserialised write for vendorStatusAt_*/estimatedMinutes.
-    const updatedAt = new Date().toISOString();
+    let updatedAt: any = Timestamp.now();
     const outcome = await db.runTransaction(async (tx) => {
       const snap = await tx.get(orderRef);
       if (!snap.exists) return { ok: false as const, code: 404 as const, current };
@@ -1636,6 +1657,7 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
       }).catch(() => {});
     }
 
+    updatedAt = updatedAt.toDate().toISOString();
     res.json({ success: true, status, updatedAt, estimatedMinutes: validatedEta });
   } catch (err) {
     console.error("vendor order status:", err);
@@ -1691,12 +1713,13 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
 
     const vendor = doc.data() as any;
     const now = new Date().toISOString();
+    const updatedAt = Timestamp.now();
 
     await db.collection("vendors").doc(id).update({
       status,
       ...(status === "active" && { approvedAt: now }),
       ...(status === "rejected" && { rejectedAt: now, rejectionReason: reason || "" }),
-      updatedAt: now,
+      updatedAt,
     });
 
     const notifMsg =
@@ -1776,7 +1799,7 @@ router.patch("/api/admin/vendor-products/:pid/toggle-active", requireAdmin, asyn
     }
     await db.collection("vendorProducts").doc(pid).update({
       isActive,
-      updatedAt: new Date().toISOString(),
+      updatedAt: Timestamp.now(),
     });
     res.json({ success: true, isActive });
   } catch (err) {
@@ -1805,6 +1828,7 @@ router.post("/api/admin/vendor-products", requireAdmin, async (req, res) => {
     const v = vDoc.data() as any;
     const pid = productId();
     const now = new Date().toISOString();
+    const updatedAt = Timestamp.now();
     const img = String(imageUrl || "");
     await db.collection("vendorProducts").doc(pid).set({
       id: pid,
@@ -1824,7 +1848,7 @@ router.post("/api/admin/vendor-products", requireAdmin, async (req, res) => {
       isActive: true,
       approvedAt: now,
       createdAt: now,
-      updatedAt: now,
+      updatedAt,
       createdByAdmin: true,
     });
     res.json({ success: true, id: pid });
@@ -1843,7 +1867,7 @@ router.put("/api/admin/vendor-products/:pid", requireAdmin, async (req, res) => 
     const doc = await db.collection("vendorProducts").doc(pid).get();
     if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
     const b = req.body as Record<string, any>;
-    const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
+    const updates: Record<string, any> = { updatedAt: Timestamp.now() };
     if (b.name !== undefined) {
       if (!String(b.name).trim()) return res.status(400).json({ error: "الاسم مطلوب" });
       updates.name = String(b.name).trim();
@@ -1890,7 +1914,7 @@ router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req,
     const { FieldValue: FV } = await import("firebase-admin/firestore");
     await db.collection("vendors").doc(product.vendorId).update({
       totalProducts: FV.increment(1),
-      updatedAt: now,
+      updatedAt: Timestamp.now(),
     }).catch(() => {});
 
     await db.collection("vendorNotifications").add({
@@ -2000,6 +2024,7 @@ router.post("/api/admin/vendors/:vendorId/products", requireAdmin, async (req, r
 
     const pid = productId();
     const now = new Date().toISOString();
+    const updatedAt = Timestamp.now();
     const imageUrls = imageUrl ? [imageUrl] : [];
 
     await db.collection("vendorProducts").doc(pid).set({
@@ -2019,12 +2044,12 @@ router.post("/api/admin/vendors/:vendorId/products", requireAdmin, async (req, r
       status: "approved",
       approvedAt: now,
       createdAt: now,
-      updatedAt: now,
+      updatedAt,
     });
 
     try {
       const { FieldValue: FV } = await import("firebase-admin/firestore");
-      await db.collection("vendors").doc(vendorId).update({ totalProducts: FV.increment(1), updatedAt: now });
+      await db.collection("vendors").doc(vendorId).update({ totalProducts: FV.increment(1), updatedAt: Timestamp.now() });
     } catch {}
 
     res.status(201).json({ success: true, id: pid });
@@ -2063,7 +2088,7 @@ router.delete("/api/admin/vendor-products/:pid/image", requireAdmin, async (req,
       imageUrls: newUrls,
       imageUrl: newUrls[0] || null,
       imageThumbs: newThumbs,
-      updatedAt: new Date().toISOString(),
+      updatedAt: Timestamp.now(),
     });
 
     res.json({ success: true });

@@ -9,4 +9,24 @@ module.exports = defineConfig([
   {
     ignores: ["dist/*"],
   },
+  {
+    files: ["client/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: [
+            "express",
+            "firebase-admin",
+            "jsonwebtoken",
+            "multer",
+            "sharp",
+            "@octokit/rest",
+            "http-proxy-middleware",
+            "ws",
+          ],
+          message: "Server-only packages must not be imported into the mobile client.",
+        }],
+      }],
+    },
+  },
 ]);

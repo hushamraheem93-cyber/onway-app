@@ -147,7 +147,7 @@ describe("H-13 — driver identity comes from the token, never the body", () => 
     const at = ROUTES.indexOf('app.post("/api/drivers", requireCustomerAuth');
     assert.ok(at > -1, "route not found");
     const body = ROUTES.slice(at, at + 900);
-    assert.match(body, /if \(\(req as any\)\.customerPhone !== phoneNumber\)/);
+    assert.match(body, /(?:sameLocalPhone\(\(req as any\)\.customerPhone, phoneNumber\)|if \(\(req as any\)\.customerPhone !== phoneNumber\))/);
     assert.match(body, /رقم الهاتف لا يطابق حسابك/);
   });
 

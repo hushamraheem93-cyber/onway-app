@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { resolveFirebaseStorageBucket } from "@shared/storageConfig";
 
 // Firebase client config — values are loaded from EXPO_PUBLIC_* environment
 // variables so no credentials are baked into the source code.
@@ -13,7 +14,10 @@ const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
   projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+  storageBucket: resolveFirebaseStorageBucket(
+    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  ),
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "",
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || "",

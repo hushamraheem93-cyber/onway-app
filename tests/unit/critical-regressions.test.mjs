@@ -64,13 +64,15 @@ describe("C1 — driver mobile-auth must require a phone-matching customer JWT",
 
   test("a mismatched or missing JWT returns 401 and does NOT mint a token", () => {
     const guard = body.indexOf(
-      "!verifiedPhone || verifiedPhone !== String(phoneNumber)",
+      "!verifiedPhone || !sameLocalPhone(verifiedPhone, String(phoneNumber))",
     );
-    assert.ok(guard !== -1, "the phone-match guard must be present");
+    const legacyGuard = body.indexOf("!verifiedPhone || verifiedPhone !== String(phoneNumber)");
+    assert.ok(guard !== -1 || legacyGuard !== -1, "the phone-match guard must be present");
 
     // Everything between the guard and its closing brace must be a rejection —
     // no token minting, no driver lookup used as a substitute for proof.
-    const afterGuard = body.slice(guard, guard + 400);
+    const selectedGuard = guard !== -1 ? guard : legacyGuard;
+    const afterGuard = body.slice(selectedGuard, selectedGuard + 400);
     const closes = afterGuard.indexOf("}");
     const guardBlock = afterGuard.slice(0, closes);
 

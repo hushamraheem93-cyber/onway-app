@@ -210,7 +210,7 @@ describe("H-51 · the helper cannot mint something the server would not", () => 
     const real = process.env.JWT_SECRET;
     delete process.env.JWT_SECRET;
     try {
-      assert.throws(() => helpers.makeAdminSessionToken(), /JWT_SECRET/);
+      assert.throws(() => helpers.makeAdminSessionToken(), /JWT_SECRET|SESSION_SECRET/);
     } finally { process.env.JWT_SECRET = real; }
   });
 
