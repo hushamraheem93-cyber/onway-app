@@ -8025,9 +8025,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.json({ orders: {}, revenue: {}, users: 0, drivers: {}, vendors: {}, products: 0, topVendors: [] });
       const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const weekStart = new Date(now.getTime() - 7 * 86400000).toISOString();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      // M-01: these bounds are compared against `createdAt`, which is a Firestore
+      // Timestamp — with legacy ISO and Date rows still in the collection. Comparing
+      // any of those to an ISO STRING with `>=` coerces the value with toString(): a
+      // Timestamp prints "Timestamp(seconds=…)", which sorts ABOVE every ISO date, so
+      // every order landed in every bucket (today === week === month === total); a
+      // Date prints "Mon Aug 22 2026 …", which sorts BELOW, so those rows landed in
+      // none. Bounds and values are milliseconds now, read through the same converter
+      // /api/admin/operations already uses twenty lines below.
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const weekStart = now.getTime() - 7 * 86400000;
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
       // C-13: `users` and `products` are only ever reported as a COUNT, so they use
       // the server-side aggregation instead of streaming every document into the
@@ -8076,14 +8084,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const doc of page.docs) {
             const o = doc.data() as any;
             totalOrders += 1;
-            const created = o.createdAt || "";
+            const created = timestampMillis(o.createdAt);
             const isDelivered = o.status === "delivered";
-            if (created >= todayStart) {
-              todayCount += 1;
-              if (isDelivered) todayRevenue += o.total || 0;
+            // An unreadable or missing date belongs to no period. It still counts
+            // towards the lifetime totals below, which is where it was always
+            // counted — only the period buckets are gated.
+            if (created !== null) {
+              if (created >= todayStart) {
+                todayCount += 1;
+                if (isDelivered) todayRevenue += o.total || 0;
+              }
+              if (created >= weekStart) weekCount += 1;
+              if (created >= monthStart) monthCount += 1;
             }
-            if (created >= weekStart) weekCount += 1;
-            if (created >= monthStart) monthCount += 1;
             if (isDelivered) { deliveredCount += 1; totalRevenue += o.total || 0; }
             else if (o.status === "cancelled") cancelledCount += 1;
             else activeCount += 1;
