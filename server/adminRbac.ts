@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
 import { getFirestore } from "./firebase";
 import { recordAudit } from "./financialLedger";
-import { getAdminIdentity, invalidateAllSessions } from "./adminAuth";
+import { getAdminIdentity, invalidateSessionsForAdmin } from "./adminAuth";
 import {
   ADMIN_PERMISSIONS,
   ADMIN_ROLES,
@@ -316,13 +316,21 @@ export async function updateAdminUser(input: {
     targetId: updated.adminId,
     metadata: { username: updated.username, role: updated.role, isActive: updated.isActive },
   });
-  // Updating another admin must not revoke the actor's live session. The old
-  // behavior invalidated every session after any edit/disable, so the Admin Web
-  // request succeeded but its follow-up refresh immediately received 401 and the
-  // button appeared broken. Self-credential changes still revoke the current
-  // session; the dedicated credentials endpoint also handles its own logout.
-  if (input.adminId === input.actor.adminId && (input.role !== undefined || input.isActive !== undefined || input.password || input.username !== undefined)) {
-    invalidateAllSessions();
+  // R-01: end the sessions of the admin whose authority just changed — and only
+  // theirs.
+  //
+  // The first version called invalidateAllSessions() after any edit, which signed
+  // the acting admin out of their own panel; the button looked broken. That was
+  // then narrowed to self-edits, which fixed the panel by giving up the security
+  // property: disabling or demoting someone left their existing token working, with
+  // its old permissions, for the seven days a session lives. A fired operations
+  // admin kept working; a demoted finance admin could still approve settlements.
+  //
+  // Revoking by adminId is what both of those wanted. The target is signed out
+  // immediately, the actor's own session is untouched, and a self-edit still ends
+  // the editor's sessions because they are the target.
+  if (input.role !== undefined || input.isActive !== undefined || input.password || input.username !== undefined) {
+    invalidateSessionsForAdmin(current.adminId);
   }
   return updated;
 }

@@ -46,6 +46,22 @@ const REVOCATION_DOC = "sessionRevocation";
 const revokedJtis = new Map<string, number>();
 let revokedBefore = 0; // epoch ms — tokens with iat*1000 < revokedBefore are invalid
 
+// R-01: the same "revoke everything issued before" idea, but per admin.
+//
+// Identity is resolved from the token alone — no request reads the admin document —
+// so `isActive: false` and a changed role had no effect at all on a session that
+// already existed, and a session lives for seven days. Disabling a fired admin, or
+// demoting one away from `settlements.approve`, left them working until the token
+// expired on its own.
+//
+// The two existing tools cannot express "this one admin": invalidateSession() needs
+// the token itself, which the panel never holds, and invalidateAllSessions() signs
+// everyone out including whoever clicked — which is exactly why the call was taken
+// out of updateAdminUser. This map is the missing third option, and it rides the
+// same persisted document so it survives the restarts that `max_memory_restart`
+// guarantees.
+const revokedAdminsBefore = new Map<string, number>(); // adminId → epoch ms
+
 /**
  * Load persisted revocation state into memory. Call once during boot, BEFORE the
  * server starts listening, so no request is served with an empty revocation set.
@@ -63,7 +79,17 @@ export async function loadRevocationState(): Promise<void> {
     for (const [jti, expiresAt] of Object.entries(data?.jtis || {})) {
       if (Number(expiresAt) > now) revokedJtis.set(jti, Number(expiresAt));
     }
-    console.log(`[ADMIN] Loaded session revocation state (${revokedJtis.size} revoked token(s)).`);
+    // A per-admin cutoff older than the longest possible token life can no longer
+    // reject anything, so it is dropped rather than kept forever.
+    const stale = now - SESSION_TTL_SECS * 1000;
+    revokedAdminsBefore.clear();
+    for (const [adminId, cutoff] of Object.entries(data?.admins || {})) {
+      if (Number(cutoff) > stale) revokedAdminsBefore.set(adminId, Number(cutoff));
+    }
+    console.log(
+      `[ADMIN] Loaded session revocation state (${revokedJtis.size} revoked token(s), ` +
+        `${revokedAdminsBefore.size} revoked admin(s)).`,
+    );
   } catch (err: any) {
     // Do not fail the boot: an unreachable Firestore would otherwise take the whole
     // server down. The condition is logged loudly because it degrades revocation.
@@ -81,9 +107,15 @@ function persistRevocationState(): void {
     if (expiresAt > now) jtis[jti] = expiresAt;
     else revokedJtis.delete(jti);
   }
+  const stale = now - SESSION_TTL_SECS * 1000;
+  const admins: Record<string, number> = {};
+  for (const [adminId, cutoff] of revokedAdminsBefore) {
+    if (cutoff > stale) admins[adminId] = cutoff;
+    else revokedAdminsBefore.delete(adminId);
+  }
   db.collection(REVOCATION_COLLECTION)
     .doc(REVOCATION_DOC)
-    .set({ revokedBefore, jtis, updatedAt: now }, { merge: false })
+    .set({ revokedBefore, jtis, admins, updatedAt: now }, { merge: false })
     .catch((err: any) => console.error("[ADMIN] Could not persist session revocation:", err?.message));
 }
 
@@ -141,6 +173,28 @@ export function invalidateSession(token: string | undefined | null): void {
   } catch { /* ignore malformed tokens */ }
 }
 
+/**
+ * End every session belonging to ONE admin, and nobody else's (R-01).
+ *
+ * Call this whenever the admin's authority changes: disabled, re-roled, renamed, or
+ * given a new password. The stored identity is baked into their token, so without
+ * this the change only applies to sessions they start afterwards.
+ *
+ * The cutoff is rounded UP to the next whole second because `iat` has one-second
+ * resolution. Rounding down would leave a token minted in the same second still
+ * valid; rounding up also rejects a token minted moments later in that same second,
+ * which is the safe direction and keeps disable → re-enable → sign in working —
+ * an admin re-activated and signing in the next second is accepted.
+ */
+export function invalidateSessionsForAdmin(adminId: string | undefined | null): void {
+  const id = typeof adminId === "string" ? adminId.trim() : "";
+  // A blank id must never be treated as "all admins": that would silently turn a
+  // single revocation into the blunt tool this function exists to replace.
+  if (!id) return;
+  revokedAdminsBefore.set(id, (Math.floor(Date.now() / 1000) + 1) * 1000);
+  persistRevocationState();
+}
+
 export function invalidateAllSessions(): void {
   revokedJtis.clear();
   revokedBefore = Date.now();
@@ -195,6 +249,12 @@ export function getSessionClaims(req: Request): any | null {
     if (decoded?.type !== "admin") return null;
     if (decoded.jti && revokedJtis.has(decoded.jti)) return null;
     if (revokedBefore > 0 && (decoded.iat || 0) * 1000 < revokedBefore) return null;
+    // R-01: this admin's authority changed after the token was minted, so the
+    // permissions it carries are stale. Still a pure in-memory check — the hot path
+    // reads no documents.
+    const adminId = typeof decoded.adminId === "string" ? decoded.adminId : "";
+    const adminCutoff = adminId ? revokedAdminsBefore.get(adminId) : undefined;
+    if (adminCutoff && (decoded.iat || 0) * 1000 < adminCutoff) return null;
     return decoded;
   } catch {
     return null;
