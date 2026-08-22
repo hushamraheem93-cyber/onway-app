@@ -941,12 +941,51 @@ function configureExpoAndLanding(app: express.Application) {
 }
 
 function setupErrorHandler(app: express.Application) {
+  /**
+   * Translate a multer limit breach into the answer it deserves.
+   *
+   * Identified by shape rather than by importing multer: the error is raised in
+   * routes.ts and this module has no upload code of its own. Returns null for
+   * anything that is not a multer error, so the ordinary path below is untouched.
+   */
+  const uploadErrorResponse = (
+    err: unknown,
+  ): { status: number; message: string } | null => {
+    const e = err as { name?: string; code?: string };
+    if (!e || e.name !== "MulterError") return null;
+    switch (e.code) {
+      case "LIMIT_FILE_SIZE":
+        return { status: 413, message: "حجم الملف أكبر من الحد المسموح (5 ميغابايت)" };
+      case "LIMIT_FILE_COUNT":
+      case "LIMIT_PART_COUNT":
+        return { status: 413, message: "عدد الملفات أكبر من الحد المسموح" };
+      case "LIMIT_FIELD_COUNT":
+      case "LIMIT_FIELD_KEY":
+      case "LIMIT_FIELD_VALUE":
+        return { status: 413, message: "بيانات الطلب أكبر من الحد المسموح" };
+      case "LIMIT_UNEXPECTED_FILE":
+        return { status: 400, message: "حقل ملف غير متوقّع" };
+      default:
+        return { status: 400, message: "تعذّر رفع الملف" };
+    }
+  };
+
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     const error = err as {
       status?: number;
       statusCode?: number;
       message?: string;
     };
+
+    // M-18: multer reports a breached upload limit with a `code` and no `status`,
+    // so every one of them fell through to 500 — and then to the deliberately
+    // generic 5xx message below. The uploader was told the server had broken when
+    // their file was simply too large, and the logs filled with false 5xx. Mapped
+    // here rather than per route so all three upload endpoints answer alike.
+    const multerStatus = uploadErrorResponse(err);
+    if (multerStatus && !res.headersSent) {
+      return res.status(multerStatus.status).json({ message: multerStatus.message });
+    }
 
     const status = error.status || error.statusCode || 500;
 

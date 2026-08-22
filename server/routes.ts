@@ -149,7 +149,19 @@ import { isDevMode, isDemoSeedAllowed, demoSeedDenialReason } from "./env";
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  // M-18: fileSize alone bounds ONE part, not the request. Without a cap on the
+  // number of parts a single multipart body may carry thousands of them, and
+  // memoryStorage() buffers every one before a handler ever runs — inside the same
+  // 512MB process C-13 was about. Every route below uploads exactly one image with
+  // a handful of accompanying fields, so these caps are well above real traffic and
+  // far below what an abusive body would need.
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+    parts: 25,
+    fields: 24,
+    fieldSize: 100 * 1024,
+  },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
     cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
