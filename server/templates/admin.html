@@ -10046,75 +10046,14 @@
       showToast('success', 'تم التصدير', `تقرير ${monthNames[now.getMonth()]} - ${monthOrders.length} طلب`);
     }
 
-    // ========================= Archive / Monthly Reset =========================
-    async function archiveOldOrders() {
-      const confirmed = window.confirm(
-        '⚠️ تصفير شهري كامل\n\n' +
-        'سيتم مسح:\n' +
-        '• جميع الطلبات (معلقة، نشطة، مكتملة، ملغية)\n' +
-        '• جميع أرباح التطبيق وسجلات المحافظ\n' +
-        '• جميع سجلات نشاط السائقين\n' +
-        '• جميع تنبيهات المشاكل\n' +
-        '• إعادة تصفير أرصدة محافظ السائقين إلى صفر\n\n' +
-        '⛔ هذا الإجراء لا يمكن التراجع عنه.\n' +
-        'تأكد من تصدير التقرير الشهري أولاً.\n\n' +
-        'هل أنت متأكد تماماً؟'
-      );
-      if (!confirmed) return;
-
-      const archiveBtns = document.querySelectorAll('[onclick="archiveOldOrders()"]');
-      archiveBtns.forEach(b => { b.disabled = true; b.innerHTML = '<i data-lucide="loader"></i> جارٍ المسح...'; });
-      lucide.createIcons();
-
-      try {
-        // C-01: the server no longer wipes anything on an unqualified DELETE — a
-        // bare call is a dry run now. The full monthly reset this button performs
-        // must name its scope and carry its own confirmation string, so nothing
-        // else that reaches the route can trigger it by accident.
-        const res = await fetch(`${API_BASE}/admin/archive-old-orders`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scope: 'all', confirm: 'DELETE-ALL-DATA', dryRun: false }),
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          // Clear ALL orders from local state
-          orders = [];
-
-          // Reset all visible stat counters to zero immediately
-          const zeroStats = [
-            'stat-delivered-orders', 'stat-cancelled-orders',
-            'stat-total-revenue', 'stat-owner-earnings', 'stat-driver-earnings',
-            'settings-delivered-count', 'settings-total-revenue',
-            'settings-owner-earnings', 'settings-driver-earnings',
-          ];
-          zeroStats.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = '0';
-          });
-
-          // Re-render orders list (now only active ones)
-          renderOrders();
-
-          // Reload from server to confirm fresh state
-          await loadOrders();
-          await loadSettingsStats();
-
-          showToast('success', 'تم التصفير', data.message || `تم مسح ${data.deleted} طلب وإعادة ضبط البيانات`);
-        } else {
-          showToast('error', 'خطأ', data.error || 'فشلت عملية المسح');
-        }
-      } catch (err) {
-        showToast('error', 'خطأ', 'حدث خطأ في الاتصال بالسيرفر');
-      } finally {
-        archiveBtns.forEach(b => {
-          b.disabled = false;
-          b.innerHTML = '<i data-lucide="refresh-cw"></i> تصفير ومسح بيانات الشهر';
-        });
-        lucide.createIcons();
-      }
+        // ========================= Archive / Monthly Reset =========================
+    // C-01: full-platform reset has no production-safe backup/restore workflow and
+    // is therefore disabled. Keep the action explicit in the UI rather than
+    // showing a confirmation dialog for an endpoint that must never delete all data.
+    function archiveOldOrders() {
+      showToast('info', 'التصفير الشامل معطّل', 'استخدم الأرشفة المحدودة بعد تشغيل تجريبي معتمد');
     }
+
 
     async function loadServiceFee() {
       try {

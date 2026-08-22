@@ -284,5 +284,11 @@ service cloud.firestore {
     match /otpCodes/{docId} {
       allow read, write: if false;
     }
+
+    // C-04: persistent per-phone OTP abuse state. It contains counters,
+    // cooldown timestamps and lockout state; only the Admin SDK may access it.
+    match /otpAbuse/{docId} {
+      allow read, write: if false;
+    }
   }
 }

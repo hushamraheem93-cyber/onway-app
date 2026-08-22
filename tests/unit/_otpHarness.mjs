@@ -117,22 +117,29 @@ function makeDb() {
   };
 }
 
-const STORE_FNS = [
-  "hashOtp", "digestsMatch", "newOtpCode",
-  "issueOtp", "expiresAtMillis", "consumeOtp", "sweepExpiredOtps",
-];
+  const STORE_FNS = [
+      "hashOtp", "digestsMatch", "otpTimestamp", "otpMillis", "normalizeOtpPhone",
+      "resendCooldownMs", "freshAbuseState", "otpRateLimitError", "newOtpCode",
+      "issueOtp", "expiresAtMillis", "consumeOtp", "sweepExpiredOtpAbuse", "sweepExpiredOtps",
+    ];
 
 /**
  * A fresh "process": the real generateOtp/verifyOtp wrappers over the real OTP
  * store, backed by a private in-memory database.
  */
-export function bootOtp() {
-  const { db, store } = makeDb();
+export function bootOtp(dbOverride = null) {
+  const own = dbOverride ? null : makeDb();
+  const db = dbOverride || own.db;
+  const store = own?.store || null;
 
   const consts = `
     const OTP_COLLECTION = "otpCodes";
+    const OTP_ABUSE_COLLECTION = "otpAbuse";
     const OTP_TTL_MS = ${OTP_STORE.match(/OTP_TTL_MS = ([^;]+);/)[1]};
+    const OTP_ABUSE_WINDOW_MS = ${OTP_STORE.match(/OTP_ABUSE_WINDOW_MS = ([^;]+);/)[1]};
     const OTP_MAX_ATTEMPTS = ${OTP_STORE.match(/OTP_MAX_ATTEMPTS = (\d+)/)[1]};
+    const OTP_MAX_ISSUES_PER_WINDOW = OTP_MAX_ATTEMPTS;
+    const OTP_RESEND_COOLDOWNS_MS = [0, 30 * 1000, 60 * 1000, 300 * 1000];
     const OTP_SWEEP_LIMIT = ${OTP_STORE.match(/OTP_SWEEP_LIMIT = (\d+)/)[1]};
   `;
   const decls = [

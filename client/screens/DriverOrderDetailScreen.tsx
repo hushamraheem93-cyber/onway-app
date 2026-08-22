@@ -81,6 +81,8 @@ interface OrderDetail {
   items: OrderItem[];
   total: number;
   deliveryFee: number;
+  serviceFee?: number;
+  promoDiscount?: number;
   status: string;
   createdAt: string;
   notes?: string;
@@ -171,7 +173,13 @@ export default function DriverOrderDetailScreen() {
     cancelled: AppColors.error,
   };
 
-  const orderTotal = (order.total || 0) + (order.deliveryFee || 0);
+  // The server stores `total` as the final customer amount, including delivery
+  // and service fees. Keep this screen display-only: never add deliveryFee again.
+  const orderTotal = order.total || 0;
+  const itemsSubtotal = (order.items || []).reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0),
+    0,
+  );
 
   return (
     <View style={[styles.container]}>
@@ -655,7 +663,7 @@ export default function DriverOrderDetailScreen() {
           <View style={[styles.totalSection, { borderTopColor: theme.border }]}>
             <View style={styles.totalRow}>
               <ThemedText type="body" style={{ color: theme.text }}>
-                {formatPrice(order.total || 0)}
+                {formatPrice(itemsSubtotal)}
               </ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary }}>
                 المنتجات
@@ -669,6 +677,26 @@ export default function DriverOrderDetailScreen() {
                 أجرة التوصيل
               </ThemedText>
             </View>
+            {order.serviceFee !== undefined && order.serviceFee > 0 ? (
+              <View style={styles.totalRow}>
+                <ThemedText type="body" style={{ color: theme.text }}>
+                  {formatPrice(order.serviceFee)}
+                </ThemedText>
+                <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                  نسبة الخدمة
+                </ThemedText>
+              </View>
+            ) : null}
+            {order.promoDiscount !== undefined && order.promoDiscount > 0 ? (
+              <View style={styles.totalRow}>
+                <ThemedText type="body" style={{ color: AppColors.success }}>
+                  -{formatPrice(order.promoDiscount)}
+                </ThemedText>
+                <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                  الخصم
+                </ThemedText>
+              </View>
+            ) : null}
             <View style={[styles.totalRow, styles.grandTotalRow]}>
               <ThemedText
                 type="h3"

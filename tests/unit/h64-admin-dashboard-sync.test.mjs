@@ -463,7 +463,7 @@ describe("H-64 · D-3 stays closed", () => {
       code,
       /computeDriverPayout\(isRestaurantOrder, order\.deliveryFee \|\| 0, \(order as any\)\.appSharePercent\)/,
     );
-    assert.match(code, /totalOwnerEarnings \+= o\.ownerEarning \|\| 0;/);
+    assert.match(code, /AggregateField\.sum\("ownerEarning"\)/);
     assert.doesNotMatch(code, /isRestaurant \? 750 : 2000/);
   });
 });
@@ -556,6 +556,10 @@ describe("H-64 · B+E. every admin endpoint is classified", () => {
    * of data that already has a screen. None of them is an operator action.
    */
   const INTENTIONALLY_NO_UI = new Map([
+    [
+      "/api/admin/archive-old-orders",
+      "C-01: permanently disabled until a production-safe backup/restore workflow exists",
+    ],
     [
       "/api/admin/login",
       "auth: the login form posts it; it is not a dashboard control",

@@ -837,18 +837,14 @@ describe("D-3 · F. owner-earnings reports what was booked", () => {
 
   test("21. only frozen per-order values are summed", () => {
     const code = stripComments(fn);
-    assert.match(code, /totalOwnerEarnings \+= o\.ownerEarning \|\| 0;/);
-    assert.match(code, /totalDriverEarnings \+= o\.driverEarning \|\| 0;/);
-    assert.match(
-      code,
-      /ordersMissingEarnings\+\+;/,
-      "an order with no booked earnings must be counted, not invented",
-    );
-    assert.match(
-      code,
-      /ordersMissingEarnings,/,
-      "the gap must be reported to the caller",
-    );
+    assert.match(code, /AggregateField\.sum\("ownerEarning"\)/,
+      "owner earnings must come from the frozen stored field");
+    assert.match(code, /AggregateField\.sum\("driverEarning"\)/,
+      "driver earnings must come from the frozen stored field");
+    assert.match(code, /ordersMissingEarnings\s*:/,
+      "an order with no booked earnings must be counted, not invented");
+    assert.match(code, /ordersMissingEarnings\s*:/,
+      "the gap must be reported to the caller");
   });
 
   test("the totals reconcile against orders.ownerEarning", () => {

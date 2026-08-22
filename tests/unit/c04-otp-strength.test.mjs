@@ -92,27 +92,57 @@ describe("C-04 · brute force is bounded", () => {
       "the correct code still worked after 5 wrong attempts");
   });
 
-  test("a fresh code is needed after lockout, and it works", async () => {
-    await generateOtp(PHONE);
-    for (let i = 0; i < 5; i++) await verifyOtp(PHONE, "000001");
-    const fresh = await generateOtp(PHONE);
-    assert.equal(await verifyOtp(PHONE, fresh), true);
+  test("a fresh code stays blocked during phone lockout and works after the window", async () => {
+    const p = "07700009991";
+    const t0 = Date.now();
+    await generateOtp(p, t0);
+    for (let i = 0; i < 5; i++) await verifyOtp(p, "000001", t0 + i + 1);
+    await assert.rejects(
+      () => generateOtp(p, t0 + 30 * 1000),
+      (error) => error?.code === "otp_rate_limited",
+    );
+    const fresh = await generateOtp(p, t0 + 60 * 60 * 1000 + 1);
+    assert.equal(await verifyOtp(p, fresh, t0 + 60 * 60 * 1000 + 2), true);
   });
 
   test("guessing the whole space is not possible within one code's lifetime", async () => {
-    // 900,000 codes / 5 attempts = 180,000 send-otp calls, and send-otp is capped
-    // at 5 per minute per IP (server/index.ts LIMITS).
-    const SPACE = 900_000, ATTEMPTS = 5, SENDS_PER_MIN = 5;
-    const minutes = SPACE / ATTEMPTS / SENDS_PER_MIN;
-    assert.ok(minutes > 30_000, `only ${Math.round(minutes)} minutes to exhaust the space`);
+    // The per-phone cumulative budget now dominates IP rotation: five failed
+    // attempts lock the canonical phone for the one-hour abuse window.
+    const SPACE = 900_000, ATTEMPTS = 5;
+    const minutes = SPACE / ATTEMPTS;
+    assert.ok(minutes > 100_000, `only ${Math.round(minutes)} minutes to exhaust the space`);
+  });
+
+  test("same phone remains blocked when the caller changes IP or device", async () => {
+    const src = readFileSync(join(root, "server/index.ts"), "utf8");
+    const store = readFileSync(join(root, "server/otpStore.ts"), "utf8");
+    assert.match(src, /\/api\/auth\/send-otp": 5/);
+    assert.match(src, /\/api\/auth\/verify-otp": 15/);
+    assert.match(store, /OTP_ABUSE_COLLECTION = "otpAbuse"/);
+    assert.match(store, /doc\(canonicalPhone\)/);
+    assert.doesNotMatch(store, /trustedClientIp|remoteAddress|deviceId|sessionId/);
   });
 });
 
 describe("C-04 · expiry and replay", () => {
   test("a used code cannot be replayed", async () => {
-    const code = await generateOtp(PHONE);
-    assert.equal(await verifyOtp(PHONE, code), true);
-    assert.equal(await verifyOtp(PHONE, code), false, "the code was accepted twice");
+    const p = "07700009992";
+    const code = await generateOtp(p);
+    assert.equal(await verifyOtp(p, code), true);
+    assert.equal(await verifyOtp(p, code), false, "the code was accepted twice");
+  });
+
+  test("phone normalization variants share one abuse identity", async () => {
+    const canonical = "07700009993";
+    const t0 = Date.now();
+    const variants = ["07700009993", "7700009993", "+9647700009993", "009647700009993"];
+    await generateOtp(variants[0], t0);
+    for (let i = 0; i < 5; i++) await verifyOtp(variants[i % variants.length], "000001", t0 + i + 1);
+    await assert.rejects(
+      () => generateOtp(canonical, t0 + 30 * 1000),
+      (error) => error?.code === "otp_rate_limited",
+      "changing Iraqi phone notation bypassed the phone-wide limiter",
+    );
   });
 
   test("a code for one phone does not verify another phone", async () => {
@@ -158,8 +188,9 @@ describe("C-04 · the development bypass cannot fire in production", () => {
   });
 
   test("the bypass is inert here — DEV_MODE is unset", async () => {
-    await generateOtp(PHONE);
-    assert.equal(await verifyOtp(PHONE, "0000"), false,
+    const p = "07700009994";
+    await generateOtp(p);
+    assert.equal(await verifyOtp(p, "0000"), false,
       "the dev bypass fired outside development");
   });
 });

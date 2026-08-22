@@ -54,16 +54,21 @@ function liftFn(src, name) {
 }
 
 const LIFTED = [
-  "hashOtp", "digestsMatch", "newOtpCode",
-  "issueOtp", "expiresAtMillis", "consumeOtp", "sweepExpiredOtps",
+  "hashOtp", "digestsMatch", "otpTimestamp", "otpMillis", "normalizeOtpPhone",
+  "resendCooldownMs", "freshAbuseState", "otpRateLimitError", "newOtpCode",
+  "issueOtp", "expiresAtMillis", "consumeOtp", "sweepExpiredOtpAbuse", "sweepExpiredOtps",
 ];
 
 /** One "process": its own function objects, pointed at a given database. */
 function bootInstance(db) {
   const consts = `
     const OTP_COLLECTION = "otpCodes";
+    const OTP_ABUSE_COLLECTION = "otpAbuse";
     const OTP_TTL_MS = ${OTP_STORE.match(/OTP_TTL_MS = ([^;]+);/)[1]};
+    const OTP_ABUSE_WINDOW_MS = ${OTP_STORE.match(/OTP_ABUSE_WINDOW_MS = ([^;]+);/)[1]};
     const OTP_MAX_ATTEMPTS = ${OTP_STORE.match(/OTP_MAX_ATTEMPTS = (\d+)/)[1]};
+    const OTP_MAX_ISSUES_PER_WINDOW = OTP_MAX_ATTEMPTS;
+    const OTP_RESEND_COOLDOWNS_MS = [0, 30 * 1000, 60 * 1000, 300 * 1000];
     const OTP_SWEEP_LIMIT = ${OTP_STORE.match(/OTP_SWEEP_LIMIT = (\d+)/)[1]};
   `;
   const decls = consts + LIFTED.map((n) => liftFn(OTP_STORE, n)).join("\n");
@@ -180,6 +185,7 @@ function makeDb() {
 const PHONE = "07700000071"; // synthetic
 const OTHER = "07700000072"; // synthetic
 const key = (p) => `otpCodes/${p}`;
+const abuseKey = (p) => `otpAbuse/${p}`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("H-75 · A+B. a code works until it expires, and not after", () => {
@@ -261,40 +267,45 @@ describe("H-75 · C+D+H. one code, once", () => {
   test("D. a resend invalidates the previous code", async () => {
     const { db } = makeDb();
     const otp = bootInstance(db);
-    const first = await otp.issueOtp(PHONE);
-    const second = await otp.issueOtp(PHONE);
+    const t0 = 1_000_000;
+    const first = await otp.issueOtp(PHONE, t0);
+    const second = await otp.issueOtp(PHONE, t0 + 30 * 1000);
     assert.notEqual(first, second);
-    assert.equal(await otp.consumeOtp(PHONE, first), "wrong_code",
+    assert.equal(await otp.consumeOtp(PHONE, first, t0 + 30 * 1000 + 1), "wrong_code",
       "the superseded code still verified");
-    assert.equal(await otp.consumeOtp(PHONE, second), "verified");
+    assert.equal(await otp.consumeOtp(PHONE, second, t0 + 30 * 1000 + 2), "verified");
   });
 
   test("D. a resend leaves exactly one record", async () => {
     const { db, store } = makeDb();
     const otp = bootInstance(db);
-    for (let i = 0; i < 5; i++) await otp.issueOtp(PHONE);
+    const t0 = 1_000_000;
+    for (let i = 0; i < 5; i++) await otp.issueOtp(PHONE, t0 + i * 10 * 60 * 1000);
     const mine = [...store.keys()].filter((k) => k.startsWith("otpCodes/"));
     assert.deepEqual(mine, [key(PHONE)], "resending accumulated usable records");
   });
 
-  test("D. a resend resets the wrong-attempt counter", async () => {
+  test("D. a resend resets only the per-code counter, not phone abuse history", async () => {
     const { db, store } = makeDb();
     const otp = bootInstance(db);
-    await otp.issueOtp(PHONE);
-    await otp.consumeOtp(PHONE, "000000");
-    await otp.consumeOtp(PHONE, "000000");
-    await otp.issueOtp(PHONE);
+    const t0 = 1_000_000;
+    await otp.issueOtp(PHONE, t0);
+    await otp.consumeOtp(PHONE, "000000", t0 + 1);
+    await otp.consumeOtp(PHONE, "000000", t0 + 2);
+    await otp.issueOtp(PHONE, t0 + 30 * 1000);
     assert.equal(store.get(key(PHONE)).attempts, 0);
+    assert.equal(store.get(abuseKey(PHONE)).failedAttempts, 2);
   });
 
   test("H. only the newest of several codes is accepted", async () => {
     const { db } = makeDb();
     const otp = bootInstance(db);
     const codes = [];
-    for (let i = 0; i < 3; i++) codes.push(await otp.issueOtp(PHONE));
-    assert.equal(await otp.consumeOtp(PHONE, codes[0]), "wrong_code");
-    assert.equal(await otp.consumeOtp(PHONE, codes[1]), "wrong_code");
-    assert.equal(await otp.consumeOtp(PHONE, codes[2]), "verified");
+    const t0 = 1_000_000;
+    for (let i = 0; i < 3; i++) codes.push(await otp.issueOtp(PHONE, t0 + [0, 30, 90][i] * 1000));
+    assert.equal(await otp.consumeOtp(PHONE, codes[0], t0 + 90 * 1000 + 1), "wrong_code");
+    assert.equal(await otp.consumeOtp(PHONE, codes[1], t0 + 90 * 1000 + 2), "wrong_code");
+    assert.equal(await otp.consumeOtp(PHONE, codes[2], t0 + 90 * 1000 + 3), "verified");
   });
 });
 
@@ -336,9 +347,10 @@ describe("H-75 · E+F. the state is not in the process", () => {
     const { db } = makeDb();
     const a = bootInstance(db);
     const b = bootInstance(db);
-    const first = await a.issueOtp(PHONE);
-    await b.issueOtp(PHONE);
-    assert.equal(await a.consumeOtp(PHONE, first), "wrong_code");
+    const t0 = 1_000_000;
+    const first = await a.issueOtp(PHONE, t0);
+    await b.issueOtp(PHONE, t0 + 30 * 1000);
+    assert.equal(await a.consumeOtp(PHONE, first, t0 + 30 * 1000 + 1), "wrong_code");
   });
 
   test("nothing is kept in module scope between instances", async () => {
@@ -360,11 +372,15 @@ describe("H-75 · G. the store does not grow without limit", () => {
     const otp = bootInstance(db);
     const t0 = 1_000_000;
     for (let i = 0; i < 30; i++) await otp.issueOtp(`0770000${String(i).padStart(4, "0")}`, t0);
-    assert.equal(store.size, 30);
+    assert.equal([...store.keys()].filter((k) => k.startsWith("otpCodes/")).length, 30);
+    assert.equal([...store.keys()].filter((k) => k.startsWith("otpAbuse/")).length, 30);
 
     const removed = await otp.sweepExpiredOtps(t0 + 5 * 60 * 1000 + 1);
     assert.equal(removed, 30);
-    assert.equal(store.size, 0, "abandoned codes are still accumulating");
+    assert.equal([...store.keys()].filter((k) => k.startsWith("otpCodes/")).length, 0,
+      "expired OTP records were not swept");
+    assert.equal([...store.keys()].filter((k) => k.startsWith("otpAbuse/")).length, 30,
+      "live hourly abuse state was swept too early");
   });
 
   test("G. live records are never swept", async () => {
@@ -395,7 +411,8 @@ describe("H-75 · G. the store does not grow without limit", () => {
     const after = t0 + 10 * 60 * 1000;
     assert.equal(await otp.sweepExpiredOtps(after), 1);
     assert.equal(await otp.sweepExpiredOtps(after), 0);
-    assert.equal(store.size, 0);
+    assert.equal(store.has(key(PHONE)), false);
+    assert.equal(store.has(abuseKey(PHONE)), true);
   });
 
   test("G. an abandoned code is removed even though nobody ever verified it", async () => {
@@ -406,7 +423,10 @@ describe("H-75 · G. the store does not grow without limit", () => {
     const t0 = 1_000_000;
     await otp.issueOtp(PHONE, t0);
     await otp.sweepExpiredOtps(t0 + 6 * 60 * 1000);
-    assert.equal(store.size, 0);
+    assert.equal(store.has(key(PHONE)), false);
+    assert.equal(store.has(abuseKey(PHONE)), true);
+    assert.equal(await otp.sweepExpiredOtpAbuse(t0 + 60 * 60 * 1000 + 1), 1);
+    assert.equal(store.has(abuseKey(PHONE)), false);
   });
 });
 
@@ -602,13 +622,13 @@ describe("H-75 · the in-memory store is gone for good", () => {
   test("send-otp refuses to claim delivery when the code was not stored", () => {
     const at = ROUTES.indexOf('app.post("/api/auth/send-otp"');
     const body = ROUTES.slice(at, ROUTES.indexOf('app.post("/api/auth/verify-otp"'));
-    assert.match(body, /catch\s*\{[\s\S]{0,300}?res\.status\(503\)/,
+    assert.match(body, /catch(?:\s*\([^)]*\))?\s*\{[\s\S]{0,900}?res\.status\(503\)/,
       "a failed store write still tells the user the code was sent");
   });
 
   test("the wrappers delegate rather than re-implement", () => {
-    assert.match(liftFn(FIREBASE, "generateOtp"), /issueOtp\(phoneNumber\)/);
-    assert.match(liftFn(FIREBASE, "verifyOtp"), /consumeOtp\(phoneNumber, code\)/);
+    assert.match(liftFn(FIREBASE, "generateOtp"), /issueOtp\(phoneNumber(?:, now)?\)/);
+    assert.match(liftFn(FIREBASE, "verifyOtp"), /consumeOtp\(phoneNumber, code(?:, now)?\)/);
   });
 
   test("the development bypass is still gated on dev mode", () => {

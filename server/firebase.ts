@@ -1722,17 +1722,17 @@ export async function initializeDefaultDeliveryAreas(defaultAreas: any[]): Promi
 // bypass, which is a routing concern rather than a storage one.
 export { OTP_LENGTH } from "./otpStore";
 
-export async function generateOtp(phoneNumber: string): Promise<string> {
-  return issueOtp(phoneNumber);
+export async function generateOtp(phoneNumber: string, now: number = Date.now()): Promise<string> {
+  return issueOtp(phoneNumber, now);
 }
 
-export async function verifyOtp(phoneNumber: string, code: string): Promise<boolean> {
+export async function verifyOtp(phoneNumber: string, code: string, now: number = Date.now()): Promise<boolean> {
   // Development-only bypass: the fixed code "0000" is always accepted in dev mode.
   // In production this branch is inert, so only a real OTPIQ-delivered code works.
   if (code === "0000" && isDevMode()) {
     return true;
   }
-  return (await consumeOtp(phoneNumber, code)) === "verified";
+  return (await consumeOtp(phoneNumber, code, now)) === "verified";
 }
 
 // Promo Code Functions

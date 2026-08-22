@@ -602,10 +602,7 @@ export default function DriverOrdersScreen() {
               type="h4"
               style={{ color: AppColors.primary, fontWeight: FontWeight.xBold }}
             >
-              {formatPrice(
-                (order.totalPrice ?? order.total ?? 0) +
-                  (order.deliveryFee ?? 0),
-              )}
+              {formatPrice(order.total ?? 0)}
             </ThemedText>
           </View>
         </View>

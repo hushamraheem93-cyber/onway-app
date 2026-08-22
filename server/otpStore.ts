@@ -49,6 +49,13 @@ export const OTP_TTL_MS = 5 * 60 * 1000;
 export const OTP_MAX_ATTEMPTS = 5;
 export const OTP_LENGTH = 6;
 
+/** Persistent abuse state: shared by every instance and surviving restarts. */
+export const OTP_ABUSE_COLLECTION = "otpAbuse";
+export const OTP_ABUSE_WINDOW_MS = 60 * 60 * 1000;
+/** Reuse the existing five-attempt security budget for the hourly issue budget. */
+export const OTP_MAX_ISSUES_PER_WINDOW = OTP_MAX_ATTEMPTS;
+export const OTP_RESEND_COOLDOWNS_MS = [0, 30 * 1000, 60 * 1000, 300 * 1000] as const;
+
 /** Most expired records a single sweep will delete. Bounded on purpose. */
 export const OTP_SWEEP_LIMIT = 200;
 /** How often the in-process safety-net sweep runs. */
@@ -76,6 +83,63 @@ function digestsMatch(a: string, b: string): boolean {
   }
 }
 
+function otpTimestamp(ms: number): any {
+  return admin.firestore.Timestamp.fromMillis(ms);
+}
+
+function otpMillis(value: any): number {
+  if (value && typeof value.toMillis === "function") return value.toMillis();
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Same canonical identity used by the HTTP OTP routes, including Iraqi variants. */
+export function normalizeOtpPhone(raw: string): string {
+  const text = String(raw || "").trim();
+  const d = text.replace(/\D/g, "");
+  if (/^009647\d{9}$/.test(d)) return "0" + d.slice(5);
+  if (/^9647\d{9}$/.test(d)) return "0" + d.slice(3);
+  if (/^07\d{9}$/.test(d)) return d;
+  if (/^7\d{9}$/.test(d)) return "0" + d;
+  // HTTP routes reject this shape; preserving it here keeps the storage helper
+  // total and prevents synthetic/unit keys from collapsing into one identity.
+  return text;
+}
+
+function resendCooldownMs(sendCount: number): number {
+  if (sendCount <= 0) return OTP_RESEND_COOLDOWNS_MS[0];
+  if (sendCount === 1) return OTP_RESEND_COOLDOWNS_MS[1];
+  if (sendCount === 2) return OTP_RESEND_COOLDOWNS_MS[2];
+  return OTP_RESEND_COOLDOWNS_MS[3];
+}
+
+function freshAbuseState(data: any, now: number): any {
+  const started = otpMillis(data?.windowStartedAt);
+  if (!started || now >= started + OTP_ABUSE_WINDOW_MS) {
+    return {
+      windowStartedAt: now,
+      sendCount: 0,
+      failedAttempts: 0,
+      lastIssuedAt: 0,
+      blockedUntil: 0,
+    };
+  }
+  return {
+    windowStartedAt: started,
+    sendCount: Math.max(0, Number(data?.sendCount) || 0),
+    failedAttempts: Math.max(0, Number(data?.failedAttempts) || 0),
+    lastIssuedAt: otpMillis(data?.lastIssuedAt),
+    blockedUntil: otpMillis(data?.blockedUntil),
+  };
+}
+
+function otpRateLimitError(retryAfterMs: number, reason: string): any {
+  const error: any = new Error(reason);
+  error.code = "otp_rate_limited";
+  error.retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return error;
+}
+
 /** The six-digit code itself. Never leaves this process except via the SMS provider. */
 export function newOtpCode(): string {
   // C-04: a 4-digit code is 9,000 possibilities and was brute-forceable within
@@ -100,17 +164,54 @@ export async function issueOtp(
   const db = getFirestore();
   if (!db) throw new Error("otp store unavailable");
 
+  const canonicalPhone = normalizeOtpPhone(phoneNumber);
   const code = newOtpCode();
   const salt = crypto.randomBytes(16).toString("hex");
+  const otpRef = db.collection(OTP_COLLECTION).doc(canonicalPhone);
+  const abuseRef = db.collection(OTP_ABUSE_COLLECTION).doc(canonicalPhone);
 
-  await db.collection(OTP_COLLECTION).doc(phoneNumber).set({
-    phoneNumber,
-    codeHash: hashOtp(code, salt),
-    salt,
-    attempts: 0,
-    // A Firestore Timestamp, because that is what a native TTL policy reads.
-    expiresAt: admin.firestore.Timestamp.fromMillis(now + OTP_TTL_MS),
-    createdAt: admin.firestore.Timestamp.fromMillis(now),
+  await db.runTransaction(async (tx: any) => {
+    const abuseSnap = await tx.get(abuseRef);
+    const state = freshAbuseState(abuseSnap.exists ? abuseSnap.data() : null, now);
+
+    if (state.blockedUntil > now || state.failedAttempts >= OTP_MAX_ATTEMPTS) {
+      const retryUntil = state.blockedUntil || state.windowStartedAt + OTP_ABUSE_WINDOW_MS;
+      throw otpRateLimitError(retryUntil - now, "OTP phone is temporarily locked");
+    }
+
+    if (state.sendCount >= OTP_MAX_ISSUES_PER_WINDOW) {
+      throw otpRateLimitError(
+        state.windowStartedAt + OTP_ABUSE_WINDOW_MS - now,
+        "OTP hourly issue limit reached",
+      );
+    }
+
+    const cooldown = resendCooldownMs(state.sendCount);
+    if (state.lastIssuedAt && now < state.lastIssuedAt + cooldown) {
+      throw otpRateLimitError(state.lastIssuedAt + cooldown - now, "OTP resend cooldown active");
+    }
+
+    const nextSendCount = state.sendCount + 1;
+    tx.set(abuseRef, {
+      phoneNumber: canonicalPhone,
+      windowStartedAt: otpTimestamp(state.windowStartedAt),
+      sendCount: nextSendCount,
+      failedAttempts: state.failedAttempts,
+      lastIssuedAt: otpTimestamp(now),
+      blockedUntil: state.blockedUntil ? otpTimestamp(state.blockedUntil) : null,
+      updatedAt: otpTimestamp(now),
+      // TTL-compatible expiry; the hourly window is the lifetime of this state.
+      expiresAt: otpTimestamp(state.windowStartedAt + OTP_ABUSE_WINDOW_MS),
+    });
+    tx.set(otpRef, {
+      phoneNumber: canonicalPhone,
+      codeHash: hashOtp(code, salt),
+      salt,
+      attempts: 0,
+      // A Firestore Timestamp, because that is what a native TTL policy reads.
+      expiresAt: otpTimestamp(now + OTP_TTL_MS),
+      createdAt: otpTimestamp(now),
+    });
   });
 
   return code;
@@ -138,11 +239,20 @@ export async function consumeOtp(
   const db = getFirestore();
   if (!db) return "unavailable";
 
-  const ref = db.collection(OTP_COLLECTION).doc(phoneNumber);
+  const canonicalPhone = normalizeOtpPhone(phoneNumber);
+  const ref = db.collection(OTP_COLLECTION).doc(canonicalPhone);
+  const abuseRef = db.collection(OTP_ABUSE_COLLECTION).doc(canonicalPhone);
   try {
     return await db.runTransaction(async (tx: any) => {
       const snap = await tx.get(ref);
       if (!snap.exists) return "not_found" as const;
+
+      const abuseSnap = await tx.get(abuseRef);
+      const state = freshAbuseState(abuseSnap.exists ? abuseSnap.data() : null, now);
+      if (state.blockedUntil > now || state.failedAttempts >= OTP_MAX_ATTEMPTS) {
+        return "too_many_attempts" as const;
+      }
+
       const data = snap.data() as any;
 
       if (now > expiresAtMillis(data)) {
@@ -158,6 +268,20 @@ export async function consumeOtp(
 
       if (!digestsMatch(String(data.codeHash ?? ""), hashOtp(code, String(data.salt ?? "")))) {
         const next = attempts + 1;
+        const nextFailedAttempts = state.failedAttempts + 1;
+        const blockedUntil = nextFailedAttempts >= OTP_MAX_ATTEMPTS
+          ? state.windowStartedAt + OTP_ABUSE_WINDOW_MS
+          : 0;
+        tx.set(abuseRef, {
+          phoneNumber: canonicalPhone,
+          windowStartedAt: otpTimestamp(state.windowStartedAt),
+          sendCount: state.sendCount,
+          failedAttempts: nextFailedAttempts,
+          lastIssuedAt: state.lastIssuedAt ? otpTimestamp(state.lastIssuedAt) : null,
+          blockedUntil: blockedUntil ? otpTimestamp(blockedUntil) : null,
+          updatedAt: otpTimestamp(now),
+          expiresAt: otpTimestamp(state.windowStartedAt + OTP_ABUSE_WINDOW_MS),
+        });
         // Destroy the code once it has been guessed at too often, so the
         // remaining validity window cannot be walked.
         if (next >= OTP_MAX_ATTEMPTS) tx.delete(ref);
@@ -165,9 +289,9 @@ export async function consumeOtp(
         return "wrong_code" as const;
       }
 
-      // Single use: the record is gone before this transaction commits, so a
-      // concurrent verification of the same code finds nothing.
+      // Single use and successful verification reset the phone abuse budget.
       tx.delete(ref);
+      tx.delete(abuseRef);
       return "verified" as const;
     });
   } catch (error) {
@@ -189,6 +313,29 @@ export async function consumeOtp(
  * Safe to run from several instances at once: deleting an already-deleted
  * document is not an error.
  */
+export async function sweepExpiredOtpAbuse(
+  now: number = Date.now(),
+  limit: number = OTP_SWEEP_LIMIT,
+): Promise<number> {
+  const db = getFirestore();
+  if (!db) return 0;
+  try {
+    const snap = await db
+      .collection(OTP_ABUSE_COLLECTION)
+      .where("expiresAt", "<=", admin.firestore.Timestamp.fromMillis(now))
+      .limit(limit)
+      .get();
+    if (snap.empty) return 0;
+    const batch = db.batch();
+    snap.docs.forEach((d: any) => batch.delete(d.ref));
+    await batch.commit();
+    return snap.docs.length;
+  } catch (error) {
+    console.error("[OTP] abuse sweep failed:", (error as any)?.message ?? error);
+    return 0;
+  }
+}
+
 export async function sweepExpiredOtps(
   now: number = Date.now(),
   limit: number = OTP_SWEEP_LIMIT,
@@ -219,6 +366,7 @@ export function startOtpSweeper(intervalMs: number = OTP_SWEEP_INTERVAL_MS): voi
   if (sweepTimer) return;
   sweepTimer = setInterval(() => {
     void sweepExpiredOtps();
+    void sweepExpiredOtpAbuse();
   }, intervalMs);
   // Must not hold the process open on shutdown.
   sweepTimer.unref?.();

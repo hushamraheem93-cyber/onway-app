@@ -61,16 +61,19 @@ describe("OTP — code generation", () => {
     assert.ok(codes.size > 20, `expected varied codes, got only ${codes.size} distinct of 60`);
   });
 
-  test("re-issuing for the same phone replaces the previous code", async () => {
+  test("re-issuing for the same phone replaces the previous code after cooldown", async () => {
     const p = phone();
-    const first = await generateOtp(p);
-    let second = await generateOtp(p);
+    const t0 = Date.now();
+    const first = await generateOtp(p, t0);
+    let second = await generateOtp(p, t0 + 30 * 1000);
     // Regenerate on the rare collision so the assertion tests replacement, not luck.
     let guard = 0;
-    while (second === first && guard++ < 20) second = await generateOtp(p);
+    while (second === first && guard++ < 20) {
+      second = await generateOtp(p, t0 + 90 * 1000 + guard * 60 * 1000);
+    }
 
-    assert.equal(await verifyOtp(p, first), false, "the superseded code must stop working");
-    assert.equal(await verifyOtp(p, second), true, "the newest code must work");
+    assert.equal(await verifyOtp(p, first, t0 + 30 * 1000 + 1), false, "the superseded code must stop working");
+    assert.equal(await verifyOtp(p, second, t0 + 30 * 1000 + 2), true, "the newest code must work");
   });
 });
 
@@ -143,16 +146,21 @@ describe("OTP — brute-force protection", () => {
     assert.equal(await verifyOtp(p, code), true, "4 wrong attempts must not lock out a legitimate user");
   });
 
-  test("requesting a fresh code clears the failed-attempt counter", async () => {
+  test("requesting a fresh code preserves the failed-attempt counter", async () => {
     const p = phone();
-    const code1 = await generateOtp(p);
-    const wrong = String((Number(code1) % 9000) + 1000).padStart(4, "0");
-    for (let i = 0; i < 4; i++) await verifyOtp(p, wrong);
+    const t0 = Date.now();
+    const code1 = await generateOtp(p, t0);
+    const wrong = String(((Number(code1) - 100000 + 1) % 900000) + 100000);
+    for (let i = 0; i < 4; i++) await verifyOtp(p, wrong, t0 + i + 1);
 
-    const code2 = await generateOtp(p);
-    for (let i = 0; i < 4; i++) await verifyOtp(p, wrong);
-
-    assert.equal(await verifyOtp(p, code2), true, "a new code must start with a fresh attempt budget");
+    const code2 = await generateOtp(p, t0 + 30 * 1000);
+    assert.equal(await verifyOtp(p, wrong, t0 + 30 * 1000 + 1), false);
+    await assert.rejects(
+      () => generateOtp(p, t0 + 60 * 1000),
+      (error) => error?.code === "otp_rate_limited",
+      "a resend must not reset the phone-wide failed-attempt budget",
+    );
+    assert.equal(code2.length, 6);
   });
 });
 

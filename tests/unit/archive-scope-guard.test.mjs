@@ -54,18 +54,19 @@ describe("C-01 · the destructive path cannot be reached by an unqualified call"
       "an unrecognised scope must fall back to archive, never to a full wipe");
   });
 
-  test("the full reset demands its own confirmation string", () => {
-    assert.match(CLEAN, /const RESET_CONFIRM = "DELETE-ALL-DATA";/);
-    assert.match(H, /if \(confirm !== RESET_CONFIRM\) \{/,
-      "the full platform reset is reachable without confirmation");
+  test("the full reset is permanently disabled, not merely confirmation-gated", () => {
+    assert.doesNotMatch(CLEAN, /RESET_CONFIRM|DELETE-ALL-DATA/,
+      "a reusable full-wipe confirmation still exists");
+    assert.match(H, /res\.status\(410\)/,
+      "the full platform reset must be rejected before any destructive work");
+    assert.doesNotMatch(H, /collection\("walletHistory"\)\.get\(\)/,
+      "the disabled path still scans financial data");
   });
 
-  test("the archive confirmation string is separate — one cannot escalate to the other", () => {
-    assert.match(CLEAN, /const ARCHIVE_CONFIRM = "ARCHIVE";/);
-    const archiveTok = (CLEAN.match(/ARCHIVE_CONFIRM = "ARCHIVE"/) ?? [])[0];
-    const resetTok = (CLEAN.match(/RESET_CONFIRM = "DELETE-ALL-DATA"/) ?? [])[0];
-    assert.ok(archiveTok && resetTok && archiveTok !== resetTok,
-      "the two confirmations must be distinct strings");
+  test("only the bounded archive confirmation remains", () => {
+    assert.match(CLEAN, /const ARCHIVE_CONFIRM = "ARCHIVE"/);
+    assert.doesNotMatch(CLEAN, /DELETE-ALL-DATA|RESET_CONFIRM/,
+      "a full-wipe confirmation can still be reused");
   });
 });
 
@@ -99,8 +100,8 @@ describe("C-01 · the archive scope is genuinely scoped", () => {
     // The archive branch runs from its `if (scope === "archive")` to the full-reset
     // branch. Nothing in it may touch a financial collection.
     const from = H.indexOf('if (scope === "archive")');
-    const to = H.indexOf("if (confirm !== RESET_CONFIRM)");
-    assert.ok(from > 0 && to > from, "the two scopes are no longer separated");
+    const to = H.indexOf("return res.status(410)");
+    assert.ok(from > 0 && to > from, "the archive and disabled paths are no longer separated");
     const archiveBranch = H.slice(from, to);
     for (const forbidden of ["walletHistory", "driverCompletedOrders", "driverWallets"]) {
       assert.ok(!new RegExp(`collection\\("${forbidden}"\\)`).test(archiveBranch),
@@ -111,28 +112,33 @@ describe("C-01 · the archive scope is genuinely scoped", () => {
   });
 });
 
-describe("C-01 · the monthly reset still works, deliberately", () => {
-  test("the full reset behaviour is retained under its own scope", () => {
-    const from = H.indexOf("if (confirm !== RESET_CONFIRM)");
-    const resetBranch = H.slice(from);
-    assert.match(resetBranch, /const allOrders = await getOrders\(\);/,
-      "the monthly reset lost its order wipe");
-    assert.match(resetBranch, /balance: 0/,
-      "the monthly reset lost the wallet zeroing the admin button promises");
+describe("C-01 · the full reset is disabled and the safe archive is the only path", () => {
+  test("the route contains no full-collection destructive operations", () => {
+    assert.doesNotMatch(H, /getOrders\(\)/,
+      "the C-01 handler still materialises every order for deletion");
+    for (const forbidden of ["walletHistory", "driverActivityLog", "driverCompletedOrders", "driverWallets"]) {
+      assert.doesNotMatch(H, new RegExp(`collection\\(\\"${forbidden}\\"\\)`),
+        `the C-01 handler still touches ${forbidden}`);
+    }
+    assert.doesNotMatch(H, /balance:\s*0/);
   });
 
-  test("the admin panel sends the qualified body, so its button still works", () => {
-    const at = ADMIN_HTML.indexOf("archive-old-orders");
-    assert.ok(at > 0, "the admin panel no longer calls the route");
-    const call = ADMIN_HTML.slice(at, at + 400);
-    assert.match(call, /scope: 'all'/, "the panel would now only trigger a dry run");
-    assert.match(call, /confirm: 'DELETE-ALL-DATA'/);
-    assert.match(call, /dryRun: false/);
+  test("scope all is rejected before any write", () => {
+    assert.match(H, /return res\.status\(410\)\.json/);
   });
 
-  test("a destructive run is written to the log with the acting admin", () => {
+  test("the admin panel no longer sends a destructive request", () => {
+    const at = ADMIN_HTML.indexOf("function archiveOldOrders()");
+    assert.ok(at > 0, "the archive action disappeared");
+    const fn = ADMIN_HTML.slice(at, ADMIN_HTML.indexOf("async function loadServiceFee", at));
+    assert.match(fn, /التصفير الشامل معطّل/);
+    assert.doesNotMatch(fn, /fetch\(/);
+    assert.doesNotMatch(fn, /DELETE-ALL-DATA/);
+  });
+
+  test("the safe archive keeps an admin identity for the audit log", () => {
     assert.match(H, /\[ARCHIVE\] admin=\$\{adminUser\}/,
-      "there is no audit trail for a destructive call");
+      "the bounded archive has no audit trail");
     assert.match(H, /getSessionUsername\(req\)/);
   });
 });

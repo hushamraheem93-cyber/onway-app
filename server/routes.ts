@@ -4,6 +4,7 @@ import type { IncomingMessage } from "http";
 import { createServer, type Server } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
+import { AggregateField, Filter } from "firebase-admin/firestore";
 import multer from "multer";
 import sharp from "sharp";
 import { randomUUID, createHash } from "crypto";
@@ -95,7 +96,7 @@ import type { OrderSettlementInput } from "./settlement";
 // H-72: a driver's money is keyed by their walletId, never by their phone.
 import { driverWalletIdOf, resolveDriverAccountId } from "./walletIdentity";
 import {
-  recordLedgerEntries, orderEntryId, getAccountStatement, listAuditLog, getLedgerBalance,
+  recordLedgerEntries, recordAudit, orderEntryId, getAccountStatement, listAuditLog, getLedgerBalance,
 } from "./financialLedger";
 import type { LedgerInput } from "./financialLedger";
 import {
@@ -4412,7 +4413,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let code: string;
     try {
       code = await generateOtp(phoneNumber);
-    } catch {
+    } catch (err: any) {
+      if (err?.code === "otp_rate_limited") {
+        const retryAfterSeconds = Math.max(1, Number(err.retryAfterSeconds) || 1);
+        res.setHeader("Retry-After", String(retryAfterSeconds));
+        return res.status(429).json({
+          error: "تم تجاوز حد طلبات رمز التحقق لهذا الرقم، حاول لاحقاً",
+          retryAfterSeconds,
+        });
+      }
       console.error("[OTP] could not store the code — not sending");
       return res.status(503).json({ error: "تعذّر إرسال رمز التحقق، حاول لاحقاً" });
     }
@@ -7108,39 +7117,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
       }
 
-      // Aggregate only over delivered orders (targeted status query).
-      const deliveredOrders = await getOrdersByStatus("delivered");
-
-      let totalOwnerEarnings = 0;
-      let totalDriverEarnings = 0;
-      let totalDeliveryFees = 0;
-      let ordersWithEarnings = 0;
-      let ordersMissingEarnings = 0;
-
-      for (const order of deliveredOrders) {
-        const o = order as any;
-        const deliveryFee = o.deliveryFee || 0;
-        totalDeliveryFees += deliveryFee;
-
-        // D-3: this used to invent `driverEarning = isRestaurant ? 750 : 2000` and
-        // `ownerEarning = isRestaurant ? 250 : 1000` for any delivered order that
-        // carried no earnings. Those four constants matched no rule the system has
-        // ever applied — with the live configuration the real figures were 1000 and
-        // 0 — so the owner-earnings screen reported money that was never booked, and
-        // it could not be reconciled against orders.ownerEarning.
-        //
-        // An order with no stored earnings is a settlement that never ran. It is
-        // counted and reported as such; nothing is fabricated for it, and it is NOT
-        // recomputed from today's settings either, which would silently restate
-        // historical figures.
-        if (o.driverEarning !== undefined) {
-          totalDriverEarnings += o.driverEarning || 0;
-          totalOwnerEarnings += o.ownerEarning || 0;
-          ordersWithEarnings++;
-        } else {
-          ordersMissingEarnings++;
-        }
-      }
+      // C-13: owner-earnings only returns aggregates. The previous helper loaded
+      // every delivered order, including items and images, into Node before summing
+      // four numbers. Firestore aggregation keeps the same financial source of
+      // truth while returning only scalar totals.
+      const deliveredQuery = db.collection("orders").where("status", "==", "delivered");
+      const [aggregateSnap, withEarningsCountSnap] = await Promise.all([
+        deliveredQuery.aggregate({
+          totalDeliveredOrders: AggregateField.count(),
+          totalDeliveryFees: AggregateField.sum("deliveryFee"),
+          totalDriverEarnings: AggregateField.sum("driverEarning"),
+          totalOwnerEarnings: AggregateField.sum("ownerEarning"),
+        }).get(),
+        // The old code classified an order as having earnings by field presence.
+        // `!= null` preserves that for the numeric earnings written by settlement,
+        // including zero, without materialising the order documents.
+        deliveredQuery.where("driverEarning", "!=", null).count().get(),
+      ]);
+      const aggregate = aggregateSnap.data() as any;
+      const totalDeliveredOrders = Number(aggregate.totalDeliveredOrders) || 0;
+      const ordersWithEarnings = Number(withEarningsCountSnap.data().count) || 0;
+      const totalDriverEarnings = Number(aggregate.totalDriverEarnings) || 0;
+      const totalOwnerEarnings = Number(aggregate.totalOwnerEarnings) || 0;
+      const totalDeliveryFees = Number(aggregate.totalDeliveryFees) || 0;
 
       res.json({
         totalOwnerEarnings,
@@ -7149,8 +7148,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ordersWithEarnings,
         // Surfaced rather than hidden: a non-zero value means these totals cover
         // fewer orders than were delivered, and the gap is real, not a rounding.
-        ordersMissingEarnings,
-        totalDeliveredOrders: deliveredOrders.length,
+        ordersMissingEarnings: Math.max(0, totalDeliveredOrders - ordersWithEarnings),
+        totalDeliveredOrders,
       });
     } catch (error: any) {
       console.error("[API]", error?.message);
@@ -7790,19 +7789,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       }
 
-      const snap = await db.collection("orders")
+      // C-13: keep the historical 2,000-order response ceiling, but make every
+      // Firestore read deterministic, date-aware and page-bounded. The previous
+      // query had no orderBy (so the selected 2,000 were arbitrary), ignored the
+      // requested period in Firestore, and then loaded all vendors/vendorProducts.
+      const FINANCIAL_REPORT_PAGE_SIZE = 500;
+      const FINANCIAL_REPORT_MAX_ORDERS = 2000;
+      let financialQuery = db.collection("orders")
         .where("status", "==", "delivered")
-        .limit(2000)
-        .get();
+        .orderBy("createdAt", "desc")
+        .select(
+          "total", "deliveryFee", "serviceFee", "vendorCommissionAmount",
+          "driverEarning", "vendorId", "vendorIds", "createdAt",
+        );
+      if (startDate) financialQuery = financialQuery.where("createdAt", ">=", startDate);
 
-      const vendorsSnap = await db.collection("vendors").get();
-      const vendorNames: Record<string, string> = {};
-      vendorsSnap.docs.forEach(d => { vendorNames[d.id] = (d.data() as any).storeName || "–"; });
+      const orderDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+      let orderCursor: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      while (orderDocs.length < FINANCIAL_REPORT_MAX_ORDERS) {
+        let pageQuery = financialQuery.limit(
+          Math.min(FINANCIAL_REPORT_PAGE_SIZE, FINANCIAL_REPORT_MAX_ORDERS - orderDocs.length),
+        );
+        if (orderCursor) pageQuery = pageQuery.startAfter(orderCursor);
+        const page = await pageQuery.get();
+        if (page.empty) break;
+        orderDocs.push(...page.docs);
+        orderCursor = page.docs[page.docs.length - 1];
+        if (page.size < FINANCIAL_REPORT_PAGE_SIZE) break;
+      }
 
-      const vpSnap = await db.collection("vendorProducts").get();
+      const orderRows = orderDocs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      // Modern orders carry vendorId/vendorIds. Only legacy rows without those
+      // fields need a document read for item-level vendor recovery, so large item
+      // arrays and embedded images are not loaded for the normal path.
+      const legacyOrderIds = orderRows
+        .filter(o => !o.vendorId)
+        .map(o => o.id);
+      if (legacyOrderIds.length > 0) {
+        const legacyDocs = await db.getAll(
+          ...legacyOrderIds.map(id => db.collection("orders").doc(id)),
+        );
+        const legacyById = new Map(
+          legacyDocs.filter(d => d.exists).map(d => [d.id, d.data() as any]),
+        );
+        for (const row of orderRows) {
+          const legacy = legacyById.get(row.id);
+          if (legacy) row.items = legacy.items;
+        }
+      }
+
+      const legacyProductIds = [
+        ...new Set(
+          orderRows
+            .filter(o => !o.vendorId)
+            .flatMap(o => (Array.isArray(o.items) ? o.items : []).map((i: any) => i?.productId))
+            .filter(Boolean),
+        ),
+      ] as string[];
       const productVendorMap: Record<string, string> = {};
-      vpSnap.docs.forEach(d => { productVendorMap[d.id] = (d.data() as any).vendorId || ""; });
+      if (legacyProductIds.length > 0) {
+        const productDocs = await db.getAll(
+          ...legacyProductIds.map(id => db.collection("vendorProducts").doc(id)),
+        );
+        for (const d of productDocs) {
+          if (d.exists) productVendorMap[d.id] = (d.data() as any).vendorId || "";
+        }
+      }
 
+      const vendorIdsUsedSet = new Set<string>(orderRows.map(o => o.vendorId).filter(Boolean));
+      for (const row of orderRows) {
+        if (row.vendorId) continue;
+        for (const item of (Array.isArray(row.items) ? row.items : [])) {
+          const legacyVendorId = item?.productId ? productVendorMap[item.productId] : "";
+          if (legacyVendorId) {
+            vendorIdsUsedSet.add(legacyVendorId);
+            break;
+          }
+        }
+      }
+      const vendorIdsUsed = [...vendorIdsUsedSet];
+      const vendorNames: Record<string, string> = {};
+      if (vendorIdsUsed.length > 0) {
+        const vendorDocs = await db.getAll(
+          ...vendorIdsUsed.map(id => db.collection("vendors").doc(id)),
+        );
+        for (const d of vendorDocs) {
+          if (d.exists) vendorNames[d.id] = (d.data() as any).storeName || (d.data() as any).name || "–";
+        }
+      }
       let totalRevenue = 0;
       let totalCommission = 0;
       let totalOrders = 0;
@@ -7811,8 +7885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendorStats: Record<string, { vendorId: string; vendorName: string; revenue: number; commission: number; netEarning: number; orders: number }> = {};
       const dailyMap: Record<string, { date: string; revenue: number; commission: number; orders: number }> = {};
 
-      for (const doc of snap.docs) {
-        const data = doc.data() as any;
+      for (const data of orderRows) {
         const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
         if (startDate && createdAt < startDate) continue;
 
@@ -7895,11 +7968,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Peak memory is one page, not the whole collection. Every reported figure is
       // accumulated exactly as the array filters computed it, so the output is
       // identical; only the memory profile changes.
-      const [usersCount, driversTotal, driversOnline, vendorsSnap, productsCount] = await Promise.all([
+      const restaurantFilter = Filter.or(
+        Filter.where("categoryType", "==", "restaurant"),
+        Filter.where("businessType", "==", "restaurant"),
+      );
+      const [usersCount, driversTotal, driversOnline, vendorsTotal, restaurantsCount, productsCount] = await Promise.all([
         db.collection("users").count().get(),
         db.collection("drivers").count().get(),
         db.collection("drivers").where("isOnline", "==", true).count().get(),
-        db.collection("vendors").get(),
+        db.collection("vendors").count().get(),
+        db.collection("vendors").where(restaurantFilter).count().get(),
         db.collection("products").count().get(),
       ]);
 
@@ -7941,27 +8019,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const vendors = vendorsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      const restaurants = vendors.filter((v: any) => v.categoryType === "restaurant" || v.businessType === "restaurant");
-      const stores = vendors.filter((v: any) => v.categoryType !== "restaurant" && v.businessType !== "restaurant");
-
-      // Counted server-side above, so no driver document is streamed for this.
+      // Counts stay server-side; only the five vendor documents needed for the
+      // top-vendors labels are fetched after the paged order scan.
+      const vendorTotal = vendorsTotal.data().count;
+      const restaurantTotal = restaurantsCount.data().count;
       const onlineDrivers = driversOnline.data().count;
-
-      // Top 5 vendors by order count — tallied during the paged scan above.
-      const topVendors = Object.entries(vendorOrderCount)
-        .sort((a, b) => b[1] - a[1]).slice(0, 5)
-        .map(([id, count]) => {
-          const v = vendors.find((x: any) => x.id === id);
-          return { id, name: v?.name || id, orders: count };
-        });
+      const topVendorEntries = Object.entries(vendorOrderCount)
+        .sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const topVendorDocs = topVendorEntries.length > 0
+        ? await db.getAll(
+          ...topVendorEntries.map(([id]) => db.collection("vendors").doc(id)),
+        )
+        : [];
+      const topVendorNames = new Map(
+        topVendorDocs.filter(d => d.exists).map(d => [
+          d.id,
+          (d.data() as any).name || (d.data() as any).storeName || d.id,
+        ]),
+      );
+      const topVendors = topVendorEntries.map(([id, count]) => ({
+        id,
+        name: topVendorNames.get(id) || id,
+        orders: count,
+      }));
 
       res.json({
         orders: { total: totalOrders, today: todayCount, week: weekCount, month: monthCount, active: activeCount, delivered: deliveredCount, cancelled: cancelledCount },
         revenue: { total: totalRevenue, today: todayRevenue },
         users: usersCount.data().count,
         drivers: { total: driversTotal.data().count, online: onlineDrivers },
-        vendors: { total: vendors.length, restaurants: restaurants.length, stores: stores.length },
+        vendors: { total: vendorTotal, restaurants: restaurantTotal, stores: Math.max(0, vendorTotal - restaurantTotal) },
         products: productsCount.data().count,
         topVendors,
       });
@@ -8033,52 +8120,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const days = parseInt((req.query.days as string) || "30", 10);
       const since = new Date(Date.now() - days * 86400000).toISOString();
 
-      const [ordersSnap, usersSnap] = await Promise.all([
-        db.collection("orders").where("createdAt", ">=", since).orderBy("createdAt", "desc").get(),
-        db.collection("users").where("createdAt", ">=", since).get(),
-      ]);
-
-      const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      const delivered = orders.filter((o: any) => o.status === "delivered");
-
-      // Daily breakdown
+      // C-13: every page is bounded and only the fields used by this endpoint are
+      // projected. Aggregation happens as pages arrive, so the process never holds
+      // the entire period (or the embedded item images) in memory at once.
+      const ANALYTICS_PAGE_SIZE = 500;
       const dailyMap: Record<string, { date: string; orders: number; revenue: number; newUsers: number }> = {};
-      orders.forEach((o: any) => {
-        const day = (o.createdAt || "").substring(0, 10);
-        if (!dailyMap[day]) dailyMap[day] = { date: day, orders: 0, revenue: 0, newUsers: 0 };
-        dailyMap[day].orders++;
-        if (o.status === "delivered") dailyMap[day].revenue += (o.total || 0);
-      });
-      usersSnap.docs.forEach(d => {
-        const day = ((d.data() as any).createdAt || "").substring(0, 10);
-        if (dailyMap[day]) dailyMap[day].newUsers++;
-      });
+      const catCount: Record<string, number> = {};
+      let totalOrders = 0;
+      let totalRevenue = 0;
+      let deliveredCount = 0;
+      let orderCursor: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      for (;;) {
+        let orderQuery = db.collection("orders")
+          .where("createdAt", ">=", since)
+          .orderBy("createdAt", "desc")
+          .select("status", "total", "createdAt", "items")
+          .limit(ANALYTICS_PAGE_SIZE);
+        if (orderCursor) orderQuery = orderQuery.startAfter(orderCursor);
+        const page = await orderQuery.get();
+        if (page.empty) break;
+        for (const doc of page.docs) {
+          const o = doc.data() as any;
+          const createdAt = o.createdAt?.toDate?.()?.toISOString?.() ?? String(o.createdAt || "");
+          const day = createdAt.substring(0, 10);
+          if (!dailyMap[day]) dailyMap[day] = { date: day, orders: 0, revenue: 0, newUsers: 0 };
+          dailyMap[day].orders++;
+          totalOrders++;
+          if (o.status === "delivered") {
+            deliveredCount++;
+            const orderTotal = Number(o.total) || 0;
+            dailyMap[day].revenue += orderTotal;
+            totalRevenue += orderTotal;
+          }
+          for (const item of (Array.isArray(o.items) ? o.items : [])) {
+            const cat = item.categoryId || "أخرى";
+            catCount[cat] = (catCount[cat] || 0) + (Number(item.quantity) || 0);
+          }
+        }
+        if (page.size < ANALYTICS_PAGE_SIZE) break;
+        orderCursor = page.docs[page.docs.length - 1];
+      }
+
+      let newUsers = 0;
+      let userCursor: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      for (;;) {
+        let userQuery = db.collection("users")
+          .where("createdAt", ">=", since)
+          .orderBy("createdAt", "desc")
+          .select("createdAt")
+          .limit(ANALYTICS_PAGE_SIZE);
+        if (userCursor) userQuery = userQuery.startAfter(userCursor);
+        const page = await userQuery.get();
+        if (page.empty) break;
+        for (const doc of page.docs) {
+          newUsers++;
+          const createdAt = (doc.data() as any).createdAt;
+          const iso = createdAt?.toDate?.()?.toISOString?.() ?? String(createdAt || "");
+          const day = iso.substring(0, 10);
+          if (dailyMap[day]) dailyMap[day].newUsers++;
+        }
+        if (page.size < ANALYTICS_PAGE_SIZE) break;
+        userCursor = page.docs[page.docs.length - 1];
+      }
 
       const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
-      // Top categories
-      const catCount: Record<string, number> = {};
-      orders.forEach((o: any) => {
-        (o.items || []).forEach((item: any) => {
-          const cat = item.categoryId || "أخرى";
-          catCount[cat] = (catCount[cat] || 0) + item.quantity;
-        });
-      });
       const topCategories = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 10)
         .map(([name, count]) => ({ name, count }));
 
-      // Conversion: orders / total users (rough)
-      // o.total already includes deliveryFee + serviceFee − discount; do not add deliveryFee again.
-      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0), 0);
-      const avgOrderValue = delivered.length ? Math.round(totalRevenue / delivered.length) : 0;
+      // Conversion: orders / total users (rough).
+      // `total` already includes deliveryFee + serviceFee − discount.
+      const avgOrderValue = deliveredCount ? Math.round(totalRevenue / deliveredCount) : 0;
 
       res.json({
         period: days,
-        totalOrders: orders.length,
+        totalOrders,
         totalRevenue,
         avgOrderValue,
-        deliveredRate: orders.length ? Math.round((delivered.length / orders.length) * 100) : 0,
-        newUsers: usersSnap.size,
+        deliveredRate: totalOrders ? Math.round((deliveredCount / totalOrders) * 100) : 0,
+        newUsers,
         dailyData,
         topCategories,
       });
@@ -9077,7 +9197,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const ARCHIVE_MIN_AGE_DAYS = 30;
   const ARCHIVE_DEFAULT_MAX_DELETES = 5000;
   const ARCHIVE_CONFIRM = "ARCHIVE";
-  const RESET_CONFIRM = "DELETE-ALL-DATA";
 
   app.delete("/api/admin/archive-old-orders", async (req: Request, res: Response) => {
     try {
@@ -9099,17 +9218,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })();
 
       const batchSize = 500;
-      const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
-        let count = 0;
-        for (let i = 0; i < docs.length; i += batchSize) {
-          const batch = db!.batch();
-          const chunk = docs.slice(i, i + batchSize);
-          for (const doc of chunk) batch.delete(doc.ref);
-          await batch.commit();
-          count += chunk.length;
-        }
-        return count;
-      };
 
       // ── scope "archive": old AND terminal only ────────────────────────────
       if (scope === "archive") {
@@ -9191,6 +9299,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         const deletedOrders = await deleteDocs(archivable);
         const deletedAlerts = await deleteDocs(staleAlerts.docs as any);
+        await recordAudit({
+          action: "admin.archive_old_orders",
+          actorType: "admin",
+          actorUsername: adminUser,
+          targetType: "orders",
+          metadata: {
+            scope: "archive",
+            olderThanDays,
+            deletedOrders,
+            deletedAlerts,
+          },
+          notes: "bounded archive of terminal orders; financial collections preserved",
+        });
 
         return res.json({
           dryRun: false,
@@ -9203,98 +9324,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // ── scope "all": the monthly reset the admin button performs ──────────
-      // Unchanged in what it does, but it can now only be reached deliberately.
-      if (confirm !== RESET_CONFIRM) {
-        return res.status(400).json({
-          error: `التصفير الشامل يتطلب confirm: "${RESET_CONFIRM}"`,
-        });
-      }
-      if (dryRun) {
-        const [o, wh, al, dc, aa, dw] = await Promise.all([
-          db.collection("orders").get(),
-          db.collection("walletHistory").get(),
-          db.collection("driverActivityLog").get(),
-          db.collection("driverCompletedOrders").get(),
-          db.collection("adminAlerts").get(),
-          db.collection("driverWallets").get(),
-        ]);
-        return res.json({
-          dryRun: true,
-          scope: "all",
-          wouldDelete: {
-            orders: o.size, walletHistory: wh.size, driverActivityLog: al.size,
-            driverCompletedOrders: dc.size, adminAlerts: aa.size,
-          },
-          wouldZero: { driverWallets: dw.size },
-          message: `تشغيل تجريبي — لم يُحذف شيء. التنفيذ سيمسح ${o.size} طلب ويصفّر ${dw.size} محفظة.`,
-        });
-      }
-
-      console.warn(`[ARCHIVE] admin=${adminUser} scope=ALL — full platform reset requested`);
-
-      // 1. Delete ALL orders regardless of status
-      const allOrders = await getOrders();
-      let deleted = 0;
-      for (let i = 0; i < allOrders.length; i += batchSize) {
-        const batch = db.batch();
-        const chunk = allOrders.slice(i, i + batchSize);
-        for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
-        await batch.commit();
-        deleted += chunk.length;
-      }
-
-      // 2. Delete ALL walletHistory entries
-      let walletDeleted = 0;
-      try {
-        const snap = await db.collection("walletHistory").get();
-        walletDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 3. Delete ALL driverActivityLog entries
-      let activityDeleted = 0;
-      try {
-        const snap = await db.collection("driverActivityLog").get();
-        activityDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 4. Delete ALL driverCompletedOrders entries
-      let completedDeleted = 0;
-      try {
-        const snap = await db.collection("driverCompletedOrders").get();
-        completedDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 5. Delete ALL adminAlerts entries
-      let alertsDeleted = 0;
-      try {
-        const snap = await db.collection("adminAlerts").get();
-        alertsDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 6. Reset all driverWallet balances to zero
-      let walletsReset = 0;
-      try {
-        const snap = await db.collection("driverWallets").get();
-        for (let i = 0; i < snap.docs.length; i += batchSize) {
-          const batch = db.batch();
-          const chunk = snap.docs.slice(i, i + batchSize);
-          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
-          await batch.commit();
-          walletsReset += chunk.length;
-        }
-      } catch (_e) {}
-
-      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
-      res.json({
-        deleted,
-        walletDeleted,
-        activityDeleted,
-        completedDeleted,
-        alertsDeleted,
-        walletsReset,
-        total,
-        message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
+      // C-01: full-platform reset is permanently disabled. There is no safe,
+      // production-grade backup/export-and-restore workflow in this application,
+      // so retaining a destructive branch behind a magic string would still be a
+      // release blocker. The supported archive scope above is bounded, terminal-only,
+      // dry-run-by-default, capped, and never touches financial collections.
+      return res.status(410).json({
+        error: "التصفير الشامل معطّل نهائياً؛ استخدم الأرشفة المحدودة بعد تشغيل تجريبي",
       });
     } catch (error: any) {
       console.error("[API]", error?.message);
