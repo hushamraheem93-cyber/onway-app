@@ -286,15 +286,27 @@ function sanitizeAuditValue(value: any, depth = 0): any {
 }
 
 /**
- * Append an immutable audit entry. Best-effort and never throws: an audit write
- * must not break the operation it is recording. Never updated or deleted.
+ * Append an immutable audit entry. Never throws: an audit write must not break the
+ * operation it is recording. Never updated or deleted.
+ *
+ * R-03: it reports whether it actually wrote. Swallowing the error was right —
+ * the money has already moved and failing here cannot undo it — but returning void
+ * meant no caller could tell a recorded movement from an unrecorded one, and the
+ * financial paths all discarded the promise anyway. Callers that move money await
+ * this and surface a false, so an unrecorded movement is at least visible instead
+ * of indistinguishable from a clean success.
  */
 export async function recordAudit(
   input: AuditInput,
   dbOverride?: any,
-): Promise<void> {
+): Promise<boolean> {
   const db = dbOverride ?? getFirestore();
-  if (!db) return;
+  if (!db) {
+    console.error(
+      `[AUDIT] NOT RECORDED action=${input.action}: no database available`,
+    );
+    return false;
+  }
   try {
     await db.collection(AUDIT).add({
       action: input.action,
@@ -315,10 +327,12 @@ export async function recordAudit(
       ...(input.metadata ? { metadata: sanitizeAuditValue(input.metadata) } : {}),
       createdAt: admin.firestore.Timestamp.now(),
     });
+    return true;
   } catch (err: any) {
     console.error(
       `[AUDIT] could not record action=${input.action}: ${err?.message}`,
     );
+    return false;
   }
 }
 

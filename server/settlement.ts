@@ -19,6 +19,61 @@ import { getFirestore } from "./firebase";
 import { recordLedgerEntry, recordAudit } from "./financialLedger";
 import type { AdminIdentity } from "./adminTypes";
 
+/**
+ * Await the paper trail for a movement that has already committed, and say whether
+ * all of it landed (R-03).
+ *
+ * The three admin money paths used to end with
+ *
+ *     recordLedgerEntry({ … }).catch(() => {});
+ *     recordAudit({ … }).catch(() => {});
+ *
+ * described as "best-effort, never blocks". Neither promise was awaited, so the
+ * handler answered 200 with both writes still in flight — and `max_memory_restart:
+ * 512M` means the process really does die mid-flight. Neither outcome was read
+ * either, so a write that simply failed left the outstanding balance changed with
+ * no ledger entry to reconcile against and no record of who changed it.
+ *
+ * The trail still cannot block the movement: by the time it runs, the transaction
+ * has committed and there is nothing to roll back. What changes is that it is
+ * finished before the caller returns, and a failure is reported instead of
+ * discarded, so an unrecorded movement can be found and reconciled rather than
+ * looking exactly like a clean one.
+ */
+async function recordFinancialTrail(
+  label: string,
+  audit: () => Promise<boolean>,
+  ledger?: () => Promise<"recorded" | "duplicate" | "failed">,
+): Promise<boolean> {
+  let complete = true;
+
+  if (ledger) {
+    const outcome = await ledger().catch((err: any) => {
+      console.error(`[TRAIL] ${label}: ledger entry threw — ${err?.message ?? err}`);
+      return "failed" as const;
+    });
+    if (outcome === "failed") {
+      complete = false;
+      console.error(
+        `[TRAIL] ${label}: BALANCE MOVED WITHOUT A LEDGER ENTRY — reconcile before retrying`,
+      );
+    }
+  }
+
+  const audited = await audit().catch((err: any) => {
+    console.error(`[TRAIL] ${label}: audit threw — ${err?.message ?? err}`);
+    return false;
+  });
+  if (!audited) {
+    complete = false;
+    console.error(
+      `[TRAIL] ${label}: BALANCE MOVED WITHOUT AN AUDIT RECORD — the actor is unrecorded`,
+    );
+  }
+
+  return complete;
+}
+
 export type SettlementAccountType = "driver" | "vendor";
 export type SettlementDirection = "collect" | "payout";
 
@@ -432,7 +487,7 @@ export async function transitionSettlementRequest(
   adminName?: string,
   reason?: string,
   adminActor?: AdminIdentity,
-): Promise<{ ok: boolean; reason?: string; status?: string }> {
+): Promise<{ ok: boolean; reason?: string; status?: string; recordFailed?: boolean }> {
   const db = getFirestore();
   if (!db) return { ok: false, reason: "no_db" };
   const reqRef = db.collection(SETTLEMENT_REQUESTS).doc(requestId);
@@ -463,8 +518,11 @@ export async function transitionSettlementRequest(
       };
     });
 
+    let recordFailed = false;
     if (result.ok) {
-      recordAudit({
+      recordFailed = !(await recordFinancialTrail(
+        `settlement.${action}`,
+        () => recordAudit({
         action: action === "approve" ? "settlement.approve" : "settlement.reject",
         actorType: "admin",
         actorId: adminActor?.adminId,
@@ -479,9 +537,15 @@ export async function transitionSettlementRequest(
         notes: reason || "",
         before: { status: (result as any).previousStatus },
         after: { status: (result as any).status },
-      }).catch(() => {});
+        }),
+      ));
     }
-    return { ok: result.ok, reason: (result as any).reason, status: (result as any).status };
+    return {
+      ok: result.ok,
+      reason: (result as any).reason,
+      status: (result as any).status,
+      ...(recordFailed ? { recordFailed: true } : {}),
+    };
   } catch (error) {
     console.error("transitionSettlementRequest error:", error);
     return { ok: false, reason: "tx_failed" };
@@ -873,17 +937,9 @@ export async function completeSettlement(
       // the account. Idempotent by the payment id, matching completeSettlement's own
       // idempotency, so a replayed payment records nothing new.
       const ref = (result as any).receiptNumber || paymentRef.id;
-      recordLedgerEntry({
-        accountType: input.accountType,
-        accountId: input.accountId,
-        type: "settlement",
-        debit: appliedOut,
-        settlementRef: ref,
-        createdBy: input.adminActor?.username || input.adminName || "admin",
-        entryId: `${paymentRef.id}__${input.accountType}__settlement`,
-        description: "تسوية دفعة",
-      }).catch(() => {});
-      recordAudit({
+      (result as any).recordFailed = !(await recordFinancialTrail(
+        "settlement.complete",
+        () => recordAudit({
         action: "settlement.complete",
         actorType: "admin",
         actorId: input.adminActor?.adminId,
@@ -899,7 +955,18 @@ export async function completeSettlement(
         notes: input.notes || "",
         before: { outstandingTotal: (result as any).outstandingBefore },
         after: { outstandingTotal: (result as any).outstandingAfter },
-      }).catch(() => {});
+        }),
+        () => recordLedgerEntry({
+          accountType: input.accountType,
+          accountId: input.accountId,
+          type: "settlement",
+          debit: appliedOut,
+          settlementRef: ref,
+          createdBy: input.adminActor?.username || input.adminName || "admin",
+          entryId: `${paymentRef.id}__${input.accountType}__settlement`,
+          description: "تسوية دفعة",
+        }),
+      ));
     }
     return result;
   } catch (error) {
@@ -1279,19 +1346,16 @@ export async function adminAdjustLedger(
       return { ok: true, outstandingBefore: before, outstandingAfter: after };
     });
 
-    // ── Financial ledger + audit (append-only) — best-effort, never blocks ──
+    // ── Financial ledger + audit (append-only) ──
     // A manual correction becomes a NEW typed movement (never an in-place edit of
     // history): "add" credits the account (owes/owed more), "deduct" debits it.
+    // Both writes are awaited and their outcome reported (R-03) — the balance has
+    // already committed, so this cannot block it, but an unrecorded correction must
+    // not be indistinguishable from a recorded one.
     if (result.ok && !(result as any).duplicate) {
-      recordLedgerEntry({
-        accountType, accountId,
-        type: "adjustment",
-        ...(adjustType === "add" ? { credit: delta } : { debit: delta }),
-        createdBy: adminActor?.username || adminName || "admin",
-        entryId: `${markerIds[0]}__adjustment`,
-        description: notes || "تعديل يدوي",
-      }).catch(() => {});
-      recordAudit({
+      (result as any).recordFailed = !(await recordFinancialTrail(
+        "ledger.adjust",
+        () => recordAudit({
         action: "ledger.adjust",
         actorType: "admin",
         actorId: adminActor?.adminId,
@@ -1306,7 +1370,16 @@ export async function adminAdjustLedger(
         notes: `${adjustType}: ${notes || ""}`.trim(),
         before: { outstandingTotal: (result as any).outstandingBefore },
         after: { outstandingTotal: (result as any).outstandingAfter },
-      }).catch(() => {});
+        }),
+        () => recordLedgerEntry({
+          accountType, accountId,
+          type: "adjustment",
+          ...(adjustType === "add" ? { credit: delta } : { debit: delta }),
+          createdBy: adminActor?.username || adminName || "admin",
+          entryId: `${markerIds[0]}__adjustment`,
+          description: notes || "تعديل يدوي",
+        }),
+      ));
     }
     return result;
   } catch (error) {
