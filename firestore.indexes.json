@@ -194,6 +194,24 @@
       ]
     },
     {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "deliveryFee", "order": "ASCENDING" },
+        { "fieldPath": "driverEarning", "order": "ASCENDING" },
+        { "fieldPath": "ownerEarning", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "driverEarning", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "vendorNotifications",
       "queryScope": "COLLECTION",
       "fields": [
