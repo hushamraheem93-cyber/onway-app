@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { StyleSheet, I18nManager } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -57,11 +57,9 @@ import { CartAnimationProvider } from "@/context/CartAnimationContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { LocationProvider } from "@/context/LocationContext";
+import { ensureRtl } from "@/lib/rtl";
 
 SplashScreen.preventAutoHideAsync();
-
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -81,13 +79,30 @@ export default function App() {
     Montserrat_900Black,
   });
 
+  // M-80: forceRTL only takes effect on the NEXT launch, so the launch that sets it
+  // would otherwise draw the whole Arabic app mirrored. ensureRtl() reloads once
+  // when that is the case; holding the splash until it settles means the wrong
+  // direction is never painted rather than being painted and corrected.
+  const [rtlSettled, setRtlSettled] = useState(false);
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    let cancelled = false;
+    ensureRtl().finally(() => {
+      if (!cancelled) setRtlSettled(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const assetsReady = fontsLoaded || fontError;
+
+  useEffect(() => {
+    if (assetsReady && rtlSettled) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [assetsReady, rtlSettled]);
 
-  if (!fontsLoaded && !fontError) {
+  if (!assetsReady || !rtlSettled) {
     return null;
   }
 

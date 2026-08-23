@@ -1,7 +1,8 @@
-import { Platform, I18nManager } from "react-native";
+import { Platform } from "react-native";
 
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
+// M-80: allowRTL/forceRTL used to run here as a side effect of importing the theme.
+// They now live in client/lib/rtl.ts, applied from the entry point before anything
+// lays out — a colour palette should not be deciding the app's layout direction.
 
 // ─── Core Brand ─────────────────────────────────────────────────────────────
 const primary = "#FB5B21";

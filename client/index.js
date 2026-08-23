@@ -9,7 +9,14 @@ import { registerRootComponent } from "expo";
 // for the build, and never throws.
 import { initCrashReporting } from "@/lib/crashReporting";
 
+// M-80: the layout direction has to be set before ANY module lays anything out.
+// It used to be a side effect of importing constants/theme.ts (and again of
+// App.tsx), so which of them ran first decided when the flag was written. Applied
+// here, ahead of the require() below, it is set once and always first.
+import { applyRtlFlags } from "@/lib/rtl";
+
 initCrashReporting();
+applyRtlFlags();
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const App = require("@/App").default;
