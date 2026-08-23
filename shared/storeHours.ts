@@ -78,15 +78,42 @@ export function normalizeWorkingHours(
  * `HomeScreen` so the list and the home page can never disagree — including the
  * "no hours stored means always open" rule, which is existing behaviour and is
  * deliberately preserved.
+ *
+ * M-70…M-75: the window may cross midnight, and the original single comparison
+ * could not express that. For a restaurant working 18:00–02:00 it asked
+ * `cur >= 1080 && cur < 120`, which no minute of the day satisfies — the badge read
+ * "مغلق" at all twenty-four hours. The vendor app takes the closing time in a free
+ * text field, and those are ordinary hours for a restaurant here.
+ *
+ * The day is the half that is easy to get wrong. After midnight the shift that is
+ * running started YESTERDAY, so a Mon–Sat store is open at 01:00 on Sunday (the
+ * Saturday shift finishing) and shut at 01:00 on Monday (that would be Sunday's
+ * shift, and Sunday is not an open day). Checking today's `openDays` for both
+ * halves gets both of those backwards.
  */
 export function isStoreOpenNow(
   wh: WorkingHours | null | undefined,
   now: Date = new Date(),
 ): boolean {
   if (!wh) return true;
-  if (!wh.openDays?.includes(now.getDay())) return false;
+
   const cur = now.getHours() * 60 + now.getMinutes();
   const [oh, om] = (wh.openTime || "00:00").split(":").map(Number);
   const [ch, cm] = (wh.closeTime || "23:59").split(":").map(Number);
-  return cur >= oh * 60 + om && cur < ch * 60 + cm;
+  const open = oh * 60 + om;
+  const close = ch * 60 + cm;
+
+  const today = now.getDay();
+  const openOn = (day: number) => !!wh.openDays?.includes(day);
+
+  // An ordinary same-day window: unchanged, including the half-open boundaries.
+  if (close > open) return openOn(today) && cur >= open && cur < close;
+
+  // The window wraps past midnight. `close === open` lands here too and reads as
+  // twenty-four hours: a vendor entering the same time twice means "we never shut",
+  // and this module already resolves unusable hours to "always open" rather than
+  // "always shut".
+  if (cur >= open) return openOn(today); // this evening's shift
+  if (cur < close) return openOn((today + 6) % 7); // yesterday's, still running
+  return false;
 }
