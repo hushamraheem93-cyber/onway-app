@@ -76,6 +76,59 @@ const GEOCODE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const GEOCODE_CACHE_MAX = 5000;
 const geocodeCache = new Map<string, { value: { address: string; placeName?: string | null; resolved: boolean }; expires: number }>();
 
+type GeocodeValue = { address: string; placeName?: string | null; resolved: boolean };
+
+/**
+ * Read a cached address, or undefined (M-46…M-48).
+ *
+ * An entry past its TTL is deleted rather than merely skipped. Nothing swept this
+ * cache, so a coordinate looked up once and never again held a slot for good — the
+ * cache filled with dead entries and then evicted the live ones to make room.
+ *
+ * A hit is re-inserted so `Map` iteration order is least-recently-USED rather than
+ * insertion order, which is what makes the eviction below keep the addresses that
+ * are actually being asked for. The stored value and expiry are unchanged: reading
+ * must not extend a lifetime.
+ */
+function readGeocode(key: string, now = Date.now()): GeocodeValue | undefined {
+  const hit = geocodeCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expires <= now) {
+    geocodeCache.delete(key);
+    return undefined;
+  }
+  geocodeCache.delete(key);
+  geocodeCache.set(key, hit);
+  return hit.value;
+}
+
+/**
+ * Store one resolved address, keeping the cache bounded (M-46…M-48).
+ *
+ * The bound used to be `if (size >= MAX) geocodeCache.clear()` — at five thousand
+ * entries every one was dropped, including the four thousand nine hundred and
+ * ninety-nine being hit, so every address had to be bought from Google again. The
+ * limit is the same; what changes is that reaching it now costs the entries nobody
+ * wants instead of all of them.
+ *
+ * Expired entries go first because losing them costs nothing. Only if that is not
+ * enough is a live entry evicted, and then it is the least recently used one.
+ */
+function rememberGeocode(key: string, value: GeocodeValue, now = Date.now()): void {
+  // Refreshing a key already held needs no room made for it.
+  if (!geocodeCache.has(key) && geocodeCache.size >= GEOCODE_CACHE_MAX) {
+    for (const [k, entry] of geocodeCache) {
+      if (entry.expires <= now) geocodeCache.delete(k);
+    }
+    while (geocodeCache.size >= GEOCODE_CACHE_MAX) {
+      const lru = geocodeCache.keys().next().value;
+      if (lru === undefined) break;
+      geocodeCache.delete(lru);
+    }
+  }
+  geocodeCache.set(key, { value, expires: now + GEOCODE_CACHE_TTL_MS });
+}
+
 /** fetch JSON with a hard timeout so a slow Google call can never hang the request. */
 async function fetchJsonWithTimeout(url: string, timeoutMs: number): Promise<any | null> {
   try {
@@ -7696,9 +7749,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Cache lookup (coordinates rounded to ~11 m).
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    const hit = geocodeCache.get(cacheKey);
-    if (hit && hit.expires > Date.now()) {
-      return res.json(hit.value);
+    const hit = readGeocode(cacheKey);
+    if (hit) {
+      return res.json(hit);
     }
 
     try {
@@ -7714,8 +7767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const picked = pickBestAddress(geocodeRes, placesRes);
       if (picked) {
         const result = { ...picked, resolved: true };
-        if (geocodeCache.size >= GEOCODE_CACHE_MAX) geocodeCache.clear(); // simple bound
-        geocodeCache.set(cacheKey, { value: result, expires: Date.now() + GEOCODE_CACHE_TTL_MS });
+        rememberGeocode(cacheKey, result);
         return res.json(result);
       }
 
