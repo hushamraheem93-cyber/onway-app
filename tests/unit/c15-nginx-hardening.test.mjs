@@ -281,3 +281,76 @@ describe("C-15 (E) — the operator is not told SSL is optional", () => {
     );
   });
 });
+
+describe("C-15 (F) — ssl-setup.sh does not hand the app back to root", () => {
+  // server-setup.sh creates a nologin service user and tells the operator to start
+  // the app as that user (H-46: running Node as root was the finding). PM2 keeps a
+  // SEPARATE daemon per user, and ecosystem.config.js names no user of its own, so
+  // a `pm2 startOrReload` issued as root does not touch the onway daemon at all —
+  // it starts a SECOND copy of the app, owned by root, while the real process never
+  // sees the ALLOWED_ORIGINS this script just wrote.
+  const SERVICE_USER = (SETUP.match(/^SERVICE_USER="([^"]+)"/m) || [])[1];
+
+  test("server-setup.sh still defines a service user", () => {
+    assert.ok(SERVICE_USER, "SERVICE_USER disappeared from server-setup.sh");
+    assert.notEqual(SERVICE_USER, "root");
+  });
+
+  test("server-setup.sh still starts the app as that user, not root", () => {
+    assert.match(
+      SETUP,
+      new RegExp(`sudo -u \\$\\{SERVICE_USER\\}[^\\n]*pm2 start`),
+      "the documented start command no longer drops privileges",
+    );
+  });
+
+  test("ssl-setup.sh reloads PM2 as the service user", () => {
+    const reload = SSL.slice(SSL.indexOf('info "Reloading PM2'));
+    assert.ok(reload.includes("pm2 startOrReload"), "the reload step is gone");
+    assert.match(
+      reload,
+      /sudo -u \S+ /,
+      "PM2 is reloaded as root — it would start a second, root-owned copy of the app",
+    );
+  });
+
+  test("it reloads as the SAME user server-setup.sh installed under", () => {
+    // The two scripts cannot source each other (ssl-setup.sh has to stay
+    // independently runnable), so the only thing keeping them in step is that both
+    // resolve to the same default. Compare the DEFAULTS, not the variable name.
+    const sslDefault = (SSL.match(
+      /^SERVICE_USER="\$\{ONWAY_SERVICE_USER:-([^}]+)\}"/m,
+    ) || [])[1];
+    assert.ok(sslDefault, "ssl-setup.sh does not define SERVICE_USER");
+    assert.equal(
+      sslDefault,
+      SERVICE_USER,
+      `ssl-setup reloads as "${sslDefault}" but the app runs as "${SERVICE_USER}"`,
+    );
+
+    // …and that the reload really goes through that variable rather than a literal.
+    const reload = SSL.slice(SSL.indexOf('info "Reloading PM2'));
+    assert.match(reload, /sudo -u "\$SERVICE_USER"/);
+  });
+
+  test("it refuses to continue if that user is missing", () => {
+    const reload = SSL.slice(SSL.indexOf('info "Reloading PM2'));
+    assert.match(
+      reload,
+      /id -u "\$SERVICE_USER"[\s\S]{0,120}?err /,
+      "a missing service user must abort, not silently fall back to root",
+    );
+  });
+
+  test("the DNS pre-check has the tool it depends on", () => {
+    // ssl-setup.sh gates on `dig`, which is not part of a default Ubuntu install.
+    // Without it DOMAIN_IP resolves to empty and the script aborts with a message
+    // that blames the operator's DNS instead of the missing package.
+    assert.match(SSL, /dig \+short/, "the DNS pre-check is gone");
+    assert.match(
+      SETUP,
+      /apt-get install[^\n]*\bdnsutils\b/,
+      "server-setup.sh does not install dnsutils, so ssl-setup.sh's dig is missing",
+    );
+  });
+});

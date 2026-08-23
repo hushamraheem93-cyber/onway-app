@@ -124,7 +124,11 @@ fi
 info "Updating system packages..."
 apt-get update -qq
 apt-get upgrade -y -qq
-apt-get install -y -qq curl wget git unzip build-essential ufw nginx certbot python3-certbot-nginx
+# dnsutils supplies `dig`, which ssl-setup.sh uses to confirm the domain resolves to
+# this server BEFORE calling certbot. It is not part of a default Ubuntu install, and
+# without it that check reads an empty address and aborts blaming the operator's DNS.
+# Let's Encrypt rate-limits failed validations, so the pre-check has to be able to run.
+apt-get install -y -qq curl wget git unzip build-essential ufw nginx certbot python3-certbot-nginx dnsutils
 success "System packages updated"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

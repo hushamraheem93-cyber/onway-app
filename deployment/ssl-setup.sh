@@ -13,6 +13,14 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 [[ $EUID -ne 0 ]] && err "Run as root: sudo bash ssl-setup.sh"
 
+# The unprivileged account the app actually runs under (H-46). This script needs
+# root for certbot, nginx and the firewall — but NOT for PM2. PM2 keeps a separate
+# daemon per user and ecosystem.config.js names no user of its own, so a reload
+# issued as root would not touch the onway daemon at all: it would start a SECOND
+# copy of the app owned by root, while the real process never picked up the
+# ALLOWED_ORIGINS written below. Must match server-setup.sh's SERVICE_USER.
+SERVICE_USER="${ONWAY_SERVICE_USER:-onway}"
+
 # ── ALLOWED_ORIGINS is a LIST, and writing to it is ADDITIVE ──────────────────
 # H-47: this used to be
 #     sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://${DOMAIN}|" .env
@@ -172,7 +180,10 @@ info "Reloading PM2 to pick up new .env values..."
 # reach the process — and with fail-closed CORS, an empty ALLOWED_ORIGINS 403s
 # every browser request.
 if [[ -f "${APP_DIR}/ecosystem.config.js" ]]; then
-  (cd "${APP_DIR}" && pm2 startOrReload ecosystem.config.js --update-env && pm2 save) || \
+  id -u "$SERVICE_USER" >/dev/null 2>&1 || \
+    err "Service user ${SERVICE_USER} does not exist. Run server-setup.sh first, or set ONWAY_SERVICE_USER."
+  sudo -u "$SERVICE_USER" bash -c \
+    "cd '${APP_DIR}' && pm2 startOrReload ecosystem.config.js --update-env && pm2 save" || \
     err "PM2 failed to reload with the new .env — the server is still using the old ALLOWED_ORIGINS."
 else
   err "${APP_DIR}/ecosystem.config.js not found — cannot apply the new .env values."
