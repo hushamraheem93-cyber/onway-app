@@ -151,8 +151,9 @@ for directive in \
   "X-Frame-Options" \
   "X-Content-Type-Options" \
   "Referrer-Policy" \
-  "limit_req zone=onway_login" \
-  "limit_req zone=onway_api"
+  "limit_req zone=onway_admin_login burst=5" \
+  "limit_req zone=onway_api" \
+  "limit_req_status 429"
 do
   tls_block | grep -qF -- "$directive" || MISSING="${MISSING}\n    - ${directive}"
 done

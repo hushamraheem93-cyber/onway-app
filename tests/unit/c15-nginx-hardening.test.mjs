@@ -20,7 +20,8 @@
  */
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -101,13 +102,13 @@ describe("C-15 (A) — the deployed config is not a shell of comments", () => {
 
   test("the rate-limit zones are declared", () => {
     assert.match(live(CONF), /limit_req_zone .*zone=onway_api:/);
-    assert.match(live(CONF), /limit_req_zone .*zone=onway_login:/);
+    assert.match(live(CONF), /limit_req_zone .*zone=onway_admin_login:/);
   });
 
   test("the zones are actually USED — the whole point of the finding", () => {
     // Declaring a zone costs memory and protects nothing; `limit_req` is what
     // applies it. Both of these used to exist only inside the commented block.
-    assert.match(LIVE80, /limit_req zone=onway_login/);
+    assert.match(LIVE80, /limit_req zone=onway_admin_login/);
     assert.match(LIVE80, /limit_req zone=onway_api/);
   });
 
@@ -158,7 +159,7 @@ describe("C-15 (B) — the admin login is the strictest thing on the box", () =>
       return m[2] === "s" ? Number(m[1]) * 60 : Number(m[1]);
     };
     assert.ok(
-      rate("onway_login") < rate("onway_api"),
+      rate("onway_admin_login") < rate("onway_api"),
       "the login zone must be tighter than the API zone",
     );
   });
@@ -217,7 +218,8 @@ describe("C-15 (D) — ssl-setup.sh fails closed", () => {
       "X-Frame-Options",
       "X-Content-Type-Options",
       "Referrer-Policy",
-      "limit_req zone=onway_login",
+      "limit_req zone=onway_admin_login burst=5",
+      "limit_req_status 429",
       "limit_req zone=onway_api",
     ]) {
       assert.ok(block.includes(d), `${d} is not verified after certbot`);
@@ -352,5 +354,123 @@ describe("C-15 (F) — ssl-setup.sh does not hand the app back to root", () => {
       /apt-get install[^\n]*\bdnsutils\b/,
       "server-setup.sh does not install dnsutils, so ssl-setup.sh's dig is missing",
     );
+  });
+});
+
+describe("C-15 (G) — the repository describes the server that actually runs", () => {
+  // The live box was found running zone `onway_admin_login` with burst=5 while this
+  // repository generated `onway_login` with burst=3. Nothing caught it, and two
+  // things depended on it: a reinstall (or a rebuild after an outage) would have
+  // produced a different server from the live one, and ssl-setup.sh's own C-15 check
+  // greps for the zone name as a literal string — so it would have aborted against
+  // production while passing here. The repository was reconciled onto the live
+  // values; these assertions keep the two from drifting apart again.
+
+  /** Every rate-limit zone the setup script declares, with its rate. */
+  const declaredZones = () =>
+    Object.fromEntries(
+      [...SETUP.matchAll(/limit_req_zone\s+\S+\s+zone=(\w+):\S+\s+rate=(\S+);/g)]
+        .map((m) => [m[1], m[2]]),
+    );
+
+  /** Every zone the config actually USES, with the burst it uses. */
+  const usedZones = () =>
+    Object.fromEntries(
+      [...CONF.matchAll(/limit_req\s+zone=(\w+)\s+burst=(\d+)/g)].map((m) => [
+        m[1],
+        Number(m[2]),
+      ]),
+    );
+
+  test("the admin-login zone is the one production runs", () => {
+    const zones = declaredZones();
+    assert.equal(
+      zones.onway_admin_login,
+      "5r/m",
+      "the admin-login zone is not declared at the production rate",
+    );
+    assert.equal(
+      zones.onway_login,
+      undefined,
+      "the old onway_login zone is back — the repo and the live server disagree again",
+    );
+  });
+
+  test("the admin-login limiter uses the production burst", () => {
+    assert.equal(usedZones().onway_admin_login, 5);
+  });
+
+  test("every zone used is a zone declared — a typo cannot ship", () => {
+    const declared = declaredZones();
+    for (const zone of Object.keys(usedZones())) {
+      assert.ok(
+        zone in declared,
+        `limit_req uses zone "${zone}" which no limit_req_zone declares — nginx would refuse to start`,
+      );
+    }
+  });
+
+  test("ssl-setup.sh verifies the zones server-setup.sh actually generates", () => {
+    // This is the assertion that would have caught the drift. ssl-setup.sh names the
+    // zones as literal strings; derive them from the setup script instead of
+    // hardcoding, so renaming a zone in one file fails here until the other follows.
+    for (const zone of Object.keys(usedZones())) {
+      assert.match(
+        SSL,
+        new RegExp(`"limit_req zone=${zone}\\b`),
+        `ssl-setup.sh does not check zone "${zone}" — its C-15 verification would pass a server that never applied it`,
+      );
+    }
+  });
+
+  test("a throttled request answers 429, not 503", () => {
+    assert.match(
+      LIVE80,
+      /^\s*limit_req_status\s+429;/m,
+      "limit_req_status is missing, so nginx falls back to 503",
+    );
+  });
+
+  test("the 429 sits where certbot will clone it into the TLS block", () => {
+    // At http level it would apply by inheritance but never appear inside the 443
+    // block, so ssl-setup.sh could not verify it and a later edit could drop it
+    // unnoticed.
+    const beforeFirstServer = CONF.slice(0, CONF.indexOf("server {"));
+    assert.ok(
+      !beforeFirstServer.includes("limit_req_status"),
+      "limit_req_status is at http level — certbot will not copy it into the 443 block",
+    );
+    assert.match(SSL, /"limit_req_status 429"/, "ssl-setup.sh does not verify the 429");
+  });
+
+  test("nginx itself accepts the reconciled file", () => {
+    // The rename touches both the declaration and its use, and nginx refuses to
+    // start when they disagree — so this parses the generated file for real rather
+    // than trusting the regexes above. Skipped where nginx is not installed.
+    let nginx;
+    try {
+      nginx = execFileSync("which", ["nginx"], { encoding: "utf8" }).trim();
+    } catch {
+      return;
+    }
+    const dir = mkdtempSync(join(tmpdir(), "onway-nginx-"));
+    const conf = join(dir, "nginx.conf");
+    writeFileSync(
+      conf,
+      `events {}\nhttp {\n${CONF.replace(/^/gm, "  ")}\n}\n`,
+    );
+    try {
+      execFileSync(nginx, ["-t", "-c", conf], { stdio: "pipe" });
+    } catch (err) {
+      const out = String(err.stderr || err.stdout || err.message);
+      // "syntax is ok" means the file parsed — which is the whole assertion. What
+      // follows is nginx trying to BIND, and this container has no IPv6, no
+      // /var/log/nginx and no permission to listen on 80. None of that is a
+      // statement about the generated config.
+      if (/syntax is ok/.test(out)) return;
+      assert.fail(`nginx rejected the generated config:\n${out}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

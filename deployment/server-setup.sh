@@ -327,8 +327,14 @@ SERVER_NAME="${DOMAIN:-_}"  # _ = catch-all if no domain given
 
 cat > /etc/nginx/sites-available/onway <<NGINX_EOF
 # ── Rate limiting zones ───────────────────────────────────────────────────────
-limit_req_zone \$binary_remote_addr zone=onway_api:10m   rate=30r/s;
-limit_req_zone \$binary_remote_addr zone=onway_login:10m rate=5r/m;
+# The admin-login zone is named onway_admin_login with burst=5 because that is what
+# the production server actually runs. This file used to say onway_login/burst=3, so
+# the repository described a server that did not exist: a future reinstall or a
+# rebuild after an outage would have produced a DIFFERENT box from the live one, and
+# ssl-setup.sh's own C-15 check greps for the zone name by hand and would have failed
+# against production. Reconciled deliberately onto the live values.
+limit_req_zone \$binary_remote_addr zone=onway_api:10m         rate=30r/s;
+limit_req_zone \$binary_remote_addr zone=onway_admin_login:10m rate=5r/m;
 
 # ── HTTP ──────────────────────────────────────────────────────────────────────
 server {
@@ -357,6 +363,16 @@ server {
     add_header X-Content-Type-Options    "nosniff"     always;
     add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
 
+    # nginx answers a throttled request with 503 by default, which says "this
+    # service is broken": uptime checks page on it, and many HTTP clients auto-retry
+    # a 503, so the default amplifies the flood it exists to stop. 429 is the code
+    # for "you are going too fast" (RFC 6585) and clients back off on it.
+    #
+    # Declared INSIDE the server block, not at http level, so `certbot --nginx`
+    # clones it into the 443 block along with everything else here — and so
+    # ssl-setup.sh can verify it in the TLS block rather than trusting inheritance.
+    limit_req_status 429;
+
     client_max_body_size 20M;
     gzip on;
     gzip_types text/plain application/json application/javascript text/css;
@@ -365,7 +381,7 @@ server {
     # prefix below regardless of the order they appear in, so the stricter rule
     # can never be shadowed by the looser one.
     location = /api/admin/login {
-        limit_req zone=onway_login burst=3 nodelay;
+        limit_req zone=onway_admin_login burst=5 nodelay;
         proxy_pass         http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header   Host \$host;
