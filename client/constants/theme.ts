@@ -463,16 +463,6 @@ export const AvatarSize = {
   "2xl": 80,
   "3xl": 96,
 };
-
-export const AvatarStyles = {
-  borderRadius: 9999,
-  defaultBackground: secondary,
-  defaultColor: primary,
-  fontFamily: FontFamily.cairoBold,
-  sizes: AvatarSize,
-};
-
-// ─── Opacity Scale ────────────────────────────────────────────────────────────
 export const Opacity = {
   none: 0,
   ghost: 0.05,
@@ -541,24 +531,6 @@ export const Shadows = {
     elevation: 12,
   },
 };
-
-// Explicit elevation scale (Android-first)
-export const Elevation = {
-  none: 0,
-  xs: 1,
-  sm: 2,
-  md: 4,
-  lg: 8,
-  xl: 12,
-  "2xl": 16,
-  "3xl": 24,
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 5 — ANIMATION TOKENS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// ─── Animation Durations, Springs & Easing Curves ────────────────────────────
 export const Anim = {
   duration: {
     instant: 80,
@@ -592,22 +564,6 @@ export const AnimCurve = {
   uiDecelerate: [0.0, 0.0, 0.2, 1.0] as [number, number, number, number],
   uiAccelerate: [0.4, 0.0, 1.0, 1.0] as [number, number, number, number],
 };
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 6 — LAYOUT TOKENS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// ─── Z-Index Layers ───────────────────────────────────────────────────────────
-export const ZIndex = {
-  base: 0,
-  raised: 1,
-  sticky: 10,
-  overlay: 100,
-  modal: 200,
-  toast: 300,
-};
-
-// ─── Breakpoints (for web / responsive layouts) ───────────────────────────────
 export const Breakpoints = {
   sm: 480,
   md: 768,
@@ -642,6 +598,9 @@ export const Gradients = {
   ],
 };
 
+// Kept even though nothing imports it: sprint9-theme-light-mode asserts that the
+// vendor and driver presets resolve to the OnWay brand gradient, which is how the
+// old purple/blue portal identities are prevented from coming back.
 export const GradientPresets = {
   // Brand
   brand: [primary, primaryDark] as [string, string],
@@ -671,130 +630,6 @@ export const GradientPresets = {
   shimmer: [gray100, gray50, gray100] as [string, string, string],
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 8 — COMPONENT STYLE TOKENS
-// Plain style objects — spread or reference in StyleSheet.create() calls.
-// All values are traced back to design tokens above.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// ─── Button Variants ──────────────────────────────────────────────────────────
-export const ButtonVariants = {
-  primary: {
-    backgroundColor: primary,
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    textColor: white,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  secondary: {
-    backgroundColor: secondary,
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    textColor: primary,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  outline: {
-    backgroundColor: "transparent",
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    borderWidth: 1.5,
-    borderColor: primary,
-    textColor: primary,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  ghost: {
-    backgroundColor: "transparent",
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    textColor: primary,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  danger: {
-    backgroundColor: error,
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    textColor: white,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  vendor: {
-    backgroundColor: vendorPurple,
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    textColor: white,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  driver: {
-    backgroundColor: driverBlue,
-    borderRadius: BorderRadius.xl,
-    height: Spacing.buttonHeight,
-    textColor: white,
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.base,
-  },
-  small: {
-    height: 36,
-    borderRadius: BorderRadius.sm,
-    fontSize: FontSize.sm,
-    paddingHorizontal: Spacing.md,
-  },
-  large: {
-    height: 60,
-    borderRadius: BorderRadius.xl,
-    fontSize: FontSize.lg,
-    paddingHorizontal: Spacing["2xl"],
-  },
-};
-
-// ─── Input Variants ───────────────────────────────────────────────────────────
-export const InputVariants = {
-  default: {
-    height: Spacing.inputHeight,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    borderColor: gray200,
-    backgroundColor: white,
-    paddingHorizontal: Spacing.md,
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.tajawal,
-    color: "#2D2D2D",
-    textAlign: "right" as const,
-  },
-  focused: {
-    borderColor: primary,
-    backgroundColor: secondary,
-  },
-  error: {
-    borderColor: error,
-    backgroundColor: errorLight,
-  },
-  success: {
-    borderColor: success,
-    backgroundColor: successLight,
-  },
-  disabled: {
-    backgroundColor: gray100,
-    borderColor: gray200,
-    opacity: Opacity.disabled,
-  },
-  search: {
-    height: 44,
-    borderRadius: BorderRadius.md,
-    borderWidth: 0,
-    backgroundColor: gray100,
-    paddingHorizontal: Spacing.md,
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.tajawal,
-    textAlign: "right" as const,
-  },
-};
-
-// ─── Card Variants ────────────────────────────────────────────────────────────
 export const CardVariants = {
   elevated: {
     backgroundColor: white,
@@ -880,123 +715,6 @@ export const BadgeVariants = {
     borderRadius: BorderRadius.full,
   },
 };
-
-// ─── Chip Variants (Badge + padding, interactive) ─────────────────────────────
-export const ChipVariants = {
-  default: {
-    ...BadgeVariants.default,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  primary: {
-    ...BadgeVariants.primary,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  success: {
-    ...BadgeVariants.success,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  warning: {
-    ...BadgeVariants.warning,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  error: {
-    ...BadgeVariants.error,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  info: {
-    ...BadgeVariants.info,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  purple: {
-    ...BadgeVariants.purple,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  cyan: {
-    ...BadgeVariants.cyan,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  dark: {
-    ...BadgeVariants.dark,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-};
-
-// ─── Tag Variants (Square corners) ────────────────────────────────────────────
-export const TagVariants = {
-  default: {
-    ...BadgeVariants.default,
-    borderRadius: BorderRadius.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-  },
-  primary: {
-    ...BadgeVariants.primary,
-    borderRadius: BorderRadius.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-  },
-  success: {
-    ...BadgeVariants.success,
-    borderRadius: BorderRadius.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-  },
-  warning: {
-    ...BadgeVariants.warning,
-    borderRadius: BorderRadius.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-  },
-  error: {
-    ...BadgeVariants.error,
-    borderRadius: BorderRadius.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-  },
-  info: {
-    ...BadgeVariants.info,
-    borderRadius: BorderRadius.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-  },
-};
-
-// ─── List Item Styles ─────────────────────────────────────────────────────────
-export const ListItemStyles = {
-  container: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: white,
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-  },
-  bordered: {
-    borderBottomWidth: 1,
-    borderBottomColor: gray200,
-  },
-  compact: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  iconSize: IconSize.base,
-  rightIconColor: gray400,
-  titleFontFamily: FontFamily.tajawalBold,
-  titleFontSize: FontSize.base,
-  subFontFamily: FontFamily.tajawal,
-  subFontSize: FontSize.sm,
-  subColor: gray500,
-};
-
-// ─── Modal Styles ─────────────────────────────────────────────────────────────
 export const ModalStyles = {
   overlay: {
     flex: 1,
@@ -1027,57 +745,6 @@ export const ModalStyles = {
     marginBottom: Spacing.sm,
   },
 };
-
-// ─── Bottom Sheet Styles ──────────────────────────────────────────────────────
-export const BottomSheetStyles = {
-  overlay: ModalStyles.overlay,
-  container: ModalStyles.container,
-  handle: {
-    width: 32,
-    height: 4,
-    backgroundColor: gray300,
-    borderRadius: BorderRadius.full,
-    alignSelf: "center" as const,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  title: ModalStyles.title,
-};
-
-// ─── Dialog Styles ────────────────────────────────────────────────────────────
-export const DialogStyles = {
-  backdrop: {
-    flex: 1,
-    backgroundColor: overlay,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-  },
-  container: {
-    backgroundColor: white,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing["2xl"],
-    marginHorizontal: Spacing["3xl"],
-    width: "85%" as const,
-    ...Shadows.xl,
-  },
-  title: {
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.xl,
-    color: "#2D2D2D",
-    textAlign: "right" as const,
-    marginBottom: Spacing.sm,
-  },
-  message: {
-    fontFamily: FontFamily.tajawal,
-    fontSize: FontSize.base,
-    color: gray500,
-    textAlign: "right" as const,
-    lineHeight: LineHeight.md,
-    marginBottom: Spacing.lg,
-  },
-};
-
-// ─── Toast / Snackbar Styles ──────────────────────────────────────────────────
 export const ToastStyles = {
   container: {
     borderRadius: BorderRadius.sm,
@@ -1113,88 +780,6 @@ export const ToastStyles = {
     textAlign: "right" as const,
   },
 };
-
-export const SnackbarStyles = {
-  container: {
-    ...ToastStyles.container,
-    borderRadius: BorderRadius.md,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  variants: ToastStyles.variants,
-  text: ToastStyles.text,
-};
-
-// ─── Skeleton Loader Styles ───────────────────────────────────────────────────
-export const SkeletonStyles = {
-  baseColor: gray100,
-  highlightColor: gray50,
-  animDuration: Anim.duration.slow,
-  shimmerWidth: 80,
-  variants: {
-    text: { height: 14, borderRadius: BorderRadius.xs },
-    title: { height: 20, borderRadius: BorderRadius.xs },
-    avatar: { borderRadius: BorderRadius.full },
-    card: { height: 160, borderRadius: BorderRadius.md },
-    banner: { height: 195, borderRadius: BorderRadius.lg },
-    button: { height: Spacing.buttonHeight, borderRadius: BorderRadius.xl },
-    chip: { height: 28, borderRadius: BorderRadius.full },
-  },
-};
-
-// ─── Loading Indicator Styles ─────────────────────────────────────────────────
-export const LoadingStyles = {
-  size: {
-    sm: "small" as const,
-    md: "large" as const,
-  },
-  color: {
-    brand: primary,
-    white: white,
-    muted: gray400,
-    success: success,
-    vendor: vendorPurple,
-    driver: driverBlue,
-  },
-  overlay: {
-    backgroundColor: overlay,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-  },
-};
-
-// ─── Empty State Styles ───────────────────────────────────────────────────────
-export const EmptyStateStyles = {
-  container: {
-    flex: 1,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-    padding: Spacing["3xl"],
-  },
-  iconSize: 80,
-  iconColor: gray300,
-  title: {
-    fontFamily: FontFamily.cairoBold,
-    fontSize: FontSize.xl,
-    color: gray700,
-    textAlign: "center" as const,
-    marginTop: Spacing.lg,
-  },
-  message: {
-    fontFamily: FontFamily.tajawal,
-    fontSize: FontSize.base,
-    color: gray500,
-    textAlign: "center" as const,
-    lineHeight: LineHeight.md,
-    marginTop: Spacing.sm,
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 9 — DOMAIN TOKENS (Order / Portal / Admin)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// ─── Order Status — Full Style Map ────────────────────────────────────────────
 export const ORDER_STATUS_STYLES: Record<
   string,
   {
@@ -1265,101 +850,6 @@ export const ORDER_STATUS_STYLES: Record<
     iconName: "alert-circle",
   },
 };
-
-// ─── Portal Themes ────────────────────────────────────────────────────────────
-export const VendorTheme = {
-  primary,
-  primaryLight,
-  accent: primary,
-  gradient: [primary, primaryDark] as [string, string],
-  tabBar: {
-    active: primary,
-    inactive: gray500,
-    badge: error,
-    background: white,
-  },
-  header: {
-    tintColor: primary,
-    background: white,
-  },
-  card: CardVariants.primary,
-  badge: BadgeVariants.primary,
-};
-
-export const DriverTheme = {
-  primary,
-  primaryLight,
-  accent: primary,
-  gradient: [primary, primaryDark] as [string, string],
-  online: { color: success, background: successLight },
-  offline: { color: gray500, background: gray100 },
-  busy: { color: warning, background: warningLight },
-  tabBar: {
-    active: primary,
-    inactive: gray500,
-    fab: primary,
-    fabBorder: white,
-    background: white,
-  },
-  header: {
-    tintColor: primary,
-    background: white,
-  },
-  card: CardVariants.primary,
-};
-
-export const AdminTheme = {
-  primary,
-  accent: primary,
-  gradient: [primary, primaryDark] as [string, string],
-  sidebar: {
-    background: white,
-    text: gray700,
-    activeItem: primary,
-    inactiveItem: gray500,
-    borderColor: gray200,
-  },
-  card: CardVariants.elevated,
-  badge: BadgeVariants.primary,
-  table: {
-    headerBackground: gray100,
-    rowBackground: white,
-    altRowBackground: gray50,
-    borderColor: gray200,
-    headerFontFamily: FontFamily.cairoBold,
-    cellFontFamily: FontFamily.tajawal,
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 10 — ACCESSIBILITY TOKENS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export const A11y = {
-  minTouchTarget: 44, // px — Apple HIG & Material Design minimum
-  minContrastAA: 4.5, // WCAG 2.1 Level AA
-  minContrastAAA: 7.0, // WCAG 2.1 Level AAA
-  minContrastLargeText: 3.0, // WCAG 2.1 for 18pt+ or 14pt bold
-  focusRingColor: primary,
-  focusRingWidth: 2,
-  reducedMotionDuration: 0, // ms — for prefers-reduced-motion
-  minimumFontSize: 11, // px — below this is inaccessible
-  minimumLineHeight: 1.2, // relative — minimum for readability
-  semanticRoles: {
-    button: "button" as const,
-    image: "image" as const,
-    text: "text" as const,
-    header: "header" as const,
-    link: "link" as const,
-    summary: "summary" as const,
-    none: "none" as const,
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 11 — RTL SUPPORT TOKENS
-// ═══════════════════════════════════════════════════════════════════════════════
-
 export const RTL = {
   isRTL: true,
   writingDirection: "rtl" as const,
@@ -1391,30 +881,6 @@ export function hexAlpha(hex: string, opacity: number): string {
     .padStart(2, "0");
   return hex + o;
 }
-
-/**
- * Get the full ORDER_STATUS_STYLES entry for a given status.
- * Returns a safe fallback for unknown statuses.
- */
-export function getStatusStyle(status: string): {
-  color: string;
-  background: string;
-  label: string;
-  iconName: string;
-} {
-  return (
-    ORDER_STATUS_STYLES[status] ?? {
-      color: gray500,
-      background: gray100,
-      label: status,
-      iconName: "help-circle",
-    }
-  );
-}
-
-/**
- * Get the display color for a given order status.
- */
 export function getStatusColor(status: string): string {
   return ORDER_STATUS_COLORS[status] ?? gray500;
 }
@@ -1439,12 +905,4 @@ export function clamp(value: number, min: number, max: number): number {
  */
 export function spacingMultiple(base: number, multiplier: number): number {
   return base * multiplier;
-}
-
-/**
- * Get theme colors for the current mode (light | dark).
- * Used when context-based useTheme() is not available.
- */
-export function getThemeColors(mode: "light" | "dark") {
-  return Colors[mode];
 }
