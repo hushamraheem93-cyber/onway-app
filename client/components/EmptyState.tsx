@@ -8,7 +8,6 @@ import { AppColors, FontWeight } from "@/constants/theme";
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
-  image?: any;
   title: string;
   subtitle?: string;
   buttonText?: string;
@@ -20,7 +19,6 @@ interface EmptyStateProps {
 
 function EmptyStateComponent({
   icon = "cart",
-  image,
   title,
   subtitle,
   buttonText,

@@ -282,11 +282,6 @@ interface VendorSeed {
   products: Product[];
 }
 
-// GPS helper for الضلوعية area (base: 33.8500, 44.2100)
-function gps(latOff: number, lngOff: number) {
-  return { lat: 33.85 + latOff, lng: 44.21 + lngOff };
-}
-
 const VENDORS: VendorSeed[] = [
   // ── RESTAURANTS ──────────────────────────────────────────────────────────────
   {

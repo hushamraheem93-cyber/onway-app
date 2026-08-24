@@ -18,7 +18,6 @@ import {
   CMS_IMAGE_NO_PERSIST,
   isCmsSection,
   parseWebsiteContent,
-  type CmsSection,
 } from "./websiteContentSchema";
 import {
   buildOriginPolicyFromEnv,
@@ -30,7 +29,7 @@ import {
   getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
-  getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, createOrderWithInventory, updateOrderStatus,
+  getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, updateOrderStatus,
   updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
   getMarketingPushTokens, getUserNotificationPrefs, setUserNotificationPrefs,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,

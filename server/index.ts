@@ -482,10 +482,7 @@ import { registerAdminAuthorization } from "./adminAuthorization";
 import {
   authenticateAdmin,
   authenticateGoogleAdmin,
-  createAdminUser,
   getAdminUserById,
-  getAdminUserByUsername,
-  hasAnyAdminUsers,
   registerAdminRbacRoutes,
   updateAdminUser,
   verifyAdminPassword,
