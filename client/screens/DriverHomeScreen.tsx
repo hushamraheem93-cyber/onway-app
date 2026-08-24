@@ -10,7 +10,6 @@ import {
   Linking,
   Platform,
   Vibration,
-  Modal,
   Animated,
   AppState,
 } from "react-native";
@@ -134,11 +133,7 @@ export default function DriverHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [amountOwed, setAmountOwed] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
-  const [issueModalVisible, setIssueModalVisible] = useState(false);
-  const [issueSent, setIssueSent] = useState(false);
-  const [issueSending, setIssueSending] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
-  const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
   const [, setWalletError] = useState("");
   const prevBatchIdRef = useRef<string | null>(null);
@@ -659,48 +654,6 @@ export default function DriverHomeScreen() {
     } catch (e) {
     } finally {
       isRejectingRef.current = false;
-    }
-  };
-
-  const ISSUE_OPTIONS = [
-    { key: "no_answer", label: "الزبون ما يرد" },
-    { key: "unclear_address", label: "العنوان غير واضح" },
-    { key: "other", label: "مشكلة أخرى" },
-  ];
-
-  const handleOpenIssueModal = (orderId: string) => {
-    setIssueOrderId(orderId);
-    setIssueModalVisible(true);
-  };
-
-  const handleSelectIssue = async (issueType: string) => {
-    if (!phoneNumber || !issueOrderId) return;
-    setIssueSending(true);
-    try {
-      const res = await fetch(
-        new URL("/api/driver/report-issue", getApiUrl()).toString(),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phoneNumber,
-            orderId: issueOrderId,
-            issueType,
-          }),
-        },
-      );
-      if (res.ok) {
-        setIssueSent(true);
-        setTimeout(() => {
-          setIssueModalVisible(false);
-          setIssueSent(false);
-          setIssueOrderId(null);
-          fetchDriverStatus();
-        }, 1800);
-      }
-    } catch (e) {
-    } finally {
-      setIssueSending(false);
     }
   };
 
@@ -1654,131 +1607,6 @@ export default function DriverHomeScreen() {
       {/* Earnings strip — only when online */}
       {isOnline && driverStatus === "approved" ? renderEarningsStrip() : null}
 
-      {/* Issue Report Modal */}
-      <Modal
-        visible={issueModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !issueSending && setIssueModalVisible(false)}
-      >
-        <Pressable
-          accessibilityRole="button"
-          style={styles.modalOverlay}
-          onPress={() => !issueSending && setIssueModalVisible(false)}
-        >
-          <Pressable
-            accessibilityRole="button"
-            style={[
-              styles.modalBox,
-              { backgroundColor: theme.backgroundDefault },
-            ]}
-            onPress={() => {}}
-          >
-            {issueSent ? (
-              <View
-                style={{ alignItems: "center", paddingVertical: Spacing.xl }}
-              >
-                <View
-                  style={[
-                    styles.statusIconWrap,
-                    { backgroundColor: AppColors.successLight },
-                  ]}
-                >
-                  <Feather
-                    name="check-circle"
-                    size={36}
-                    color={AppColors.success}
-                  />
-                </View>
-                <ThemedText
-                  type="h4"
-                  style={{ color: AppColors.success, marginTop: Spacing.md }}
-                >
-                  تم إرسال المشكلة
-                </ThemedText>
-              </View>
-            ) : (
-              <>
-                <View style={styles.modalHeaderRow}>
-                  <Feather
-                    name="alert-triangle"
-                    size={20}
-                    color={AppColors.primary}
-                  />
-                  <ThemedText
-                    type="h4"
-                    style={{ color: theme.text, fontWeight: FontWeight.bold }}
-                  >
-                    إبلاغ عن مشكلة
-                  </ThemedText>
-                </View>
-                <ThemedText
-                  type="small"
-                  style={{
-                    color: theme.textSecondary,
-                    textAlign: "center",
-                    marginBottom: Spacing.lg,
-                  }}
-                >
-                  اختر نوع المشكلة
-                </ThemedText>
-                {ISSUE_OPTIONS.map((opt) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={opt.key}
-                    style={[styles.issueOption, { borderColor: theme.border }]}
-                    onPress={() => handleSelectIssue(opt.key)}
-                    disabled={issueSending}
-                    testID={`button-issue-${opt.key}`}
-                  >
-                    {issueSending ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={AppColors.primary}
-                      />
-                    ) : (
-                      <Feather
-                        name="chevron-left"
-                        size={18}
-                        color={AppColors.primary}
-                      />
-                    )}
-                    <ThemedText
-                      type="body"
-                      style={{
-                        color: theme.text,
-                        fontWeight: FontWeight.semiBold,
-                        flex: 1,
-                        textAlign: "right",
-                      }}
-                    >
-                      {opt.label}
-                    </ThemedText>
-                  </Pressable>
-                ))}
-                <Pressable
-                  accessibilityRole="button"
-                  style={{
-                    alignItems: "center",
-                    paddingVertical: Spacing.sm,
-                    marginTop: Spacing.xs,
-                  }}
-                  onPress={() => setIssueModalVisible(false)}
-                  disabled={issueSending}
-                >
-                  <ThemedText
-                    type="small"
-                    style={{ color: theme.textSecondary }}
-                  >
-                    إلغاء
-                  </ThemedText>
-                </Pressable>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       <FlatList
         data={[1]}
         renderItem={() => (
@@ -2117,34 +1945,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: AppColors.overlay,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.xl,
-  },
-  modalBox: {
-    width: "100%",
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-  },
-  modalHeaderRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.sm,
-    justifyContent: "center",
-    marginBottom: Spacing.sm,
-  },
-  issueOption: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    marginBottom: Spacing.sm,
-  },
 });
