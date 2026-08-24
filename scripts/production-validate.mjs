@@ -230,7 +230,7 @@ if (failed > 0) {
   console.log("\n  Fix these before running the manual order-lifecycle test.");
 } else {
   console.log("\n  Infrastructure is production-ready.");
-  console.log("  Next: run the manual order-lifecycle checklist in PRODUCTION_READY_REPORT.md");
+  console.log("  Next: run the manual order-lifecycle checklist in docs/audits/PRODUCTION_READY_REPORT.md");
   console.log("  (steps 2-11 need real phones and cannot be automated).");
 }
 process.exit(failed > 0 ? 1 : 0);
