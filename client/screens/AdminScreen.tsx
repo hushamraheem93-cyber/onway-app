@@ -1844,11 +1844,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           <DashboardTab
             adminOrders={adminOrders}
             drivers={drivers}
-            approvedDrivers={approvedDrivers}
             dashboardStats={dashboardStats}
             ownerEarnings={ownerEarnings}
-            getStatusColor={getStatusColor}
-            getStatusLabel={getStatusLabel}
             urgencyForm={urgencyForm}
             setUrgencyForm={setUrgencyForm}
             saveUrgencyThresholds={saveUrgencyThresholds}
@@ -1857,7 +1854,6 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             urgencySaveError={urgencySaveError}
             setActiveTab={setActiveTab}
             resetForm={resetForm}
-            ADMIN_RED={ADMIN_RED}
             theme={theme}
           />
         );
@@ -2042,7 +2038,6 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             deleteVendor={deleteVendor}
             allVendorProducts={allVendorProducts}
             refetchVendorProducts={refetchVendorProducts}
-            products={products}
             deleteProductImage={deleteProductImage}
             deletingImageKey={deletingImageKey}
             setDeletingImageKey={setDeletingImageKey}

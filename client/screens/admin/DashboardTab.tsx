@@ -29,7 +29,6 @@ interface UrgencyForm {
 interface Props {
   adminOrders: any[];
   drivers: any[];
-  approvedDrivers: any[];
   dashboardStats?: { users: number; products: number };
   ownerEarnings?: {
     totalOwnerEarnings: number;
@@ -38,8 +37,6 @@ interface Props {
     ordersWithEarnings: number;
     totalDeliveredOrders: number;
   };
-  getStatusColor: (status: any) => string;
-  getStatusLabel: (status: any) => string;
   urgencyForm: UrgencyForm;
   setUrgencyForm: React.Dispatch<React.SetStateAction<UrgencyForm>>;
   saveUrgencyThresholds: () => void;
@@ -48,18 +45,14 @@ interface Props {
   urgencySaveError: string | null;
   setActiveTab: (tab: TabType) => void;
   resetForm: () => void;
-  ADMIN_RED: string;
   theme: any;
 }
 
 function DashboardTabInner({
   adminOrders,
   drivers,
-  approvedDrivers,
   dashboardStats,
   ownerEarnings,
-  getStatusColor,
-  getStatusLabel,
   urgencyForm,
   setUrgencyForm,
   saveUrgencyThresholds,
@@ -68,7 +61,6 @@ function DashboardTabInner({
   urgencySaveError,
   setActiveTab,
   resetForm,
-  ADMIN_RED,
   theme,
 }: Props) {
   const renderDashboardTab = () => {

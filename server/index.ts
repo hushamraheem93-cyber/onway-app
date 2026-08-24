@@ -169,36 +169,6 @@ function setupRateLimiter(app: express.Application) {
     default: 600,
   };
 
-  function rateLimitMiddleware(pathKey: string, overrideLimit?: number) {
-    return (req: Request, res: Response, next: NextFunction) => {
-      const ip = trustedClientIp(req);
-      const key = `${ip}:${pathKey}`;
-      const now = Date.now();
-      const limit = overrideLimit ?? resolveRateLimit(pathKey, LIMITS);
-
-      let entry = rateLimitStore.get(key);
-      if (!entry || now > entry.resetAt) {
-        entry = { count: 1, resetAt: now + WINDOW_MS };
-        rateLimitStore.set(key, entry);
-      } else {
-        entry.count++;
-      }
-
-      res.setHeader("X-RateLimit-Limit", limit);
-      res.setHeader("X-RateLimit-Remaining", Math.max(0, limit - entry.count));
-      res.setHeader("X-RateLimit-Reset", Math.ceil(entry.resetAt / 1000));
-
-      if (entry.count > limit) {
-        // Return HTML for browser-facing endpoints, JSON for API
-        if (req.accepts("html") && !req.path.startsWith("/api")) {
-          return res.status(429).send("<h1>429 - Too Many Requests</h1><p>حاول لاحقاً</p>");
-        }
-        return res.status(429).json({ error: "طلبات كثيرة، حاول لاحقاً" });
-      }
-      next();
-    };
-  }
-
   // Rate limit HTML admin endpoints (outside /api).
   //
   // This is the login limiter, and it is independent of the `/api` limiter below —

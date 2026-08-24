@@ -91,7 +91,7 @@ export default function ProductsScreen() {
       restMap.set(p.restaurant!, (restMap.get(p.restaurant!) || 0) + 1);
     });
     return Array.from(restMap.entries()).map(
-      ([name, count]) =>
+      ([name]) =>
         ({
           id: name,
           name,

@@ -77,7 +77,6 @@ interface Props {
   deleteVendor: any;
   allVendorProducts?: { products: VendorProduct[]; total: number };
   refetchVendorProducts: () => void;
-  products: any[];
   deleteProductImage: any;
   deletingImageKey: string | null;
   setDeletingImageKey: (v: string | null) => void;
@@ -106,7 +105,6 @@ function VendorsTabInner({
   deleteVendor,
   allVendorProducts,
   refetchVendorProducts,
-  products,
   deleteProductImage,
   deletingImageKey,
   setDeletingImageKey,

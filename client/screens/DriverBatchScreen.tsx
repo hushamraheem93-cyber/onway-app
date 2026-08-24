@@ -382,7 +382,7 @@ export default function DriverBatchScreen() {
       ? 1
       : 0;
 
-  const renderOrderCard = (order: BatchOrder, index: number) => {
+  const renderOrderCard = (order: BatchOrder) => {
     const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.confirmed;
     const isLoading = loadingOrderId === order.id;
     const canPickup = order.status === "preparing" || order.status === "ready";
@@ -1101,7 +1101,7 @@ export default function DriverBatchScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {batch.orders.map((order, idx) => renderOrderCard(order, idx))}
+        {batch.orders.map((order) => renderOrderCard(order))}
       </ScrollView>
 
       {/* Issue Modal */}
