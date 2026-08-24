@@ -372,9 +372,3 @@ export function startOtpSweeper(intervalMs: number = OTP_SWEEP_INTERVAL_MS): voi
   sweepTimer.unref?.();
 }
 
-export function stopOtpSweeper(): void {
-  if (sweepTimer) {
-    clearInterval(sweepTimer);
-    sweepTimer = null;
-  }
-}

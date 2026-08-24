@@ -3,7 +3,6 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
-import { getApiUrl } from "@/lib/query-client";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,10 +14,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export interface PushNotificationState {
-  expoPushToken: string | null;
-  notification: Notifications.Notification | null;
-}
 
 export function usePushNotifications(onNotificationTap?: () => void) {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
@@ -130,32 +125,4 @@ export async function registerForPushNotificationsAsync(): Promise<
   return token;
 }
 
-export async function refreshDriverPushToken(
-  phoneNumber: string,
-): Promise<void> {
-  try {
-    const token = await registerForPushNotificationsAsync();
-    if (!token || !phoneNumber) return;
-    await fetch(
-      new URL("/api/driver/refresh-push-token", getApiUrl()).toString(),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, pushToken: token }),
-      },
-    );
-  } catch {
-    // silent
-  }
-}
 
-export async function sendLocalNotification(title: string, body: string) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      sound: "default",
-    },
-    trigger: null,
-  });
-}

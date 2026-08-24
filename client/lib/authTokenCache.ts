@@ -101,7 +101,3 @@ export function invalidateToken(key: string): void {
   cache.delete(key);
 }
 
-/** Test seam: forget everything, including which keys were ever read. */
-export function __resetTokenCacheForTests(): void {
-  cache.clear();
-}

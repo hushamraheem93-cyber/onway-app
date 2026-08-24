@@ -41,12 +41,6 @@ export interface ApiResponse<T = unknown> {
   message?: string;
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
 
 export interface OrderItem {
   productId: string;

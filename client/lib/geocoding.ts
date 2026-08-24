@@ -62,4 +62,3 @@ export function isGenericAddress(address: string): boolean {
 }
 
 export const DHULUIYAH_CENTER = { lat: 34.018, lng: 44.219 };
-export const DEFAULT_DISTRICT = "قضاء الضلوعية";

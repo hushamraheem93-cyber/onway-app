@@ -34,7 +34,7 @@ const TAB_CONFIG: Record<
   DriverOrdersTab: { icon: "package", label: "الطلبات" },
 };
 
-function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function DriverTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   return (
     <View

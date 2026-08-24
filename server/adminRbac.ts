@@ -12,14 +12,12 @@ import {
   AdminRole,
   AdminUserRecord,
   ROLE_LABELS_AR,
-  identityFromClaims,
   identityFromRecord,
   isAdminRole,
   permissionsForRole,
 } from "./adminTypes";
 
 export const ADMIN_USERS_COLLECTION = "adminUsers";
-export const ADMIN_RBAC_STATE_DOC = "adminConfig/rbacState";
 
 function now(): admin.firestore.Timestamp {
   return admin.firestore.Timestamp.now();
@@ -401,12 +399,3 @@ async function updateAdminUserRoute(req: Request, res: Response): Promise<Respon
   }
 }
 
-/**
- * Second entry point for the same job as adminTypes.identityFromClaims, kept for
- * callers outside this module. It delegates rather than reimplementing: it carried
- * its own copy of the claim-list logic R-04 removed, so two places decided what an
- * admin may do and only one of them was ever fixed.
- */
-export function adminIdentityFromClaims(claims: any): AdminIdentity | null {
-  return identityFromClaims(claims);
-}

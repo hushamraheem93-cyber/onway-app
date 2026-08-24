@@ -22,16 +22,6 @@ import type {
 } from "@shared/schema";
 
 // ── Navigation param lists ────────────────────────────────────────────────────
-export type RootStackRoutes =
-  | "Splash"
-  | "UserType"
-  | "PhoneLogin"
-  | "OtpVerification"
-  | "ProfileCompletion"
-  | "Main"
-  | "DriverTab"
-  | "VendorTab"
-  | "Admin";
 
 // ── Vendor (store/restaurant) ─────────────────────────────────────────────────
 export interface Vendor {

@@ -66,7 +66,6 @@ export const ADMIN_PERMISSIONS = [
   "system.maintenance",
 ] as const;
 
-export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number] | "*";
 
 export interface AdminIdentity {
   adminId: string;

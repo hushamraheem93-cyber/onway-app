@@ -218,10 +218,6 @@ function parseCookieHeader(header: string | undefined): Record<string, string> {
  * guard needs to know specifically whether a browser-attached ambient credential
  * is in play, because that is the only credential CSRF can abuse.
  */
-export function hasAdminSessionCookie(req: Request): boolean {
-  const parsed = (req as any).cookies || parseCookieHeader(req.headers.cookie);
-  return typeof parsed?.[ADMIN_COOKIE] === "string" && parsed[ADMIN_COOKIE].length > 0;
-}
 
 export function getSessionToken(req: Request): string | undefined {
   const parsed = (req as any).cookies || parseCookieHeader(req.headers.cookie);

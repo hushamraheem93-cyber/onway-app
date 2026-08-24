@@ -100,7 +100,7 @@ function ProductsStackNavigator() {
 
 // ─── Custom tab bar ───────────────────────────────────────────────────────────
 
-function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function VendorTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { unreadCount } = useVendorNotifications();
 

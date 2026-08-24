@@ -36,12 +36,3 @@ export function installAuthInterceptors(): void {
   installAdminAuthInterceptor();
 }
 
-/** Whether the interceptors are already in place — used by tests and guards. */
-export function areAuthInterceptorsInstalled(): boolean {
-  return installed;
-}
-
-/** Test seam: forget that installation happened. Does NOT unwrap fetch. */
-export function __resetAuthBootstrapForTests(): void {
-  installed = false;
-}

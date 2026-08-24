@@ -16,6 +16,3 @@ export function resolveRateLimit(fullPath: string, limits: RateLimitPolicy): num
   return limits.default ?? 600;
 }
 
-export function resettableRateLimitKey(ip: string, path: string): string {
-  return `${ip}:${path}`;
-}

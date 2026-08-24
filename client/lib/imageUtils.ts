@@ -158,7 +158,3 @@ export async function processAndUploadImage(
   return data.url as string;
 }
 
-export function isBase64Image(str: string | undefined): boolean {
-  if (!str) return false;
-  return str.startsWith("data:image/");
-}

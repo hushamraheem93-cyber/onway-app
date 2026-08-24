@@ -119,9 +119,6 @@ export async function checkAdminSession(): Promise<{ info: AdminSessionInfo | nu
   }
 }
 
-export async function getAdminSessionInfo(): Promise<AdminSessionInfo | null> {
-  return (await checkAdminSession()).info;
-}
 
 export async function isAdminSessionValid(): Promise<boolean | null> {
   const result = await checkAdminSession();

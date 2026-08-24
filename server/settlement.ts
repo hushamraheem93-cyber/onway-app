@@ -399,9 +399,6 @@ export interface CreateRequestResult {
   accountName?: string;
 }
 
-/** Settlement-request lifecycle: pending → approved → (paid) → completed, or rejected. */
-export type SettlementRequestStatus =
-  | "pending" | "approved" | "partially_completed" | "completed" | "rejected";
 
 /**
  * Create a settlement request for an account, atomically. Allowed at ANY time as long
