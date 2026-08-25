@@ -411,7 +411,21 @@ export default function HomeScreen() {
               transition={200}
             />
           </View>
-          <ThemedText style={styles.catName} numberOfLines={2}>
+          {/* One line, down to 0.85 of the size and no further.
+              The card leaves 118px inside its padding, so a 0.85 floor fits any
+              name up to 138.8px measured at 13px in Cairo_700Bold. Thirteen of
+              the fourteen clear that easily — the widest, "سناكس ومقرمشات", is
+              115px, and "الخضروات والفواكه" is 110px. Only
+              "الشراء من المواقع العالمية" (157px) cannot, and it takes a second
+              line instead of being shrunk to an unreadable size; at two lines it
+              stays at the full 13px. The longest name that does fit one line is
+              17 characters against that one's 26, so 20 sits in a clean gap. */}
+          <ThemedText
+            style={styles.catName}
+            numberOfLines={category.name.length > 20 ? 2 : 1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
             {category.name}
           </ThemedText>
         </LinearGradient>
@@ -1798,8 +1812,10 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 28,
-    lineHeight: 40,
+    // 28 -> 25 (-10.7%). lineHeight follows at the same 1.43 ratio so the block
+    // keeps its proportions instead of sitting in an oversized line box.
+    fontSize: 25,
+    lineHeight: 36,
     color: AppColors.primary,
     marginBottom: 2,
     textAlign: "right",
