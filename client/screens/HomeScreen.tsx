@@ -31,6 +31,7 @@ import {
   DesignSystem,
 } from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
+import { categoryImageSource } from "@/constants/categoryImages";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
 import { BannerSlider } from "@/components/BannerSlider";
@@ -151,22 +152,6 @@ function resolveStoreUrl(path?: string): string | null {
   }
 }
 
-const CATEGORY_3D_IMAGES: Record<string, string> = {
-  restaurants: "/uploads/tab-icon-restaurants.png",
-  "fruits-vegetables": "/uploads/category-3d-vegetables.png",
-  "meat-poultry": "/uploads/category-3d-meat.png",
-  "dairy-eggs": "/uploads/category-3d-dairy.png",
-  "cleaning-care": "/uploads/category-3d-cleaning.png",
-  beverages: "/uploads/category-3d-beverages.png",
-  "snacks-sweets": "/uploads/category-3d-snacks.png",
-  "tea-coffee": "/uploads/category-3d-coffee.png",
-  baby: "/uploads/category-3d-baby.png",
-  flowers: "/uploads/category-3d-flowers.png",
-  delivery: "/uploads/category-3d-delivery.png",
-  pharmacy: "/uploads/category-3d-pharmacy.png",
-  "women-bags": "/uploads/category-3d-bags.png",
-  "international-shopping": "/uploads/category-3d-international.png",
-};
 
 const CATEGORY_COLORS: Record<string, string> = {
   restaurants: AppColors.warningLight,
@@ -369,20 +354,7 @@ export default function HomeScreen() {
   const offerBanner = allBanners.find((b) => b.type === "offer");
   const sliderBanners = allBanners.filter((b) => b.type === "slider");
 
-  const get3DImage = (categoryId: string, fallbackImage: string) => {
-    // Prefer an admin-uploaded image (http/data URL) so a picture set from the
-    // admin panel actually shows. Only fall back to the bundled 3D asset when the
-    // category has no real uploaded image.
-    if (
-      fallbackImage &&
-      (fallbackImage.startsWith("http") || fallbackImage.startsWith("data:"))
-    ) {
-      return resolveImageUrl(fallbackImage);
-    }
-    const path = CATEGORY_3D_IMAGES[categoryId];
-    if (path) return resolveImageUrl(path);
-    return resolveImageUrl(fallbackImage);
-  };
+
 
   const CATEGORY_TO_BUSINESS_TYPE: Record<string, string> = {
     restaurants: "restaurant",
@@ -432,7 +404,7 @@ export default function HomeScreen() {
         >
           <View style={styles.catImageContainer}>
             <Image
-              source={{ uri: get3DImage(category.id, category.image) }}
+              source={{ uri: categoryImageSource(category.id, category.image) }}
               style={styles.catImage}
               contentFit="contain"
               cachePolicy="disk"

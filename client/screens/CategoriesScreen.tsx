@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   FlatList,
@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
@@ -23,30 +24,46 @@ import { Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { GradientBackground } from "@/components/GradientBackground";
-import { resolveImageUrl } from "@/utils/imageUtils";
+import { categoryImageSource } from "@/constants/categoryImages";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+/**
+ * The category picture, with something to show when there is none.
+ *
+ * Neither screen had an onError or a placeholder, so a category whose image was
+ * missing — or whose legacy /uploads URL 404'd — rendered an empty hole with no
+ * hint that anything was wrong. This keeps the same 100x100 box and the same
+ * contentFit; it only fills it when the image cannot be shown.
+ */
+function CategoryIcon({ uri }: { uri: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!uri || failed) {
+    return (
+      <View style={[styles.image, styles.imageFallback]}>
+        <Feather name="image" size={32} color={AppColors.gray400} />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.image}
+      contentFit="contain"
+      cachePolicy="disk"
+      transition={200}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_GAP = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - CARD_GAP) / 2;
 
-const CATEGORY_3D_IMAGES: Record<string, string> = {
-  restaurants: "/uploads/category-3d-restaurants.png",
-  "fruits-vegetables": "/uploads/category-3d-vegetables.png",
-  "meat-poultry": "/uploads/category-3d-meat.png",
-  "dairy-eggs": "/uploads/category-3d-dairy.png",
-  "cleaning-care": "/uploads/category-3d-cleaning.png",
-  beverages: "/uploads/category-3d-beverages.png",
-  "snacks-sweets": "/uploads/category-3d-snacks.png",
-  "tea-coffee": "/uploads/category-3d-coffee.png",
-  baby: "/uploads/category-3d-baby.png",
-  flowers: "/uploads/category-3d-flowers.png",
-  delivery: "/uploads/category-3d-delivery.png",
-  pharmacy: "/uploads/category-3d-pharmacy.png",
-  "women-bags": "/uploads/category-3d-bags.png",
-  "international-shopping": "/uploads/category-3d-international.png",
-};
 
 const CATEGORY_COLORS: Record<string, string> = {
   restaurants: AppColors.warningLight,
@@ -89,11 +106,7 @@ export default function CategoriesScreen() {
     }
   };
 
-  const get3DImage = (categoryId: string) => {
-    const path = CATEGORY_3D_IMAGES[categoryId];
-    if (path) return resolveImageUrl(path);
-    return "";
-  };
+
 
   const getGradientColor = (categoryId: string, fallback?: string) => {
     return CATEGORY_COLORS[categoryId] || fallback || AppColors.secondary;
@@ -101,8 +114,8 @@ export default function CategoriesScreen() {
 
   const renderCategory = ({ item }: { item: Category }) => {
     const gradientColor = getGradientColor(item.id, item.color);
-    const image3D = get3DImage(item.id);
-    const imageSource = image3D || resolveImageUrl(item.image);
+    // The uploaded picture first; the legacy /uploads asset only if there is none.
+    const imageSource = categoryImageSource(item.id, item.image);
 
     return (
       <Pressable
@@ -119,13 +132,7 @@ export default function CategoriesScreen() {
           style={styles.card}
         >
           <View style={styles.imageContainer}>
-            <Image
-              source={{ uri: imageSource }}
-              style={styles.image}
-              contentFit="contain"
-              cachePolicy="disk"
-              transition={200}
-            />
+            <CategoryIcon uri={imageSource} />
           </View>
           <ThemedText type="body" style={styles.name} numberOfLines={2}>
             {item.name}
@@ -217,6 +224,11 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     backgroundColor: "transparent",
+  },
+  // Centres the placeholder glyph inside the box above. The box keeps its size.
+  imageFallback: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   name: {
     fontSize: 14,
