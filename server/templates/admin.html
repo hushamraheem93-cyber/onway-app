@@ -6007,10 +6007,37 @@
       });
     }
 
+    // Image formats that can carry an alpha channel.
+    //
+    // Re-encoding one of these as JPEG is not merely lossy — JPEG has no alpha, and
+    // the canvas spec says a transparent pixel is composited onto BLACK on the way
+    // out. Measured in Chromium: a fully transparent canvas through
+    // toBlob(…, 'image/jpeg', 0.82) reads back as RGBA 0,0,0,255. Category icons are
+    // normally transparent PNGs, so every uploaded icon arrived with a solid black
+    // square behind it. WebP keeps the channel and is smaller than JPEG at the same
+    // quality; a browser that cannot encode WebP falls back to PNG on its own, which
+    // also keeps alpha. A JPEG source has no alpha to lose and stays JPEG.
+    const ALPHA_CAPABLE_TYPES = ['image/png', 'image/webp', 'image/gif', 'image/avif'];
+
+    function uploadOutputType(sourceType) {
+      return ALPHA_CAPABLE_TYPES.indexOf(String(sourceType || '').toLowerCase()) !== -1
+        ? 'image/webp'
+        : 'image/jpeg';
+    }
+
+    function uploadFileName(kind, blobType) {
+      const ext = blobType === 'image/webp' ? 'webp'
+                : blobType === 'image/png'  ? 'png'
+                : 'jpg';
+      return kind + '.' + ext;
+    }
+
     // Downscale + recompress an image File in the browser BEFORE upload. Phone photos
     // are 5-15MB and were rejected by the 5MB upload limit; this shrinks them to a
-    // ~1400px JPEG (~200-400KB) so any source size uploads reliably. The server still
-    // re-encodes to WebP. Returns a Blob; falls back to the original file on any error.
+    // ~1400px image (~200-400KB) so any source size uploads reliably. The output
+    // format follows uploadOutputType() so transparency is never flattened, and the
+    // server re-encodes to WebP either way. Returns a Blob; falls back to the
+    // original file on any error.
     async function compressImageForUpload(file, maxDim = 1400, quality = 0.82) {
       try {
         if (!file || !file.type || !file.type.startsWith('image/')) return file;
@@ -6025,10 +6052,28 @@
         }
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
+        // The canvas starts fully transparent and only the image is drawn onto it, so
+        // nothing here fills a background — the alpha that survives is the source's.
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+        const blob = await new Promise((res) => canvas.toBlob(res, uploadOutputType(file.type), quality));
         return blob || file;
       } catch (e) { return file; }
+    }
+
+    // Rebuild a File from the data URI handleFileSelect caches on the input. Some
+    // browser interactions clear files[], and the upload has to survive that without
+    // falling back to sending the Base64 itself.
+    function dataUrlToFile(dataUrl, name) {
+      if (!dataUrl || dataUrl.indexOf('data:') !== 0) return null;
+      try {
+        const comma = dataUrl.indexOf(',');
+        const head = dataUrl.slice(0, comma);
+        const mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/png';
+        const bin = atob(dataUrl.slice(comma + 1));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new File([bytes], name, { type: mime });
+      } catch (e) { return null; }
     }
 
     function handleFileSelect(input, previewId) {
@@ -7170,7 +7215,7 @@
       if (fileInput.files[0]) {
         const compressed = await compressImageForUpload(fileInput.files[0]);
         const fd = new FormData();
-        fd.append('image', compressed, 'category.jpg');
+        fd.append('image', compressed, uploadFileName('category', compressed.type));
         fd.append('type', 'category');
         const up = await fetch(API_BASE + '/admin/upload-image', { method: 'POST', body: fd });
         if (!up.ok) {
@@ -7382,21 +7427,31 @@
       const storeName = selectedOption ? selectedOption.dataset.name : '';
       const storeType = selectedOption ? selectedOption.dataset.type : '';
 
-      // 1st priority: newly uploaded file (or its cached base64 from handleFileSelect)
-      // 2nd priority: URL/base64 typed into the text field
+      // Image priority: new file (uploaded to Storage → URL) → typed URL → existing image.
+      //
+      // Banners used to be embedded here as a raw Base64 data URI inside the Firestore
+      // document — no compression, no Sharp, no Storage. Firestore rejects any document
+      // over 1MB and Base64 inflates the payload by a third, so a normal banner photo
+      // (1-2MB) could not be saved at all, and the ones that fit travelled to every
+      // customer inside each /api/banners response. Categories and products were moved
+      // to Firebase Storage for exactly this reason; banners were left behind. They now
+      // take the same path and store only the small returned URL.
       let imageData = '';
-      if (fileInput.files[0]) {
-        try {
-          imageData = await fileToBase64(fileInput.files[0]);
-        } catch (e) {
-          console.error('Error converting file to Base64:', e);
+      const bannerFile = fileInput.files[0] || dataUrlToFile(fileInput.dataset.base64, 'banner');
+      if (bannerFile) {
+        const compressed = await compressImageForUpload(bannerFile);
+        const fd = new FormData();
+        fd.append('image', compressed, uploadFileName('banner', compressed.type));
+        fd.append('type', 'banner');
+        const up = await fetch(API_BASE + '/admin/upload-image', { method: 'POST', body: fd });
+        if (!up.ok) {
+          const e = await up.json().catch(() => ({}));
+          showToast('error', 'خطأ', e.error || 'فشل رفع الصورة');
+          return;
         }
+        imageData = (await up.json()).url || '';
       }
-      // Fallback: handleFileSelect caches the result in dataset.base64
-      if (!imageData && fileInput.dataset.base64) {
-        imageData = fileInput.dataset.base64;
-      }
-      // Fallback: manually entered URL/base64
+      // Fallback: manually entered URL
       if (!imageData) {
         imageData = imageUrl || '';
       }
@@ -8273,7 +8328,7 @@
         if (fileInput.files[0]) {
           const compressed = await compressImageForUpload(fileInput.files[0]);
           const fd = new FormData();
-          fd.append('image', compressed, 'product.jpg');
+          fd.append('image', compressed, uploadFileName('product', compressed.type));
           fd.append('type', 'product');
           const up = await fetch(API_BASE + '/admin/upload-image', { method: 'POST', body: fd });
           if (!up.ok) { const e = await up.json().catch(() => ({})); showToast('error', 'خطأ', e.error || 'فشل رفع الصورة'); btn.disabled = false; return; }

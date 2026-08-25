@@ -433,13 +433,61 @@ export const BorderRadius = {
 
 // ─── Design System Constants ──────────────────────────────────────────────────
 export const DesignSystem = {
-  screenPadding: 16,
+  // The single horizontal inset for screen content. HomeScreen's FlatList pads its
+  // content by exactly this, and BannerSlider/OfferBanner size themselves to
+  // SCREEN_WIDTH minus twice it — so the two MUST stay one number.
+  //
+  // They had drifted: this said 16 while HomeScreen hardcoded 18. Both banners were
+  // therefore laid out 4px wider than the box drawing them. OfferBanner overhung the
+  // padding, and in BannerSlider the ScrollView's own width (the step pagingEnabled
+  // snaps by) disagreed with BANNER_WIDTH (the step scrollTo and handleScroll use) by
+  // those 4px, so every page left a widening sliver of the neighbouring banner
+  // visible — 4px after one swipe, 8 after two, 12 after three.
+  screenPadding: 18,
   gridGap: 12,
   categoryCard: { width: 110, height: 140 },
   categoryImageSize: 85,
   bannerHeight: 195,
   bannerRadius: 16,
+
+  // The banner frame is a ratio, not a height.
+  //
+  // 11:6 is not a taste call — every banner asset in the repository is 1408×768,
+  // which is exactly 11/6, and the frame this replaces measured 1.8308:1 on a
+  // 393pt device (357/195). The artwork and the old frame already agreed to within
+  // 0.1%; the number simply lived in the PNGs instead of the code. Deriving the
+  // height from it makes `contentFit: "cover"` crop nothing at all, where the fixed
+  // 195 cropped up to 20.6% on phones, 63.8% on tablets and 81.0% on the web.
+  bannerAspectRatio: 11 / 6,
+
+  // …and the width is what has to be capped, not the height.
+  //
+  // On a wide viewport you cannot have all three of: a full-width banner, a fixed
+  // ratio, and a sane height. Holding the ratio while spanning 1920px yields a
+  // 1028px banner — 95% of the window. Capping the HEIGHT instead would break the
+  // ratio and bring the cropping straight back (51.8% on tablet, 74.7% on web).
+  // So the banner stops growing at 560pt and centres itself: 305px tall on every
+  // tablet and desktop, and still zero crop.
+  bannerMaxWidth: 560,
 };
+
+/**
+ * The banner frame, resolved for a given window width.
+ *
+ * Both BannerSlider and OfferBanner call this, and inside the slider the SAME
+ * returned width is what sizes the ScrollView (the step `pagingEnabled` snaps by),
+ * the pages, `scrollTo` and `handleScroll`. Keeping one function is the point:
+ * B-1 was two copies of a padding number drifting 4px apart, which desynced paging
+ * from the page width and left a widening sliver of the neighbouring banner on
+ * screen. One source cannot drift from itself.
+ */
+export function bannerFrame(screenWidth: number) {
+  const width = Math.min(
+    screenWidth - DesignSystem.screenPadding * 2,
+    DesignSystem.bannerMaxWidth,
+  );
+  return { width, height: width / DesignSystem.bannerAspectRatio };
+}
 
 // ─── Icon Sizes ───────────────────────────────────────────────────────────────
 export const IconSize = {

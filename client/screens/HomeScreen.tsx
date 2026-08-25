@@ -24,7 +24,12 @@ import tabCartImg from "../assets/images/tab-cart-groceries.png";
 import tabBurgerImg from "../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, FontWeight } from "@/constants/theme";
+import {
+  Spacing,
+  AppColors,
+  FontWeight,
+  DesignSystem,
+} from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
@@ -44,7 +49,10 @@ import { isStoreOpenNow } from "@shared/storeHours";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const HORIZONTAL_PADDING = 18;
+// Read from the design system rather than restated here: BannerSlider and
+// OfferBanner size themselves against the same token, and a second copy of the
+// number is what let the two drift apart by 4px.
+const HORIZONTAL_PADDING = DesignSystem.screenPadding;
 const PRODUCT_CARD_WIDTH = 160;
 
 // C-20: how many 160pt cards flexWrap fits per row inside the padded content

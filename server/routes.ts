@@ -1385,13 +1385,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "نوع الملف غير مدعوم — محتوى الصورة غير صالح" });
       }
       const fileBuffer = req.file.buffer;
-      // Content-hash deduplication: reuse the Base64 data URI for identical images
+      const type = typeof req.body?.type === "string" ? req.body.type : "product";
+      // Content-hash deduplication: identical bytes reuse the stored object.
+      //
+      // The key carries the type because the OUTPUT differs by type — a category is
+      // resized to 500px, a banner to 1000px, a product to 700px, and each lands on
+      // its own storage path. Keyed by the hash alone, uploading one file as a
+      // category and then the same file as a banner handed the banner the 500px
+      // category URL: the wrong asset, silently, with a 200.
       const contentHash = createHash("sha256").update(fileBuffer).digest("hex");
-      const existingUrl = imageHashMap.get(contentHash);
+      const dedupeKey = `${type}:${contentHash}`;
+      const existingUrl = imageHashMap.get(dedupeKey);
       if (existingUrl) {
         return res.json({ url: existingUrl, size: req.file.size, deduped: true });
       }
-      const type = typeof req.body?.type === "string" ? req.body.type : "product";
       const config = ADMIN_IMAGE_SIZE_CONFIG[type] || ADMIN_IMAGE_SIZE_CONFIG.product;
       const resizeOptions: { width: number; height?: number; fit: "cover"; position: "center" } = {
         width: config.width,
@@ -1410,7 +1417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // those documents toward the 1MB limit with no error anywhere. A failure here
       // is now a real failure and says so.
       const url = await uploadToFirebaseStorage(webpBuffer, `admin-images/${type}/${contentHash}.webp`);
-      imageHashMap.set(contentHash, url);
+      imageHashMap.set(dedupeKey, url);
       res.json({ url, size: webpBuffer.length });
     } catch (error) {
       console.error("Error processing admin image upload:", error);

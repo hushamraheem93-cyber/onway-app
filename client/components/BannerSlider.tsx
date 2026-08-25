@@ -13,7 +13,12 @@ import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
+import {
+  Spacing,
+  AppColors,
+  DesignSystem,
+  bannerFrame,
+} from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -26,8 +31,11 @@ interface BannerSliderProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - DesignSystem.screenPadding * 2;
-const BANNER_HEIGHT = DesignSystem.bannerHeight;
+// One width, used five ways: the ScrollView's own frame (which is the step
+// `pagingEnabled` snaps by), each page, every `scrollTo`, and the divisor in
+// `handleScroll`. They must be the same number or the snap point drifts away from
+// the page boundary and each swipe leaves more of the neighbouring banner showing.
+const { width: BANNER_WIDTH, height: BANNER_HEIGHT } = bannerFrame(SCREEN_WIDTH);
 const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 function BannerSliderComponent({
@@ -190,8 +198,18 @@ export const BannerSlider = React.memo(BannerSliderComponent);
 const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
+    // Centres the banner once bannerMaxWidth caps it below the content width.
+    // Below the cap this is a no-op: the frame already equals the content box.
+    width: BANNER_WIDTH,
+    alignSelf: "center",
   },
   scrollView: {
+    // Pinned rather than inherited, deliberately. `pagingEnabled` snaps by the
+    // ScrollView's own frame, so tying that frame to the same constant the pages
+    // and scrollTo use is what makes the snap point and the page boundary the
+    // same number by construction.
+    width: BANNER_WIDTH,
+    height: BANNER_HEIGHT,
     borderRadius: BANNER_RADIUS,
     overflow: "hidden",
   },

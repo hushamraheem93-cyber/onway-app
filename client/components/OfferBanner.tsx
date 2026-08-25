@@ -9,6 +9,7 @@ import {
   AppColors,
   DesignSystem,
   FontWeight,
+  bannerFrame,
 } from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { resolveImageUrl } from "@/utils/imageUtils";
@@ -19,8 +20,9 @@ interface OfferBannerProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - DesignSystem.screenPadding * 2;
-const BANNER_HEIGHT = DesignSystem.bannerHeight;
+// Same frame as BannerSlider, from the same function — the two sit in the same
+// column and any divergence would show up as one banner wider than the other.
+const { width: BANNER_WIDTH, height: BANNER_HEIGHT } = bannerFrame(SCREEN_WIDTH);
 const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 export function OfferBanner({ banner, onPress }: OfferBannerProps) {
@@ -56,6 +58,8 @@ const styles = StyleSheet.create({
     borderRadius: BANNER_RADIUS,
     overflow: "hidden",
     marginBottom: Spacing.lg,
+    // Centres the banner once bannerMaxWidth caps it below the content width.
+    alignSelf: "center",
   },
   image: {
     width: "100%",
