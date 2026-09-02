@@ -47,7 +47,16 @@ export const OTP_COLLECTION = "otpCodes";
 export const OTP_TTL_MS = 5 * 60 * 1000;
 /** Wrong tries before the code is destroyed and a fresh one must be requested. */
 export const OTP_MAX_ATTEMPTS = 5;
-export const OTP_LENGTH = 6;
+/**
+ * Digits in a login code.
+ *
+ * C-04 raised this from 4 to 6. It is back at 4 at the platform owner's explicit
+ * request: the code space drops from 1,000,000 to 10,000, so what stands between a
+ * guesser and an account is no longer the code's width but OTP_MAX_ATTEMPTS, the
+ * lockout, and the five-minute TTL. Those are unchanged and still apply per phone
+ * number regardless of the caller's IP or device.
+ */
+export const OTP_LENGTH = 4;
 
 /** Persistent abuse state: shared by every instance and surviving restarts. */
 export const OTP_ABUSE_COLLECTION = "otpAbuse";
@@ -140,12 +149,15 @@ function otpRateLimitError(retryAfterMs: number, reason: string): any {
   return error;
 }
 
-/** The six-digit code itself. Never leaves this process except via the SMS provider. */
+/** The code itself. Never leaves this process except via the SMS provider. */
 export function newOtpCode(): string {
-  // C-04: a 4-digit code is 9,000 possibilities and was brute-forceable within
-  // hours. randomInt(100000, 1000000) is crypto-grade, never returns a leading
-  // zero, and is always exactly OTP_LENGTH characters.
-  return crypto.randomInt(100000, 1000000).toString();
+  // Bounds derived from OTP_LENGTH rather than written out, so the width and the
+  // range can never drift apart the way they would with a second literal. The low
+  // bound is the smallest number of that width, which is also what keeps a leading
+  // zero impossible — the fixed-width input on the phone stays aligned.
+  const min = 10 ** (OTP_LENGTH - 1);
+  const max = 10 ** OTP_LENGTH;
+  return crypto.randomInt(min, max).toString();
 }
 
 /**

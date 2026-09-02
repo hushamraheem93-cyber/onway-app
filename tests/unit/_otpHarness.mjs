@@ -139,6 +139,10 @@ export function bootOtp(dbOverride = null) {
     const OTP_ABUSE_WINDOW_MS = ${OTP_STORE.match(/OTP_ABUSE_WINDOW_MS = ([^;]+);/)[1]};
     const OTP_MAX_ATTEMPTS = ${OTP_STORE.match(/OTP_MAX_ATTEMPTS = (\d+)/)[1]};
     const OTP_MAX_ISSUES_PER_WINDOW = OTP_MAX_ATTEMPTS;
+    // newOtpCode() derives its range from this rather than repeating the bounds,
+    // so the harness has to supply it — read from the shipped source like the rest,
+    // never written out here, or the suites would test a width the app does not use.
+    const OTP_LENGTH = ${OTP_STORE.match(/OTP_LENGTH = (\d+)/)[1]};
     const OTP_RESEND_COOLDOWNS_MS = [0, 30 * 1000, 60 * 1000, 300 * 1000];
     const OTP_SWEEP_LIMIT = ${OTP_STORE.match(/OTP_SWEEP_LIMIT = (\d+)/)[1]};
   `;

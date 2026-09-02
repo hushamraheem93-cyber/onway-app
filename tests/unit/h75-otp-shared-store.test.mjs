@@ -68,6 +68,10 @@ function bootInstance(db) {
     const OTP_ABUSE_WINDOW_MS = ${OTP_STORE.match(/OTP_ABUSE_WINDOW_MS = ([^;]+);/)[1]};
     const OTP_MAX_ATTEMPTS = ${OTP_STORE.match(/OTP_MAX_ATTEMPTS = (\d+)/)[1]};
     const OTP_MAX_ISSUES_PER_WINDOW = OTP_MAX_ATTEMPTS;
+    // newOtpCode() derives its range from the width instead of repeating the
+    // bounds, so this has to be in scope — read from the shipped source, never
+    // written out here.
+    const OTP_LENGTH = ${OTP_STORE.match(/OTP_LENGTH = (\d+)/)[1]};
     const OTP_RESEND_COOLDOWNS_MS = [0, 30 * 1000, 60 * 1000, 300 * 1000];
     const OTP_SWEEP_LIMIT = ${OTP_STORE.match(/OTP_SWEEP_LIMIT = (\d+)/)[1]};
   `;

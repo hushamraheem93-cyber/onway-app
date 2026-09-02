@@ -3335,13 +3335,13 @@
                   <i data-lucide="archive" style="width:24px;height:24px;color:#EF4444;"></i>
                 </div>
                 <div>
-                  <h3 style="margin:0;font-size:1rem;font-weight:700;">تصفير البيانات الشهرية</h3>
-                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">مسح كامل — بداية جديدة</p>
+                  <h3 style="margin:0;font-size:1rem;font-weight:700;">أرشفة بيانات الشهر</h3>
+                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">حذف الطلبات المنتهية القديمة</p>
                 </div>
               </div>
-              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يمسح <strong>جميع الطلبات</strong> بجميع حالاتها (معلقة، نشطة، مكتملة، ملغية)، ويُصفّر أرباح التطبيق وأرصدة محافظ السائقين وكل السجلات. يُستخدم في بداية كل شهر جديد. <strong>تأكد من تصدير التقرير أولاً.</strong></p>
-              <button class="btn" style="width:100%;background:#EF4444;color:white;border:none;" onclick="archiveOldOrders()">
-                <i data-lucide="refresh-cw"></i> تصفير ومسح بيانات الشهر
+              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يحذف الطلبات <strong>المنتهية فقط</strong> (مُسلَّمة أو ملغية) الأقدم من <strong>30 يوماً</strong>. يُعرض عدد الطلبات للمراجعة قبل أي حذف. <strong>لا تُمسّ</strong> أرصدة محافظ السائقين ولا سجل المحفظة ولا الطلبات المكتملة للسائقين ولا سجل النشاط. <strong>تأكد من تصدير التقرير أولاً.</strong></p>
+              <button class="btn" style="width:100%;background:#EF4444;color:white;border:none;" onclick="archiveOldOrders(this)">
+                <i data-lucide="archive"></i> أرشفة الطلبات المنتهية
               </button>
             </div>
           </div>
@@ -10088,11 +10088,63 @@
     }
 
         // ========================= Archive / Monthly Reset =========================
-    // C-01: full-platform reset has no production-safe backup/restore workflow and
-    // is therefore disabled. Keep the action explicit in the UI rather than
-    // showing a confirmation dialog for an endpoint that must never delete all data.
-    function archiveOldOrders() {
-      showToast('info', 'التصفير الشامل معطّل', 'استخدم الأرشفة المحدودة بعد تشغيل تجريبي معتمد');
+    // C-01: the full-platform wipe stays disabled — the server answers scope "all"
+    // with a 410 and there is no backup/restore path in this application. What the
+    // button now drives is the bounded archive the server does support: terminal
+    // orders (delivered/cancelled) older than 30 days, capped, audited, and with
+    // walletHistory, driverWallets, driverCompletedOrders and driverActivityLog
+    // never touched.
+    //
+    // The call is made twice on purpose. The first is the server's dry run, which
+    // writes nothing and answers with a count; that count is what the admin
+    // confirms. Asking "are you sure?" before knowing the number is how the old
+    // browser confirm() managed to be worthless.
+    async function archiveOldOrders(btn) {
+      if (btn) btn.disabled = true;
+      try {
+        const preview = await fetch(`${API_BASE}/admin/archive-old-orders`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scope: 'archive', dryRun: true }),
+        });
+        const plan = await preview.json().catch(() => ({}));
+        if (!preview.ok) {
+          showToast('error', 'تعذّر الفحص', plan.error || 'فشل الاتصال بالخادم');
+          return;
+        }
+
+        const count = plan.wouldDelete?.orders ?? 0;
+        const alerts = plan.wouldDelete?.adminAlerts ?? 0;
+        if (count === 0 && alerts === 0) {
+          showToast('info', 'لا يوجد ما يُؤرشف', 'لا طلبات منتهية أقدم من 30 يوماً');
+          return;
+        }
+
+        const ok = confirm(
+          `سيتم حذف ${count} طلب منتهٍ (مُسلَّم أو ملغى) أقدم من ${plan.olderThanDays} يوماً` +
+          (alerts ? ` و${alerts} تنبيه إداري` : '') + '.\n\n' +
+          'لن تُمسّ: أرصدة محافظ السائقين، سجل المحفظة، الطلبات المكتملة للسائقين، سجل النشاط.\n\n' +
+          'تأكد من تصدير التقرير الشهري أولاً. متابعة؟'
+        );
+        if (!ok) return;
+
+        const res = await fetch(`${API_BASE}/admin/archive-old-orders`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scope: 'archive', dryRun: false, confirm: 'ARCHIVE' }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast('error', 'فشلت الأرشفة', out.error || 'لم يُحذف شيء');
+          return;
+        }
+        showToast('success', 'تمت الأرشفة', out.message || `تم حذف ${out.deleted?.orders ?? 0} طلب`);
+        if (typeof loadDashboard === 'function') loadDashboard();
+      } catch (e) {
+        showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
 

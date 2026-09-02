@@ -10,6 +10,9 @@ const root = join(here, "../..");
 const STORE_SRC = readFileSync(join(root, "server/otpStore.ts"), "utf8");
 const ROUTES_SRC = readFileSync(join(root, "server/routes.ts"), "utf8");
 const INDEX_SRC = readFileSync(join(root, "server/index.ts"), "utf8");
+// Read, not pinned — this suite is about the abuse limiter, which is what bounds
+// guessing at any width. The width itself is asserted in c04-otp-strength.
+const OTP_LENGTH = Number(STORE_SRC.match(/OTP_LENGTH = (\d+)/)[1]);
 
 const t0 = 10_000_000;
 const phone = (n) => `0770001${String(n).padStart(4, "0")}`;
@@ -39,7 +42,7 @@ describe("C-04 — persistent OTP abuse protection", () => {
   test("1. normal OTP request succeeds and persists one code", async () => {
     const otp = bootOtp();
     const code = await otp.generateOtp(phone(1), t0);
-    assert.match(code, /^\d{6}$/);
+    assert.match(code, new RegExp(`^\\d{${OTP_LENGTH}}$`));
     assert.equal(otp.store.has(`otpCodes/${phone(1)}`), true);
     assert.equal(otp.store.has(`otpAbuse/${phone(1)}`), true);
   });

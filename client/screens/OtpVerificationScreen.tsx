@@ -23,7 +23,10 @@ import { useAuth } from "@/context/AuthContext";
 
 // Must match the code length the server generates in generateOtp().
 // C-04: must match generateOtp() on the server (server/firebase.ts).
-const OTP_LENGTH = 6;
+// Must match server/otpStore.ts OTP_LENGTH. The server mints the code and the
+// screen only draws that many boxes, so a mismatch would leave the user unable to
+// finish typing — or able to submit a short code that can never verify.
+const OTP_LENGTH = 4;
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 

@@ -127,13 +127,31 @@ describe("C-01 · the full reset is disabled and the safe archive is the only pa
     assert.match(H, /return res\.status\(410\)\.json/);
   });
 
-  test("the admin panel no longer sends a destructive request", () => {
-    const at = ADMIN_HTML.indexOf("function archiveOldOrders()");
+  // The button used to be a stub that only raised a toast, and this test asserted
+  // that stub. It now drives the bounded archive the server supports, so what is
+  // guarded here is the property that actually matters rather than the absence of
+  // a call: the panel may never ask for the full wipe, and may never write without
+  // showing the operator a dry-run count first.
+  test("the admin panel never asks for the full wipe", () => {
+    const at = ADMIN_HTML.indexOf("async function archiveOldOrders(");
     assert.ok(at > 0, "the archive action disappeared");
     const fn = ADMIN_HTML.slice(at, ADMIN_HTML.indexOf("async function loadServiceFee", at));
-    assert.match(fn, /التصفير الشامل معطّل/);
-    assert.doesNotMatch(fn, /fetch\(/);
+
+    assert.doesNotMatch(fn, /scope:\s*'all'/, "the panel can request the disabled full reset");
     assert.doesNotMatch(fn, /DELETE-ALL-DATA/);
+    assert.match(fn, /scope:\s*'archive'/, "the panel must name the bounded scope explicitly");
+  });
+
+  test("the panel runs a dry run before it is allowed to delete", () => {
+    const at = ADMIN_HTML.indexOf("async function archiveOldOrders(");
+    const fn = ADMIN_HTML.slice(at, ADMIN_HTML.indexOf("async function loadServiceFee", at));
+
+    const preview = fn.indexOf("dryRun: true");
+    const destroy = fn.indexOf("dryRun: false");
+    assert.ok(preview > 0, "no dry run — the operator would confirm a number nobody counted");
+    assert.ok(destroy > 0, "the archive never actually deletes");
+    assert.ok(preview < destroy, "the destructive call comes before the preview");
+    assert.match(fn, /confirm:\s*'ARCHIVE'/, "the write is missing the server's confirmation string");
   });
 
   test("the safe archive keeps an admin identity for the audit log", () => {

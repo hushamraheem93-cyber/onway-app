@@ -42,15 +42,23 @@ before(() => {
 
 const PHONE = "07700000001";
 
-describe("C-04 · the code is large enough to resist guessing", () => {
-  test("OTP_LENGTH is 6", async () => {
-    assert.equal(OTP_LENGTH, 6);
+// C-04 raised the width from 4 to 6; the platform owner has since asked for 4
+// back. The width is therefore read from the shipped constant rather than pinned
+// here — what these tests still hold is that the code is EXACTLY that width, never
+// has a leading zero, spans its whole space, and is not predictable. The defence
+// that carries the weight at four digits is not the width but OTP_MAX_ATTEMPTS,
+// the per-phone lockout and the TTL, each asserted in the suites below.
+describe("C-04 · the code fills its space and is not guessable", () => {
+  test("OTP_LENGTH is a sane width the client can render", async () => {
+    assert.ok(Number.isInteger(OTP_LENGTH));
+    assert.ok(OTP_LENGTH >= 4 && OTP_LENGTH <= 8, `OTP_LENGTH is ${OTP_LENGTH}`);
   });
 
-  test("every generated code is exactly 6 digits", async () => {
+  test(`every generated code is exactly OTP_LENGTH digits`, async () => {
+    const exact = new RegExp(`^\\d{${OTP_LENGTH}}$`);
     for (let i = 0; i < 500; i++) {
       const code = await generateOtp(`${PHONE}-${i}`);
-      assert.match(code, /^\d{6}$/, `got ${JSON.stringify(code)}`);
+      assert.match(code, exact, `got ${JSON.stringify(code)}`);
     }
   });
 
@@ -60,16 +68,18 @@ describe("C-04 · the code is large enough to resist guessing", () => {
     }
   });
 
-  test("the space is ~100× the old one", async () => {
-    // 4 digits spanned 1000–9999 (9,000). Six spans 100000–999999 (900,000).
+  test("the whole space of that width is used, and only that space", async () => {
+    const floor = 10 ** (OTP_LENGTH - 1);
+    const ceiling = 10 ** OTP_LENGTH - 1;
     const codes = new Set();
     for (let i = 0; i < 3000; i++) codes.add(Number(await generateOtp(`e-${i}`)));
     const min = Math.min(...codes), max = Math.max(...codes);
-    assert.ok(min >= 100000, `a code below the 6-digit floor: ${min}`);
-    assert.ok(max <= 999999, `a code above the 6-digit ceiling: ${max}`);
-    // 3,000 draws from 900,000 should almost never collide; from 9,000 they would
-    // collide constantly (birthday bound). This distinguishes the two spaces.
-    assert.ok(codes.size > 2900, `only ${codes.size} distinct codes in 3000 draws`);
+    assert.ok(min >= floor, `a code below the ${OTP_LENGTH}-digit floor: ${min}`);
+    assert.ok(max <= ceiling, `a code above the ${OTP_LENGTH}-digit ceiling: ${max}`);
+    // The draw should cover most of the space rather than clustering in a corner:
+    // a generator stuck on a narrow band would fail this even at the right width.
+    const span = ceiling - floor + 1;
+    assert.ok(max - min > span * 0.9, `codes span only ${max - min} of ${span}`);
   });
 
   test("codes are not sequential or otherwise trivially predictable", async () => {
@@ -83,7 +93,10 @@ describe("C-04 · the code is large enough to resist guessing", () => {
 describe("C-04 · brute force is bounded", () => {
   test("five wrong attempts invalidate the code", async () => {
     const code = await generateOtp(PHONE);
-    const wrong = code === "111111" ? "222222" : "111111";
+    // A wrong code of the SAME width, so the rejection is about the value rather
+    // than about a length the verifier could have thrown out early.
+    const a = "1".repeat(OTP_LENGTH), b = "2".repeat(OTP_LENGTH);
+    const wrong = code === a ? b : a;
     for (let i = 0; i < 5; i++) {
       assert.equal(await verifyOtp(PHONE, wrong), false, `attempt ${i + 1} should fail`);
     }
@@ -105,12 +118,32 @@ describe("C-04 · brute force is bounded", () => {
     assert.equal(await verifyOtp(p, fresh, t0 + 60 * 60 * 1000 + 2), true);
   });
 
-  test("guessing the whole space is not possible within one code's lifetime", async () => {
-    // The per-phone cumulative budget now dominates IP rotation: five failed
-    // attempts lock the canonical phone for the one-hour abuse window.
-    const SPACE = 900_000, ATTEMPTS = 5;
-    const minutes = SPACE / ATTEMPTS;
-    assert.ok(minutes > 100_000, `only ${Math.round(minutes)} minutes to exhaust the space`);
+  test("the space cannot be walked within one code's lifetime", async () => {
+    // This used to assert against a hardcoded 900_000, which kept passing after
+    // the width changed while describing a space the app no longer uses. The
+    // numbers are computed now, so the claim is about the shipped configuration.
+    //
+    // At four digits the width alone is NOT the defence — 9,000 codes is small.
+    // What makes it safe is that the attacker gets OTP_MAX_ATTEMPTS guesses per
+    // hour against a given phone, and only within a code that lives five minutes.
+    // Both bounds are read from the source and asserted directly below.
+    const store = readFileSync(join(root, "server/otpStore.ts"), "utf8");
+    const attempts = Number(store.match(/OTP_MAX_ATTEMPTS = (\d+)/)[1]);
+    // eslint-disable-next-line no-eval
+    const windowMs = eval(store.match(/OTP_ABUSE_WINDOW_MS = ([^;]+);/)[1]);
+    // eslint-disable-next-line no-eval
+    const ttlMs = eval(store.match(/OTP_TTL_MS = ([^;]+);/)[1]);
+
+    const space = 10 ** OTP_LENGTH - 10 ** (OTP_LENGTH - 1);
+    // Guesses available while any one code is still alive.
+    const perLifetime = attempts * Math.max(1, Math.floor(ttlMs / windowMs));
+    assert.ok(perLifetime < space / 100,
+      `${perLifetime} guesses against a space of ${space} — a code could be found`);
+
+    // And the wall-clock cost of walking the whole space at that rate, in years.
+    const years = (space / attempts) * (windowMs / 1000) / (365 * 24 * 3600);
+    assert.ok(years > 0.1,
+      `the whole space is walkable in ${years.toFixed(3)} years — the limiter is too loose`);
   });
 
   test("same phone remains blocked when the caller changes IP or device", async () => {
@@ -196,10 +229,18 @@ describe("C-04 · the development bypass cannot fire in production", () => {
 });
 
 describe("C-04 · client and server agree on the length", () => {
-  test("the OTP screen uses the same 6", async () => {
+  test("the OTP screen uses the same width the server mints", async () => {
+    // Compared rather than pinned: the two are separate constants in separate
+    // files, and the only thing that matters is that they are equal. Pinning a
+    // literal here would let both drift together and still pass.
     const screen = readFileSync(join(root, "client/screens/OtpVerificationScreen.tsx"), "utf8");
-    assert.match(screen, /const OTP_LENGTH = 6;/,
-      "the client would render the wrong number of boxes and reject valid codes");
+    const client = screen.match(/const OTP_LENGTH = (\d+);/);
+    assert.ok(client, "the client no longer declares OTP_LENGTH");
+    assert.equal(
+      Number(client[1]),
+      OTP_LENGTH,
+      "the client would render the wrong number of boxes and reject valid codes",
+    );
   });
 
   test("the screen derives everything from that constant", async () => {

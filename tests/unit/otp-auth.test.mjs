@@ -15,11 +15,39 @@
  */
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { bootOtp } from "./_otpHarness.mjs";
 
 // One store per run, as before — the harness gives each boot its own database.
 const { generateOtp, verifyOtp } = bootOtp();
+
+// The width the server actually mints, read from the shipped constant. It was 4,
+// C-04 raised it to 6, and the platform owner has since asked for 4 back. Pinning
+// a literal here would only record which way that decision went most recently;
+// what these tests are for is that the code is exactly one width, single-use, and
+// bounded by the attempt cap — all of which hold at any width.
+const OTP_LENGTH = Number(
+  readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../../server/otpStore.ts"),
+    "utf8",
+  ).match(/OTP_LENGTH = (\d+)/)[1],
+);
+
+/**
+ * A code of the right shape that is guaranteed not to be `code`.
+ *
+ * This used to be written inline as an arithmetic rotation through the
+ * 100000–999999 band, which silently stopped meaning "a valid-looking code of the
+ * same width" the moment the width changed. Rotating within the actual range keeps
+ * the wrong code indistinguishable from a real one, which is the point: these
+ * tests must fail because the code is wrong, not because it was malformed.
+ */
+const floor = 10 ** (OTP_LENGTH - 1);
+const span = 10 ** OTP_LENGTH - floor;
+const otherCode = (code) => String(((Number(code) - floor + 1) % span) + floor);
 
 // Unique phone per test so the shared store cannot leak between cases.
 let seq = 0;
@@ -39,17 +67,19 @@ after(() => {
 describe("OTP — code generation", () => {
   before(() => setEnv({ NODE_ENV: "production" }));
 
-  // C-04: the code was 4 digits (9,000 possibilities) — the finding's "guessable
-  // within hours". It is 6 now (900,000). These assertions pinned the old size.
-  test("issues a 6-digit numeric code", async () => {
+  test("issues a numeric code of exactly the server's width", async () => {
     const code = await generateOtp(phone());
-    assert.match(code, /^\d{6}$/, "code must be exactly 6 digits");
+    assert.match(code, new RegExp(`^\\d{${OTP_LENGTH}}$`),
+      `code must be exactly ${OTP_LENGTH} digits, got ${JSON.stringify(code)}`);
   });
 
-  test("code is within the documented 100000-999999 range", async () => {
+  test("every code lands inside that width's range — no leading zero, no overflow", async () => {
+    // A leading zero would misalign the fixed-width input on the phone; a code
+    // above the ceiling would not fit it at all. Both are caught by the bounds.
+    const ceiling = 10 ** OTP_LENGTH - 1;
     for (let i = 0; i < 50; i++) {
       const n = Number(await generateOtp(phone()));
-      assert.ok(n >= 100000 && n <= 999999, `code ${n} out of range`);
+      assert.ok(n >= floor && n <= ceiling, `code ${n} outside ${floor}-${ceiling}`);
     }
   });
 
@@ -89,7 +119,7 @@ describe("OTP — verification", () => {
   test("rejects an incorrect code", async () => {
     const p = phone();
     const code = await generateOtp(p);
-    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
+    const wrong = otherCode(code);
     assert.equal(await verifyOtp(p, wrong), false);
   });
 
@@ -121,14 +151,15 @@ describe("OTP — brute-force protection", () => {
   test("invalidates the code after 5 wrong attempts", async () => {
     const p = phone();
     const code = await generateOtp(p);
-    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
+    const wrong = otherCode(code);
 
     for (let i = 0; i < 5; i++) {
       assert.equal(await verifyOtp(p, wrong), false, `wrong attempt ${i + 1} must fail`);
     }
 
-    // The correct code must now be dead: even at 6 digits an unlimited-attempt
-    // so the attempt cap is what makes the short code safe.
+    // The correct code must now be dead. This is the defence that actually
+    // bounds guessing: an unlimited-attempt endpoint is walkable at any width,
+    // and at four digits the cap is the only thing standing in the way.
     assert.equal(
       await verifyOtp(p, code),
       false,
@@ -139,7 +170,7 @@ describe("OTP — brute-force protection", () => {
   test("the correct code still works on the 5th attempt if not yet exhausted", async () => {
     const p = phone();
     const code = await generateOtp(p);
-    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
+    const wrong = otherCode(code);
 
     for (let i = 0; i < 4; i++) await verifyOtp(p, wrong);
 
@@ -150,7 +181,7 @@ describe("OTP — brute-force protection", () => {
     const p = phone();
     const t0 = Date.now();
     const code1 = await generateOtp(p, t0);
-    const wrong = String(((Number(code1) - 100000 + 1) % 900000) + 100000);
+    const wrong = otherCode(code1);
     for (let i = 0; i < 4; i++) await verifyOtp(p, wrong, t0 + i + 1);
 
     const code2 = await generateOtp(p, t0 + 30 * 1000);
@@ -160,7 +191,7 @@ describe("OTP — brute-force protection", () => {
       (error) => error?.code === "otp_rate_limited",
       "a resend must not reset the phone-wide failed-attempt budget",
     );
-    assert.equal(code2.length, 6);
+    assert.equal(code2.length, OTP_LENGTH);
   });
 });
 
@@ -203,7 +234,7 @@ describe("OTP — development bypass must never work in production", () => {
     setEnv({ NODE_ENV: "development", DEV_MODE: "true" });
     const p = phone();
     const code = await generateOtp(p);
-    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
+    const wrong = otherCode(code);
 
     assert.equal(await verifyOtp(p, wrong), false, "a wrong code must still fail in dev mode");
     assert.equal(await verifyOtp(p, code), true, "the real code must still work in dev mode");
