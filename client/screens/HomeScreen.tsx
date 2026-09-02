@@ -5,6 +5,7 @@ import {
   FlatList,
   ScrollView,
   Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Pressable,
   Platform,
@@ -31,8 +32,12 @@ import {
   DesignSystem,
 } from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
-import { categoryImageSource } from "@/constants/categoryImages";
+import {
+  categoryImageFallbackSource,
+  categoryImageSource,
+} from "@/constants/categoryImages";
 import { ThemedText } from "@/components/ThemedText";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { LocationBar } from "@/components/LocationBar";
 import { BannerSlider } from "@/components/BannerSlider";
 import { OfferBanner } from "@/components/OfferBanner";
@@ -67,6 +72,7 @@ const SEARCH_GRID_COLUMNS = Math.max(
       (PRODUCT_CARD_WIDTH + SEARCH_GRID_GAP),
   ),
 );
+const CATEGORY_GRID_GAP = 10;
 
 interface Vendor {
   id: string;
@@ -194,9 +200,14 @@ function RestaurantTabIcon({ size = 48 }: { size?: number }) {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
+  const categoryCardWidth = Math.max(
+    90,
+    (windowWidth - 2 * HORIZONTAL_PADDING - 2 * CATEGORY_GRID_GAP) / 3,
+  );
 
   const { items, addToCart, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -381,13 +392,13 @@ export default function HomeScreen() {
 
   // ── Render helpers ──────────────────────────────────────────────────────
 
-  const renderCategoryCard = (category: Category) => {
+  const renderCategoryCard = (category: Category, cardWidth = categoryCardWidth) => {
     const gradientColor =
       CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
     return (
       <Pressable
         key={category.id}
-        style={styles.catCardWrapper}
+        style={[styles.catCardWrapper, { width: cardWidth }]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           handleCategoryPress(category);
@@ -403,12 +414,10 @@ export default function HomeScreen() {
           style={styles.catCard}
         >
           <View style={styles.catImageContainer}>
-            <Image
-              source={{ uri: categoryImageSource(category.id, category.image) }}
-              style={styles.catImage}
-              contentFit="contain"
-              cachePolicy="disk"
-              transition={200}
+            <CategoryIcon
+              uri={categoryImageSource(category.id, category.image)}
+              fallbackUri={categoryImageFallbackSource(category.id)}
+              size={72}
             />
           </View>
           {/* One line, down to 0.85 of the size and no further.
@@ -1127,14 +1136,6 @@ export default function HomeScreen() {
     );
   };
 
-  const firstRowCategories = storeCategories.slice(
-    0,
-    Math.ceil(storeCategories.length / 2),
-  );
-  const secondRowCategories = storeCategories.slice(
-    Math.ceil(storeCategories.length / 2),
-  );
-
   // Section title with the signature brand accent bar (RTL reading-start).
   const renderSectionTitle = (title: string) => (
     <View style={styles.sectionTitleRow}>
@@ -1252,14 +1253,11 @@ export default function HomeScreen() {
 
       case "greeting":
         return (
-          <View>
-{/* Greeting */}
-        <View style={styles.greetingContainer}>
-          <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
-          <ThemedText style={styles.subGreeting}>
-            طلباتك صارت أسهل ويانا
-          </ThemedText>
-        </View>
+          <View style={styles.greetingContainer}>
+            <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
+            <ThemedText style={styles.subGreeting}>
+              طلباتك صارت أسهل ويانا
+            </ThemedText>
           </View>
         );
 
@@ -1461,29 +1459,9 @@ export default function HomeScreen() {
         );
 
       case "categoriesRows":
-        // Deliberately still ScrollView: this is the full category set split over
-        // two rows — thirteen items total, a fixed product decision, not a
-        // collection that grows. Virtualizing it would add windowing overhead to
-        // something that never exceeds a screen or two, which is exactly the
-        // "FlatList everywhere" cargo-culting the brief warns against.
         return (
-          <View style={styles.catSliderContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.catSliderContent}
-              style={styles.catSliderRow}
-            >
-              {firstRowCategories.map(renderCategoryCard)}
-            </ScrollView>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.catSliderContent}
-              style={styles.catSliderRow}
-            >
-              {secondRowCategories.map(renderCategoryCard)}
-            </ScrollView>
+          <View style={styles.categoryGrid}>
+            {storeCategories.map((category) => renderCategoryCard(category, categoryCardWidth))}
           </View>
         );
 
@@ -1804,9 +1782,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   greetingContainer: {
     paddingHorizontal: 0,
-    paddingTop: 4,
-    marginTop: 4,
-    paddingBottom: 12,
+    paddingTop: 0,
+    marginTop: 0,
+    paddingBottom: 6,
     width: "100%",
     alignItems: "flex-start",
   },
@@ -1814,29 +1792,29 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     // 28 -> 25 (-10.7%). lineHeight follows at the same 1.43 ratio so the block
     // keeps its proportions instead of sitting in an oversized line box.
-    fontSize: 25,
-    lineHeight: 36,
+    fontSize: 21,
+    lineHeight: 30,
     color: AppColors.primary,
-    marginBottom: 2,
+    marginBottom: 0,
     textAlign: "right",
     writingDirection: "rtl",
     includeFontPadding: false,
   },
   subGreeting: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 16,
+    fontSize: 14,
     color: AppColors.gray700,
     textAlign: "right",
     writingDirection: "rtl",
-    marginTop: 6,
+    marginTop: 2,
   },
   bannersSection: {
-    marginVertical: 12,
+    marginVertical: 8,
   },
   // ── Tabs ──
   tabsWrapper: {
-    marginTop: 16,
-    marginBottom: 14,
+    marginTop: 10,
+    marginBottom: 10,
   },
   tabsBackground: {
     flexDirection: "row",
@@ -1901,9 +1879,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingVertical: 12,
     borderRadius: 18,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1.5,
     borderColor: AppColors.backgroundTertiary,
   },
@@ -2105,20 +2083,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.primary,
   },
-  catSliderContainer: {
-    marginBottom: Spacing.xl,
-    gap: 10,
-    marginHorizontal: -HORIZONTAL_PADDING,
-  },
-  catSliderRow: {
-    flexGrow: 0,
-  },
-  catSliderContent: {
-    paddingHorizontal: HORIZONTAL_PADDING,
-    gap: 10,
+  categoryGrid: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: CATEGORY_GRID_GAP,
+    marginBottom: Spacing.lg,
   },
   catCardWrapper: {
-    width: 130,
     borderRadius: 20,
     ...Platform.select({
       ios: {
@@ -2132,17 +2104,17 @@ const styles = StyleSheet.create({
     }),
   },
   catCard: {
-    width: 130,
-    height: 130,
+    width: "100%",
+    height: 128,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
-    paddingVertical: 10,
-    paddingHorizontal: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   catImageContainer: {
-    flex: 1,
+    height: 78,
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
@@ -2158,7 +2130,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: AppColors.gray800,
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 3,
   },
   loadingContainer: {
     paddingVertical: Spacing.xl,

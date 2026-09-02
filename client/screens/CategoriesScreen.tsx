@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   StyleSheet,
   FlatList,
   View,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Pressable,
   Platform,
@@ -13,8 +13,6 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
-import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
@@ -24,45 +22,15 @@ import { Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { GradientBackground } from "@/components/GradientBackground";
-import { categoryImageSource } from "@/constants/categoryImages";
+import {
+  categoryImageFallbackSource,
+  categoryImageSource,
+} from "@/constants/categoryImages";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-/**
- * The category picture, with something to show when there is none.
- *
- * Neither screen had an onError or a placeholder, so a category whose image was
- * missing — or whose legacy /uploads URL 404'd — rendered an empty hole with no
- * hint that anything was wrong. This keeps the same 100x100 box and the same
- * contentFit; it only fills it when the image cannot be shown.
- */
-function CategoryIcon({ uri }: { uri: string }) {
-  const [failed, setFailed] = useState(false);
-
-  if (!uri || failed) {
-    return (
-      <View style={[styles.image, styles.imageFallback]}>
-        <Feather name="image" size={32} color={AppColors.gray400} />
-      </View>
-    );
-  }
-
-  return (
-    <Image
-      source={{ uri }}
-      style={styles.image}
-      contentFit="contain"
-      cachePolicy="disk"
-      transition={200}
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - CARD_GAP) / 2;
 
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -84,9 +52,11 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
+  const cardWidth = Math.max(0, (screenWidth - 32 - CARD_GAP) / 2);
 
   const { data: categories = [], isLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -114,12 +84,12 @@ export default function CategoriesScreen() {
 
   const renderCategory = ({ item }: { item: Category }) => {
     const gradientColor = getGradientColor(item.id, item.color);
-    // The uploaded picture first; the legacy /uploads asset only if there is none.
     const imageSource = categoryImageSource(item.id, item.image);
+    const fallbackImageSource = categoryImageFallbackSource(item.id);
 
     return (
       <Pressable
-        style={styles.cardWrapper}
+        style={[styles.cardWrapper, { width: cardWidth }]}
         onPress={() => handleCategoryPress(item)}
         testID={`card-category-${item.id}`}
         accessibilityRole="button"
@@ -132,7 +102,11 @@ export default function CategoriesScreen() {
           style={styles.card}
         >
           <View style={styles.imageContainer}>
-            <CategoryIcon uri={imageSource} />
+            <CategoryIcon
+              uri={imageSource}
+              fallbackUri={fallbackImageSource}
+              size={84}
+            />
           </View>
           <ThemedText type="body" style={styles.name} numberOfLines={2}>
             {item.name}
@@ -187,7 +161,6 @@ const styles = StyleSheet.create({
     marginBottom: CARD_GAP,
   },
   cardWrapper: {
-    width: CARD_WIDTH,
     borderRadius: 25,
     ...Platform.select({
       ios: {
@@ -206,36 +179,26 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    height: 180,
+    height: 158,
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
   },
   imageContainer: {
-    flex: 1,
+    height: 92,
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
-  },
-  image: {
-    width: 100,
-    height: 100,
-    backgroundColor: "transparent",
-  },
-  // Centres the placeholder glyph inside the box above. The box keeps its size.
-  imageFallback: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   name: {
     fontSize: 14,
     fontWeight: FontWeight.bold,
     color: AppColors.gray700,
     textAlign: "center",
-    marginTop: 8,
+    marginTop: 6,
   },
   loadingContainer: {
     flex: 1,

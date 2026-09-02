@@ -8,47 +8,47 @@
  * "عرض جميع الأقسام" the picture an admin had uploaded was never even tried: every
  * one of the fourteen mapped categories asked for a /uploads/ URL instead.
  *
- * /uploads/ is dead. The directory is not in the repository, and server/index.ts
- * keeps the mount only as a documented "legacy read-only" path for documents
- * written before the move to Firebase Storage — on a VM disk that was "wiped on
- * every redeploy". Nothing is deleted here: the entries stay, demoted to the last
- * thing tried rather than the first.
+ * The old /uploads/ directory is not in the repository and is wiped on every
+ * redeploy. The bundled seed assets under /assets/seed are the durable fallback.
  */
 import { resolveImageUrl } from "@/utils/imageUtils";
 
 /**
- * Legacy bundled artwork, kept as a last resort.
+ * Bundled artwork, kept as a last resort when an admin image is unavailable.
  *
- * These paths resolve to 404 today. They are retained deliberately: a deployment
- * whose uploads/ directory survived the migration still serves them, and removing
- * the entries would delete that possibility for no gain.
- *
- * "restaurants" keeps the HomeScreen spelling of the two that existed. Both 404, so
- * the choice is cosmetic — recorded here so the divergence is not silently lost.
+ * These files are shipped in the repository and served from the read-only assets
+ * mount, so a category never falls back to a dead local-disk URL.
  */
 export const CATEGORY_3D_IMAGES: Record<string, string> = {
-  restaurants: "/uploads/tab-icon-restaurants.png",
-  "fruits-vegetables": "/uploads/category-3d-vegetables.png",
-  "meat-poultry": "/uploads/category-3d-meat.png",
-  "dairy-eggs": "/uploads/category-3d-dairy.png",
-  "cleaning-care": "/uploads/category-3d-cleaning.png",
-  beverages: "/uploads/category-3d-beverages.png",
-  "snacks-sweets": "/uploads/category-3d-snacks.png",
-  "tea-coffee": "/uploads/category-3d-coffee.png",
-  baby: "/uploads/category-3d-baby.png",
-  flowers: "/uploads/category-3d-flowers.png",
-  delivery: "/uploads/category-3d-delivery.png",
-  pharmacy: "/uploads/category-3d-pharmacy.png",
-  "women-bags": "/uploads/category-3d-bags.png",
-  "international-shopping": "/uploads/category-3d-international.png",
+  restaurants: "/assets/seed/category-restaurants.png",
+  "fruits-vegetables": "/assets/seed/category-vegetables.png",
+  "meat-poultry": "/assets/seed/category-meat.png",
+  "dairy-eggs": "/assets/seed/category-dairy.png",
+  "cleaning-care": "/assets/seed/category-cleaning.png",
+  beverages: "/assets/seed/category-beverages.png",
+  "snacks-sweets": "/assets/seed/category-snacks.png",
+  "tea-coffee": "/assets/seed/category-coffee.png",
+  baby: "/assets/seed/category-baby.png",
+  flowers: "/assets/seed/category-flowers.png",
+  delivery: "/assets/seed/category-delivery.png",
+  "food-supplies": "/assets/seed/category-food-supplies.png",
+  "women-bags": "/assets/seed/category-bags.png",
+  "international-shopping": "/assets/seed/category-international.png",
 };
+
+const DEFAULT_CATEGORY_IMAGE = "/assets/seed/category-food-supplies.png";
+
+export function categoryImageFallbackSource(categoryId?: string): string {
+  const fallback = (categoryId && CATEGORY_3D_IMAGES[categoryId]) || DEFAULT_CATEGORY_IMAGE;
+  return resolveImageUrl(fallback);
+}
 
 /**
  * The URL a category card should request, in priority order:
  *
  *   1. whatever `category.image` holds — a Firebase Storage URL, a data: URI, or a
  *      relative path such as /assets/seed/category-x.png, all resolved the same way
- *   2. the legacy bundled asset, if this category has one
+ *   2. the bundled seed asset, if this category has one
  *   3. "" — the caller renders its own placeholder rather than a broken image
  *
  * Returns a string always, never null, so a caller can pass it straight to <Image>.
@@ -59,11 +59,10 @@ export function categoryImageSource(categoryId?: string, image?: string): string
     const resolved = resolveImageUrl(stored);
     // resolveImageUrl returns "" when there is no API host to resolve a relative
     // path against; fall through to the legacy asset rather than render nothing.
-    if (resolved) return resolved;
+    // Old Firestore records may still contain a dead disk path. Do not let it
+    // override the bundled image that is guaranteed to exist.
+    if (resolved && !stored.startsWith("/uploads/")) return resolved;
   }
 
-  const legacy = categoryId ? CATEGORY_3D_IMAGES[categoryId] : undefined;
-  if (legacy) return resolveImageUrl(legacy);
-
-  return "";
+  return categoryImageFallbackSource(categoryId);
 }

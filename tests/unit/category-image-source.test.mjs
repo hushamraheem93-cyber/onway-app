@@ -17,8 +17,8 @@
  * dead URL and the picture the admin had uploaded was never even tried.
  *
  * The functions below are lifted out of the shipped screens and executed. The
- * /uploads entries are deliberately NOT deleted — requirement 3 — they are demoted
- * to last resort.
+ * old /uploads entries are not used: bundled assets now live under /assets/seed,
+ * which is actually present in the repository and served by the API.
  *
  * Run:  node --test tests/unit/category-image-source.test.mjs
  */
@@ -36,9 +36,11 @@ const read = (p) => readFileSync(join(root, p), "utf8");
 
 const HOME = read("client/screens/HomeScreen.tsx");
 const CATS = read("client/screens/CategoriesScreen.tsx");
+const ICON = read("client/components/CategoryIcon.tsx");
 const SHARED_PATH = "client/constants/categoryImages.ts";
 
 const API = "https://api.onway.iq";
+const DEFAULT_CATEGORY_IMAGE = "/assets/seed/category-food-supplies.png";
 const STORAGE =
   "https://firebasestorage.googleapis.com/v0/b/onway-74c20.firebasestorage.app/o/admin-images%2Fcategory%2Fabc.webp?alt=media&token=t";
 
@@ -92,6 +94,38 @@ function liftMap(src) {
   return new Function(`return ${src.slice(open, src.indexOf("};", at) + 1)}`)();
 }
 
+/** Lift the shared fallback resolver out of its TypeScript module. */
+const fallbackSource = (() => {
+  const src = read(SHARED_PATH);
+  const at = src.indexOf("export function categoryImageFallbackSource");
+  assert.notEqual(at, -1, "categoryImageFallbackSource not found");
+  const open = src.indexOf("{", src.indexOf(")", at));
+  let d = 0;
+  let end = open;
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === "{") d++;
+    else if (src[j] === "}" && --d === 0) {
+      end = j + 1;
+      break;
+    }
+  }
+  const js = ts.transpileModule(
+    `function fallbackSource(categoryId) ${src.slice(open, end)}
+return fallbackSource;`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } },
+  ).outputText;
+  return new Function(
+    "CATEGORY_3D_IMAGES",
+    "DEFAULT_CATEGORY_IMAGE",
+    "resolveImageUrl",
+    js,
+  )(
+    liftMap(src),
+    DEFAULT_CATEGORY_IMAGE,
+    resolveImageUrl,
+  );
+})();
+
 // ── the legacy path is genuinely dead ───────────────────────────────────────
 
 describe("M-3A · the /uploads mount is legacy and empty", () => {
@@ -104,10 +138,13 @@ describe("M-3A · the /uploads mount is legacy and empty", () => {
     assert.match(index, /app\.use\("\/uploads", express\.static\(/);
   });
 
-  test("the fallback map still names every legacy asset — none removed", () => {
+  test("the fallback map points every category to a bundled asset", () => {
     const map = liftMap(read(SHARED_PATH));
     assert.equal(Object.keys(map).length, 14);
-    for (const v of Object.values(map)) assert.match(v, /^\/uploads\//);
+    for (const [id, v] of Object.entries(map)) {
+      assert.match(v, /^\/assets\/seed\//);
+      assert.equal(existsSync(join(root, v)), true, `${id} points to a missing asset`);
+    }
   });
 });
 
@@ -155,7 +192,12 @@ describe("M-3A · the uploaded image wins on every screen", () => {
       `function pick(categoryId, image) ${src.slice(open, end)}\nreturn pick;`,
       { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } },
     ).outputText;
-    return new Function("CATEGORY_3D_IMAGES", "resolveImageUrl", js)(liftMap(src), resolveImageUrl);
+    return new Function(
+      "CATEGORY_3D_IMAGES",
+      "resolveImageUrl",
+      "categoryImageFallbackSource",
+      js,
+    )(liftMap(src), resolveImageUrl, fallbackSource);
   })();
 
   // A · a Storage URL is used
@@ -182,13 +224,30 @@ describe("M-3A · the uploaded image wins on every screen", () => {
     assert.equal(pick("baby", uri), uri);
   });
 
-  // C · empty image falls back
-  test("C · an empty image falls back to the legacy asset, resolved", () => {
-    assert.equal(pick("baby", ""), `${API}/uploads/category-3d-baby.png`);
+  // C · empty or stale image falls back to a bundled asset
+  test("C · an empty image falls back to a bundled asset, resolved", () => {
+    assert.equal(pick("baby", ""), `${API}/assets/seed/category-baby.png`);
   });
 
-  test("C · an empty image with no legacy asset yields an empty source", () => {
-    assert.equal(pick("no-such-category", ""), "");
+  test("C · a stale /uploads image is replaced by the bundled asset", () => {
+    assert.equal(
+      pick("baby", "/uploads/category-3d-baby.png"),
+      `${API}/assets/seed/category-baby.png`,
+    );
+  });
+
+  test("C · an empty image with no mapped category uses the generic bundled asset", () => {
+    assert.equal(
+      pick("no-such-category", ""),
+      `${API}/assets/seed/category-food-supplies.png`,
+    );
+  });
+
+  test("C · a dynamic category with no image gets the generic bundled asset", () => {
+    assert.equal(
+      fallbackSource("g8YVuZ2kOH8rJcEjl5HT"),
+      `${API}/assets/seed/category-food-supplies.png`,
+    );
   });
 
   // D · the legacy path is never preferred over a real image
@@ -231,21 +290,37 @@ describe("M-3A · both screens route through the shared picker", () => {
 
   test("CategoriesScreen renders a fallback when no source resolves", () => {
     const clean = stripComments(CATS);
-    assert.match(clean, /onError/, "a failed load is still silent");
+    assert.match(clean, /from "@\/components\/CategoryIcon"/);
+    assert.match(ICON, /onError/, "a failed load is still silent");
+  });
+
+  test("both screens pass the bundled fallback for a failed remote image", () => {
+    for (const src of [HOME, CATS]) {
+      assert.match(src, /categoryImageFallbackSource/);
+      assert.match(src, /fallbackUri=\{/);
+    }
+    assert.match(ICON, /fallbackUri\?: string/);
+    assert.match(ICON, /setSourceUri\(fallbackUri\)/);
   });
 });
 
-// ── nothing else moved ──────────────────────────────────────────────────────
+// ── compact, responsive category cards ──────────────────────────────────────
 
-describe("M-3A · layout and contract untouched", () => {
-  test("the icon boxes keep their sizes: 70 on Home, 100 on Categories", () => {
-    assert.match(HOME, /catImage: \{\s*width: 70,\s*height: 70,/);
-    assert.match(CATS, /image: \{\s*width: 100,\s*height: 100,/);
+describe("M-3A · category layout is compact and responsive", () => {
+  test("HomeScreen renders categories as a wrapping grid", () => {
+    const clean = stripComments(HOME);
+    assert.match(clean, /style=\{styles\.categoryGrid\}/);
+    assert.match(clean, /categoryCardWidth/);
+  });
+
+  test("the image boxes are compact and consistent on both screens", () => {
+    assert.match(ICON, /size = 72/);
+    assert.match(CATS, /CategoryIcon[\s\S]*uri=\{imageSource\}[\s\S]*size=\{84\}/);
   });
 
   test("contentFit stays contain on both", () => {
     assert.match(HOME, /contentFit="contain"/);
-    assert.match(CATS, /contentFit="contain"/);
+    assert.match(ICON, /contentFit="contain"/);
   });
 
   test("category ids are unchanged in the shared map", () => {
@@ -253,8 +328,15 @@ describe("M-3A · layout and contract untouched", () => {
     const expected = [
       "restaurants", "fruits-vegetables", "meat-poultry", "dairy-eggs", "cleaning-care",
       "beverages", "snacks-sweets", "tea-coffee", "baby", "flowers", "delivery",
-      "pharmacy", "women-bags", "international-shopping",
+      "food-supplies", "women-bags", "international-shopping",
     ];
     assert.deepEqual(Object.keys(map).sort(), expected.sort());
+  });
+
+  test("food-supplies resolves to its shipped image", () => {
+    assert.equal(
+      fallbackSource("food-supplies"),
+      `${API}/assets/seed/category-food-supplies.png`,
+    );
   });
 });
