@@ -304,23 +304,29 @@ describe("M-3A · both screens route through the shared picker", () => {
   });
 });
 
-// ── compact, responsive category cards ──────────────────────────────────────
+// ── horizontal home rows and filled category artwork ─────────────────────────
 
-describe("M-3A · category layout is compact and responsive", () => {
-  test("HomeScreen renders categories as a wrapping grid", () => {
+describe("M-3A · category layout keeps the original browsing behavior", () => {
+  test("HomeScreen renders the categories in two horizontal rows", () => {
     const clean = stripComments(HOME);
-    assert.match(clean, /style=\{styles\.categoryGrid\}/);
-    assert.match(clean, /categoryCardWidth/);
+    const at = clean.indexOf('case "categoriesRows":');
+    const block = clean.slice(at, at + 1000);
+    assert.match(block, /<ScrollView[\s\S]*horizontal/);
+    assert.match(block, /firstRowCategories\.map\(renderCategoryCard\)/);
+    assert.match(block, /secondRowCategories\.map\(renderCategoryCard\)/);
+    assert.doesNotMatch(block, /categoryGrid/);
   });
 
-  test("the image boxes are compact and consistent on both screens", () => {
-    assert.match(ICON, /size = 72/);
-    assert.match(CATS, /CategoryIcon[\s\S]*uri=\{imageSource\}[\s\S]*size=\{84\}/);
+  test("category artwork fills its square image box", () => {
+    assert.match(ICON, /contentFit="cover"/);
+    assert.match(HOME, /CategoryIcon[\s\S]*size=\{92\}/);
+    assert.match(CATS, /CategoryIcon[\s\S]*uri=\{imageSource\}[\s\S]*size=\{110\}/);
+    assert.match(HOME, /catImageContainer:\s*\{\s*width: "100%",\s*height: 102/);
+    assert.match(CATS, /imageContainer:\s*\{\s*height: 116/);
   });
 
-  test("contentFit stays contain on both", () => {
-    assert.match(HOME, /contentFit="contain"/);
-    assert.match(ICON, /contentFit="contain"/);
+  test("category image content fills its square on both screens", () => {
+    assert.match(ICON, /contentFit="cover"/);
   });
 
   test("category ids are unchanged in the shared map", () => {

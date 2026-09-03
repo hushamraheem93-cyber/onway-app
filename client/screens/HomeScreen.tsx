@@ -5,7 +5,6 @@ import {
   FlatList,
   ScrollView,
   Dimensions,
-  useWindowDimensions,
   ActivityIndicator,
   Pressable,
   Platform,
@@ -72,8 +71,6 @@ const SEARCH_GRID_COLUMNS = Math.max(
       (PRODUCT_CARD_WIDTH + SEARCH_GRID_GAP),
   ),
 );
-const CATEGORY_GRID_GAP = 10;
-
 interface Vendor {
   id: string;
   name: string;
@@ -200,14 +197,9 @@ function RestaurantTabIcon({ size = 48 }: { size?: number }) {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const categoryCardWidth = Math.max(
-    90,
-    (windowWidth - 2 * HORIZONTAL_PADDING - 2 * CATEGORY_GRID_GAP) / 3,
-  );
 
   const { items, addToCart, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -304,6 +296,14 @@ export default function HomeScreen() {
     );
   }, [allProducts, searchQuery]);
 
+  const firstRowCategories = storeCategories.slice(
+    0,
+    Math.ceil(storeCategories.length / 2),
+  );
+  const secondRowCategories = storeCategories.slice(
+    Math.ceil(storeCategories.length / 2),
+  );
+
   // ── Vendor stores from registration system ──────────────────────────────
   const vendorRestaurants = useMemo(
     () => allVendorStores.filter((s) => s.businessType === "restaurant"),
@@ -392,13 +392,13 @@ export default function HomeScreen() {
 
   // ── Render helpers ──────────────────────────────────────────────────────
 
-  const renderCategoryCard = (category: Category, cardWidth = categoryCardWidth) => {
+  const renderCategoryCard = (category: Category) => {
     const gradientColor =
       CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
     return (
       <Pressable
         key={category.id}
-        style={[styles.catCardWrapper, { width: cardWidth }]}
+        style={styles.catCardWrapper}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           handleCategoryPress(category);
@@ -417,7 +417,7 @@ export default function HomeScreen() {
             <CategoryIcon
               uri={categoryImageSource(category.id, category.image)}
               fallbackUri={categoryImageFallbackSource(category.id)}
-              size={72}
+              size={92}
             />
           </View>
           {/* One line, down to 0.85 of the size and no further.
@@ -1460,8 +1460,23 @@ export default function HomeScreen() {
 
       case "categoriesRows":
         return (
-          <View style={styles.categoryGrid}>
-            {storeCategories.map((category) => renderCategoryCard(category, categoryCardWidth))}
+          <View style={styles.catSliderContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.catSliderContent}
+              style={styles.catSliderRow}
+            >
+              {firstRowCategories.map(renderCategoryCard)}
+            </ScrollView>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.catSliderContent}
+              style={styles.catSliderRow}
+            >
+              {secondRowCategories.map(renderCategoryCard)}
+            </ScrollView>
           </View>
         );
 
@@ -2083,14 +2098,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.primary,
   },
-  categoryGrid: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: CATEGORY_GRID_GAP,
-    marginBottom: Spacing.lg,
+  catSliderContainer: {
+    marginBottom: Spacing.xl,
+    gap: 10,
+    marginHorizontal: -HORIZONTAL_PADDING,
+  },
+  catSliderRow: {
+    flexGrow: 0,
+  },
+  catSliderContent: {
+    paddingHorizontal: HORIZONTAL_PADDING,
+    gap: 10,
   },
   catCardWrapper: {
+    width: 130,
     borderRadius: 20,
     ...Platform.select({
       ios: {
@@ -2104,25 +2125,22 @@ const styles = StyleSheet.create({
     }),
   },
   catCard: {
-    width: "100%",
-    height: 128,
+    width: 130,
+    height: 164,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
   },
   catImageContainer: {
-    height: 78,
     width: "100%",
+    height: 102,
+    flexGrow: 0,
+    flexShrink: 0,
     justifyContent: "center",
     alignItems: "center",
-  },
-  catImage: {
-    width: 70,
-    height: 70,
-    backgroundColor: "transparent",
   },
   catName: {
     fontFamily: "Cairo_700Bold",
@@ -2130,7 +2148,8 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: AppColors.gray800,
     textAlign: "center",
-    marginTop: 3,
+    marginTop: 4,
+    lineHeight: 18,
   },
   loadingContainer: {
     paddingVertical: Spacing.xl,

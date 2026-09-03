@@ -105,7 +105,7 @@ export default function CategoriesScreen() {
             <CategoryIcon
               uri={imageSource}
               fallbackUri={fallbackImageSource}
-              size={84}
+              size={110}
             />
           </View>
           <ThemedText type="body" style={styles.name} numberOfLines={2}>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    height: 158,
+    height: 190,
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
@@ -188,8 +188,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   imageContainer: {
-    height: 92,
+    height: 116,
     width: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -199,6 +201,7 @@ const styles = StyleSheet.create({
     color: AppColors.gray700,
     textAlign: "center",
     marginTop: 6,
+    lineHeight: 22,
   },
   loadingContainer: {
     flex: 1,

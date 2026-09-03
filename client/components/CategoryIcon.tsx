@@ -45,7 +45,7 @@ export function CategoryIcon({ uri, fallbackUri = "", size = 72 }: CategoryIconP
     <Image
       source={{ uri: sourceUri }}
       style={{ width: size, height: size }}
-      contentFit="contain"
+      contentFit="cover"
       cachePolicy="disk"
       transition={200}
       onError={() => {
