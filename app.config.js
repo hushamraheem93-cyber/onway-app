@@ -48,7 +48,7 @@ if (IS_BINARY_BUILD) {
  * to: updates silently never arrive, and the rollback path is dead when it is
  * needed most. Deriving one from the other makes that impossible.
  */
-const EAS_PROJECT_ID = "31018b2b-d742-4f09-8d17-48d00575216c";
+const EAS_PROJECT_ID = "889f215d-8c87-4182-a10f-ecdb2c557a77";
 
 module.exports = {
   expo: {
