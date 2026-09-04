@@ -174,7 +174,7 @@ describe("M-3A · the fallback map lives in one place", () => {
 
 // ── priority, executed ──────────────────────────────────────────────────────
 
-describe("M-3A · the uploaded image wins on every screen", () => {
+describe("M-3A · the bundled artwork wins for the categories that have it", () => {
   const pick = (() => {
     const src = read(SHARED_PATH);
     const at = src.indexOf("export function categoryImageSource");
@@ -200,28 +200,45 @@ describe("M-3A · the uploaded image wins on every screen", () => {
     )(liftMap(src), resolveImageUrl, fallbackSource);
   })();
 
-  // A · a Storage URL is used
-  test("A · a Firebase Storage URL is used as-is", () => {
-    assert.equal(pick("restaurants", STORAGE), STORAGE);
-  });
-
-  test("A · a Storage URL wins even for a category that has a legacy asset", () => {
-    for (const id of Object.keys(liftMap(read(SHARED_PATH)))) {
-      assert.equal(pick(id, STORAGE), STORAGE, `${id} preferred its /uploads asset`);
+  // A · the bundled asset is preferred for every mapped category
+  //
+  // This is the inversion. The uploaded pictures each carry their own baked-in
+  // background — measured on the live grid, lavender behind dairy, pink behind
+  // meat, white behind others — so a row of them reads as mismatched stickers.
+  // The bundled files are transparent and share one geometry, so they are what
+  // the fourteen known categories draw.
+  test("A · every mapped category draws its bundled asset, not the uploaded one", () => {
+    const map = liftMap(read(SHARED_PATH));
+    for (const [id, asset] of Object.entries(map)) {
+      assert.equal(pick(id, STORAGE), `${API}${asset}`,
+        `${id} still prefers the uploaded picture, so the grid stays inconsistent`);
     }
   });
 
-  // B · a relative seed path resolves against the API host
-  test("B · a /assets/seed/... path resolves against the API host", () => {
-    assert.equal(
-      pick("restaurants", "/assets/seed/category-restaurants.png"),
-      `${API}/assets/seed/category-restaurants.png`,
-    );
+  test("A · that holds no matter what the uploaded value looks like", () => {
+    for (const img of [STORAGE, "data:image/png;base64,AAAA", "/uploads/old.png", "", undefined]) {
+      assert.equal(pick("dairy-eggs", img), `${API}/assets/seed/category-dairy.png`);
+    }
   });
 
-  test("B · a data: URI is passed through untouched", () => {
+  // B · categories WITHOUT bundled art must be untouched by the inversion
+  test("B · an unmapped category still shows its uploaded image", () => {
+    // "pharmacy" is real and on the live grid, and has no bundled asset. If the
+    // inversion swallowed it, the screen would lose a picture it currently has.
+    assert.equal(pick("pharmacy", STORAGE), STORAGE);
+    assert.equal(pick("g8YVuZ2kOH8rJcEjl5HT", STORAGE), STORAGE);
+  });
+
+  test("B · an unmapped category passes a data: URI through untouched", () => {
     const uri = "data:image/png;base64,AAAA";
-    assert.equal(pick("baby", uri), uri);
+    assert.equal(pick("pharmacy", uri), uri);
+  });
+
+  test("B · an unmapped category resolves a relative path against the API host", () => {
+    assert.equal(
+      pick("pharmacy", "/assets/seed/category-restaurants.png"),
+      `${API}/assets/seed/category-restaurants.png`,
+    );
   });
 
   // C · empty or stale image falls back to a bundled asset
@@ -250,14 +267,15 @@ describe("M-3A · the uploaded image wins on every screen", () => {
     );
   });
 
-  // D · the legacy path is never preferred over a real image
-  test("D · /uploads is never chosen while a usable image exists", () => {
-    const map = liftMap(read(SHARED_PATH));
-    for (const [id, legacy] of Object.entries(map)) {
-      for (const img of [STORAGE, "/assets/seed/category-x.png", "data:image/png;base64,AA"]) {
-        const got = pick(id, img);
-        assert.ok(!got.includes(legacy), `${id} fell back to ${legacy} despite having an image`);
-      }
+  // D · a dead /uploads path is never rendered, mapped or not
+  test("D · a stale /uploads value is never the answer", () => {
+    // The directory is wiped on every redeploy, so pointing an <Image> at it is
+    // a guaranteed blank. A mapped id takes its bundled asset; an unmapped one
+    // takes the generic bundled asset rather than the dead path.
+    for (const id of [...Object.keys(liftMap(read(SHARED_PATH))), "pharmacy", undefined]) {
+      const got = pick(id, "/uploads/category-3d-old.png");
+      assert.ok(!got.includes("/uploads/"), `${id} rendered a dead /uploads path`);
+      assert.match(got, /\/assets\/seed\//);
     }
   });
 
