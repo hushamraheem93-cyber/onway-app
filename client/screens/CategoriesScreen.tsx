@@ -33,23 +33,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 const CARD_GAP = 12;
 
 
-const CATEGORY_COLORS: Record<string, string> = {
-  restaurants: AppColors.warningLight,
-  "fruits-vegetables": AppColors.successLight,
-  "meat-poultry": AppColors.errorLight,
-  "dairy-eggs": AppColors.vendorPurpleLight,
-  "cleaning-care": AppColors.driverBlueLight,
-  beverages: AppColors.infoLight,
-  "snacks-sweets": AppColors.warningLight,
-  "tea-coffee": AppColors.gray100,
-  baby: AppColors.errorLight,
-  flowers: AppColors.errorLight,
-  delivery: AppColors.warningLight,
-  pharmacy: AppColors.infoLight,
-  "women-bags": AppColors.errorLight,
-  "international-shopping": AppColors.infoLight,
-};
-
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -78,12 +61,7 @@ export default function CategoriesScreen() {
 
 
 
-  const getGradientColor = (categoryId: string, fallback?: string) => {
-    return CATEGORY_COLORS[categoryId] || fallback || AppColors.secondary;
-  };
-
   const renderCategory = ({ item }: { item: Category }) => {
-    const gradientColor = getGradientColor(item.id, item.color);
     const imageSource = categoryImageSource(item.id, item.image);
     const fallbackImageSource = categoryImageFallbackSource(item.id);
 
@@ -95,8 +73,11 @@ export default function CategoriesScreen() {
         accessibilityRole="button"
         accessibilityLabel={`قسم ${item.name}`}
       >
+        {/* Plain #FFFFFF, matching HomeScreen. The per-category tints are gone;
+            the LinearGradient element stays with two identical white stops so the
+            card's size, radius, padding and the wrapper's shadow are unchanged. */}
         <LinearGradient
-          colors={[gradientColor, AppColors.white]}
+          colors={[AppColors.white, AppColors.white]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.card}

@@ -156,23 +156,6 @@ function resolveStoreUrl(path?: string): string | null {
 }
 
 
-const CATEGORY_COLORS: Record<string, string> = {
-  restaurants: AppColors.warningLight,
-  "fruits-vegetables": AppColors.successLight,
-  "meat-poultry": AppColors.errorLight,
-  "dairy-eggs": AppColors.vendorPurpleLight,
-  "cleaning-care": AppColors.driverBlueLight,
-  beverages: AppColors.infoLight,
-  "snacks-sweets": AppColors.warningLight,
-  "tea-coffee": AppColors.gray100,
-  baby: AppColors.errorLight,
-  flowers: AppColors.errorLight,
-  delivery: AppColors.warningLight,
-  pharmacy: AppColors.infoLight,
-  "women-bags": AppColors.errorLight,
-  "international-shopping": AppColors.infoLight,
-};
-
 // ── Tab icon images (transparent PNG, no background) ─────────────────────────
 function StoreTabIcon({ size = 48 }: { size?: number }) {
   return (
@@ -393,8 +376,6 @@ export default function HomeScreen() {
   // ── Render helpers ──────────────────────────────────────────────────────
 
   const renderCategoryCard = (category: Category) => {
-    const gradientColor =
-      CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
     return (
       <Pressable
         key={category.id}
@@ -407,8 +388,12 @@ export default function HomeScreen() {
         accessibilityRole="button"
         accessibilityLabel={`قسم ${category.name}`}
       >
+        {/* Every category card is plain #FFFFFF. The per-category tints and the
+            gradient they faded through are gone; the LinearGradient element stays
+            with two identical white stops so the card's size, radius, padding and
+            the wrapper's shadow are untouched by this change. */}
         <LinearGradient
-          colors={[gradientColor, AppColors.white]}
+          colors={[AppColors.white, AppColors.white]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.catCard}

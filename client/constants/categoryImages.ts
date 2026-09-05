@@ -46,48 +46,36 @@ export function categoryImageFallbackSource(categoryId?: string): string {
 /**
  * The URL a category card should request, in priority order:
  *
- *   1. the bundled seed asset, when this category has one
- *   2. whatever `category.image` holds — a Firebase Storage URL, a data: URI, or a
+ *   1. whatever `category.image` holds — a Firebase Storage URL, a data: URI, or a
  *      relative path such as /assets/seed/category-x.png, all resolved the same way
+ *   2. the bundled seed asset, when this category has one
  *   3. the generic bundled asset
  *
  * Returns a string always, never null, so a caller can pass it straight to <Image>.
  *
- * The bundled asset comes FIRST, which is a deliberate inversion of the original
- * order. The uploaded pictures are photographs with a background baked into the
- * pixels — measured on the live grid: lavender rgb(243,220,248) behind the dairy
- * icon, pink rgb(254,234,237) behind the meat one, flat white behind others, an
- * orange disc behind the courier. Set side by side on tinted cards they read as a
- * row of mismatched stickers, because each carries its own backdrop instead of
- * letting the card's own colour show through.
+ * The uploaded image comes first, and the reason is availability rather than
+ * appearance. Preferring the bundled asset was tried and reverted: a bundled path
+ * is relative, so it only becomes a real URL once resolveImageUrl joins it to the
+ * API host, and the whole grid then depends on that one host serving /assets/seed.
+ * When it did not, all fourteen mapped categories lost their picture at once —
+ * and the caller's fallbackUri is drawn from this same bundled family, so the
+ * fallback could not rescue them either. A Firebase Storage URL is absolute and
+ * carries no such dependency.
  *
- * The fourteen bundled files are the opposite: transparent, and normalised to one
- * geometry (every one of them 1024×1024 with its artwork occupying 85.0% of the
- * frame, centred to within a rounding error). Preferring them is what makes the
- * grid look like one set.
- *
- * The trade-off, stated plainly: for these fourteen ids the picture is now fixed
- * in the app bundle, so changing one is a release rather than an upload. Every
- * other category — anything an admin creates later, "pharmacy" among them — is
- * untouched by this and still shows whatever was uploaded for it. Nothing is
- * deleted; the uploaded images stay in Storage, and removing an id from the map
- * below hands that category straight back to its uploaded picture.
+ * That leaves the ordering doing useful work in both directions: the uploaded
+ * picture is what an admin can change without a release, and the bundled asset is
+ * the thing that still renders when there is no uploaded picture at all. The two
+ * now sit on genuinely different sources, so the <Image> fallback chain in the
+ * screens can actually recover — remote first, bundled second, placeholder last.
  */
 export function categoryImageSource(categoryId?: string, image?: string): string {
-  const bundled = categoryId ? CATEGORY_3D_IMAGES[categoryId] : undefined;
-  if (bundled) {
-    const resolved = resolveImageUrl(bundled);
-    // "" means there is no API host to resolve a relative path against. That is a
-    // build-configuration problem, not a reason to show nothing, so fall through
-    // to the uploaded image, which may well be an absolute URL that still works.
-    if (resolved) return resolved;
-  }
-
   const stored = typeof image === "string" ? image.trim() : "";
   if (stored) {
     const resolved = resolveImageUrl(stored);
-    // Old Firestore records may still name a dead disk path under /uploads/,
-    // which is wiped on every redeploy. Never point an <Image> at one.
+    // resolveImageUrl returns "" when there is no API host to resolve a relative
+    // path against; fall through to the bundled asset rather than render nothing.
+    // Old Firestore records may still name a dead disk path under /uploads/, which
+    // is wiped on every redeploy. Never point an <Image> at one.
     if (resolved && !stored.startsWith("/uploads/")) return resolved;
   }
 

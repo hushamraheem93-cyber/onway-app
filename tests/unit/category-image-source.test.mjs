@@ -174,7 +174,7 @@ describe("M-3A · the fallback map lives in one place", () => {
 
 // ── priority, executed ──────────────────────────────────────────────────────
 
-describe("M-3A · the bundled artwork wins for the categories that have it", () => {
+describe("M-3A · the uploaded image wins, the bundled asset catches the fall", () => {
   const pick = (() => {
     const src = read(SHARED_PATH);
     const at = src.indexOf("export function categoryImageSource");
@@ -200,31 +200,34 @@ describe("M-3A · the bundled artwork wins for the categories that have it", () 
     )(liftMap(src), resolveImageUrl, fallbackSource);
   })();
 
-  // A · the bundled asset is preferred for every mapped category
+  // A · the uploaded image is preferred, INCLUDING for the fourteen mapped ids
   //
-  // This is the inversion. The uploaded pictures each carry their own baked-in
-  // background — measured on the live grid, lavender behind dairy, pink behind
-  // meat, white behind others — so a row of them reads as mismatched stickers.
-  // The bundled files are transparent and share one geometry, so they are what
-  // the fourteen known categories draw.
-  test("A · every mapped category draws its bundled asset, not the uploaded one", () => {
-    const map = liftMap(read(SHARED_PATH));
-    for (const [id, asset] of Object.entries(map)) {
-      assert.equal(pick(id, STORAGE), `${API}${asset}`,
-        `${id} still prefers the uploaded picture, so the grid stays inconsistent`);
+  // Preferring the bundled asset was tried and reverted. A bundled path is
+  // relative, so it is only a URL after resolveImageUrl joins it to the API host,
+  // and every mapped category then depends on that host serving /assets/seed.
+  // When it did not, all fourteen lost their picture at once. A Storage URL is
+  // absolute and has no such dependency, so it leads.
+  test("A · a mapped category uses its uploaded Storage URL, not the bundled asset", () => {
+    for (const id of Object.keys(liftMap(read(SHARED_PATH)))) {
+      assert.equal(pick(id, STORAGE), STORAGE,
+        `${id} preferred a relative bundled path over an absolute Storage URL`);
     }
   });
 
-  test("A · that holds no matter what the uploaded value looks like", () => {
-    for (const img of [STORAGE, "data:image/png;base64,AAAA", "/uploads/old.png", "", undefined]) {
-      assert.equal(pick("dairy-eggs", img), `${API}/assets/seed/category-dairy.png`);
-    }
+  test("A · the uploaded value is honoured whatever shape it takes", () => {
+    const uri = "data:image/png;base64,AAAA";
+    assert.equal(pick("dairy-eggs", STORAGE), STORAGE);
+    assert.equal(pick("dairy-eggs", uri), uri);
+    assert.equal(
+      pick("dairy-eggs", "/assets/seed/category-restaurants.png"),
+      `${API}/assets/seed/category-restaurants.png`,
+      "a relative uploaded path must resolve to itself, not to the id's own asset",
+    );
   });
 
-  // B · categories WITHOUT bundled art must be untouched by the inversion
-  test("B · an unmapped category still shows its uploaded image", () => {
-    // "pharmacy" is real and on the live grid, and has no bundled asset. If the
-    // inversion swallowed it, the screen would lose a picture it currently has.
+  // B · categories WITHOUT bundled art behave identically
+  test("B · an unmapped category shows its uploaded image", () => {
+    // "pharmacy" is real and on the live grid, and has no bundled asset.
     assert.equal(pick("pharmacy", STORAGE), STORAGE);
     assert.equal(pick("g8YVuZ2kOH8rJcEjl5HT", STORAGE), STORAGE);
   });
@@ -239,6 +242,19 @@ describe("M-3A · the bundled artwork wins for the categories that have it", () 
       pick("pharmacy", "/assets/seed/category-restaurants.png"),
       `${API}/assets/seed/category-restaurants.png`,
     );
+  });
+
+  // A' · the primary and the screens' fallbackUri must not be the same source
+  //
+  // This is the property whose absence made the outage total. The screens pass
+  // fallbackUri={categoryImageFallbackSource(id)}, which is always a bundled
+  // path. If the primary were bundled too, both would fail together and the
+  // <Image> onError chain could not recover.
+  test("A' · a mapped category's primary and bundled fallback differ", () => {
+    for (const id of Object.keys(liftMap(read(SHARED_PATH)))) {
+      assert.notEqual(pick(id, STORAGE), fallbackSource(id),
+        `${id} has no independent fallback — one dead host blanks the whole grid`);
+    }
   });
 
   // C · empty or stale image falls back to a bundled asset
