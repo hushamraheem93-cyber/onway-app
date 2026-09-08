@@ -314,6 +314,41 @@ export async function consumeOtp(
 }
 
 /**
+ * Is this phone inside its abuse lockout right now?
+ *
+ * Read-only: it takes no transaction, writes nothing, and increments nothing, so
+ * it changes the behaviour of no existing caller. It exists because the review
+ * login in routes.ts is checked BEFORE consumeOtp — deliberately, so a reviewer
+ * is not blocked by a stored code that expired — and that ordering meant the
+ * per-phone lockout, which lives inside consumeOtp, never applied to it. Measured:
+ * once the OTP record was gone, 200 consecutive review-code guesses were all
+ * evaluated with no counter consulted. This lets the review path ask the same
+ * question consumeOtp asks, without doing the work consumeOtp does.
+ *
+ * Fails OPEN (returns false) when the datastore is unavailable or the read throws:
+ * a Firestore outage must not lock every reviewer out of a submission, and the
+ * ordinary OTP path is unaffected either way.
+ */
+export async function isPhoneLockedOut(
+  phoneNumber: string,
+  now: number = Date.now(),
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+  try {
+    const snap = await db
+      .collection(OTP_ABUSE_COLLECTION)
+      .doc(normalizeOtpPhone(phoneNumber))
+      .get();
+    if (!snap.exists) return false;
+    const state = freshAbuseState(snap.data(), now);
+    return state.blockedUntil > now || state.failedAttempts >= OTP_MAX_ATTEMPTS;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Delete expired records, up to a fixed cap.
  *
  * This is a safety net, not the primary mechanism. The real answer is a

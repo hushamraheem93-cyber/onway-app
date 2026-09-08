@@ -73,6 +73,99 @@ describe("review accounts · the three numbers and their roles", () => {
   });
 });
 
+describe("review accounts · the operator's configured code is the one that decides", () => {
+  // The floor was 6, which silently refused REVIEW_LOGIN_CODE="0000": the module
+  // went inert, the three numbers fell through to the ordinary OTP path, and a
+  // reviewer typing the configured code was told the code was wrong. "0000" is
+  // the value actually set in production, so it is the value tested here.
+  const FOUR = "0000";
+
+  test('"0000" arms the mechanism and signs in all three review numbers', () => {
+    process.env.REVIEW_LOGIN_CODE = FOUR;
+    assert.equal(reviewAccountsEnabled(), true,
+      "a four-character code leaves the mechanism inert — this was the bug");
+    assert.equal(reviewCodeMatches(CUSTOMER, FOUR), true);
+    assert.equal(reviewCodeMatches(VENDOR, FOUR), true);
+    assert.equal(reviewCodeMatches(DRIVER, FOUR), true);
+    assert.equal(reviewRoleFor(CUSTOMER), "customer");
+    assert.equal(reviewRoleFor(VENDOR), "vendor");
+    assert.equal(reviewRoleFor(DRIVER), "driver");
+  });
+
+  test('"0000" does NOT sign in an ordinary number', () => {
+    // The bypass must stay bound to the three numbers. If this ever passes, the
+    // app has a fixed master code for every account on the platform.
+    process.env.REVIEW_LOGIN_CODE = FOUR;
+    for (const p of [ORDINARY, ...NEAR_MISS, "07700000000", "07709999999"]) {
+      assert.equal(reviewCodeMatches(p, FOUR), false, `${p} was signed in by 0000`);
+    }
+  });
+
+  test("a review number with a wrong code still fails", () => {
+    process.env.REVIEW_LOGIN_CODE = FOUR;
+    for (const bad of ["0001", "1234", "9999", "00000", "000", "", null]) {
+      assert.equal(reviewCodeMatches(CUSTOMER, bad), false,
+        `0000 was configured but ${JSON.stringify(bad)} was accepted`);
+    }
+  });
+
+  test("a three-character or empty code still leaves the mechanism inert", () => {
+    for (const weak of ["", " ", "1", "12", "123"]) {
+      process.env.REVIEW_LOGIN_CODE = weak;
+      assert.equal(reviewAccountsEnabled(), false, `"${weak}" armed the review path`);
+    }
+  });
+});
+
+describe("review accounts · a static code is bounded by the abuse lockout", () => {
+  test("verify-otp consults the lockout before accepting the review code", () => {
+    // REVIEW_LOGIN_CODE never rotates and never expires, and the review branch
+    // returns before consumeOtp — so without this gate the per-phone lockout,
+    // which lives inside consumeOtp, never applies to review-code guessing.
+    const at = ROUTES.indexOf('app.post("/api/auth/verify-otp"');
+    const body = ROUTES.slice(at, at + 1800);
+    assert.match(body, /reviewCodeMatches\(phoneNumber, code\)\s*&&\s*!\(await isPhoneLockedOut\(phoneNumber\)\)/,
+      "the review code is accepted without checking whether the phone is locked out");
+  });
+
+  test("the review code is still checked BEFORE the stored code and its expiry", () => {
+    // The requirement that made this mechanism necessary: a reviewer must not be
+    // refused because a stored OTP expired or was never stored at all.
+    const at = ROUTES.indexOf('app.post("/api/auth/verify-otp"');
+    const body = ROUTES.slice(at, at + 1800);
+    assert.ok(
+      body.indexOf("reviewCodeMatches") < body.indexOf("verifyOtpCode"),
+      "the stored-code check now runs first — an expired code would block a reviewer",
+    );
+  });
+
+  test("send-otp mints a real OTP record for review numbers, so guesses are counted", () => {
+    // consumeOtp returns "not_found" and exits BEFORE the abuse counter when no
+    // record exists. Returning from send-otp before generateOtp therefore left
+    // failed review guesses uncounted entirely.
+    const at = ROUTES.indexOf('app.post("/api/auth/send-otp"');
+    const body = ROUTES.slice(at, at + 2600);
+    const mint = body.indexOf("await generateOtp(phoneNumber)");
+    const review = body.indexOf("isReviewPhone(phoneNumber)");
+    assert.ok(mint > 0 && review > 0, "send-otp lost either the mint or the review branch");
+    assert.ok(mint < review,
+      "the review branch returns before a code is stored — failed guesses would not be counted");
+    assert.match(body, /deliverOtp\(phoneNumber, code/, "ordinary numbers no longer get an SMS");
+  });
+
+  test("isPhoneLockedOut is read-only and fails open", () => {
+    const src = readFileSync(join(root, "server/otpStore.ts"), "utf8");
+    const at = src.indexOf("export async function isPhoneLockedOut");
+    assert.ok(at > 0, "isPhoneLockedOut disappeared");
+    const fn = src.slice(at, src.indexOf("\nexport ", at + 10));
+    for (const write of ["runTransaction", ".set(", ".update(", ".delete(", "tx."]) {
+      assert.ok(!fn.includes(write), `isPhoneLockedOut performs a write: ${write}`);
+    }
+    assert.match(fn, /if \(!db\) return false;/, "a missing datastore must not lock reviewers out");
+    assert.match(fn, /catch \{\s*return false;\s*\}/, "a read failure must not lock reviewers out");
+  });
+});
+
 describe("review accounts · the reviewer may type the number either way", () => {
   // A reviewer typing 7701111104 without the leading zero must get in. That works
   // only because BOTH endpoints normalise before consulting the allowlist, so
@@ -184,7 +277,9 @@ describe("review accounts · the mechanism is off unless deliberately armed", ()
   });
 
   test("an empty or too-short code does not arm it", () => {
-    for (const weak of ["", " ", "1", "12345", "     "]) {
+    // The floor is four now — the width of the OTP the app itself mints — so
+    // "0000" works. Anything shorter must still leave the path inert.
+    for (const weak of ["", " ", "1", "12", "123", "   "]) {
       process.env.REVIEW_LOGIN_CODE = weak;
       assert.equal(reviewAccountsEnabled(), false, `"${weak}" armed the review path`);
       assert.equal(reviewCodeMatches(CUSTOMER, weak), false);
@@ -216,9 +311,15 @@ describe("review accounts · the mechanism is off unless deliberately armed", ()
   });
 
   test("no code literal is committed to the repository", () => {
-    const src = readFileSync(join(root, "server/reviewAccounts.ts"), "utf8");
+    // Comments are stripped first. The prose in this module quotes the value the
+    // operator set — REVIEW_LOGIN_CODE="0000" — while explaining why the length
+    // floor changed, and matching that would report a hardcoded secret that does
+    // not exist. What must be absent is an assignment in the CODE.
+    const src = stripComments(readFileSync(join(root, "server/reviewAccounts.ts"), "utf8"));
     const assignment = src.match(/REVIEW_LOGIN_CODE\s*=\s*["'][^"']+["']/);
     assert.equal(assignment, null, "a default code is hardcoded — it would ship in every deploy");
+    // And the only way the value is ever obtained is from the environment.
+    assert.match(src, /process\.env\.REVIEW_LOGIN_CODE/);
   });
 });
 
@@ -239,17 +340,19 @@ describe("review accounts · ordinary OTP is untouched", () => {
   });
 
   test("send-otp still generates and sends for ordinary numbers", () => {
+    // The ordering assertion here used to be the reverse — review branch first,
+    // before a code was minted, to save an SMS. That was wrong for a reason the
+    // saving did not cover: with no stored record, consumeOtp exits at
+    // "not_found" before the abuse counter, so failed review-code guesses were
+    // never counted. The mint now happens for everyone and only the DELIVERY is
+    // skipped; the ordering is asserted from the other side in the lockout suite.
     const at = ROUTES.indexOf('app.post("/api/auth/send-otp"');
-    const body = ROUTES.slice(at, at + 2200);
+    const body = ROUTES.slice(at, at + 2600);
     assert.match(body, /isReviewPhone\(phoneNumber\)/);
     assert.match(body, /await generateOtp\(phoneNumber\)/,
       "ordinary numbers no longer get a code generated");
     assert.match(body, /deliverOtp\(phoneNumber, code/,
       "ordinary numbers no longer get an SMS");
-    assert.ok(
-      body.indexOf("isReviewPhone") < body.indexOf("generateOtp"),
-      "a review number should return before a code is minted and an SMS is spent",
-    );
   });
 
   test("the rate limiter and the dev bypass are both left alone", () => {

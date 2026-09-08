@@ -73,11 +73,28 @@ const REVIEW_ACCOUNTS: Readonly<Record<string, ReviewRole>> = Object.freeze(
 const REVIEW_ROLES: ReadonlySet<string> = new Set(["customer", "vendor", "driver"]);
 
 /**
- * Shortest code accepted. Six digits is the width the ordinary OTP used before
- * it was reduced, and the floor exists so a careless one-character value cannot
- * silently arm a production login path.
+ * Shortest code accepted.
+ *
+ * This was 6, which silently refused REVIEW_LOGIN_CODE="0000" — the module went
+ * inert, the three numbers fell through to the ordinary OTP path, and a reviewer
+ * typing the configured code got "رمز التحقق غير صحيح". The floor is 4 now, the
+ * same width as the OTP the app itself mints, so the operator's choice is the
+ * one that decides.
+ *
+ * The floor still exists: an empty or one-character value must not arm a login
+ * path that is reachable in production.
+ *
+ * What a short code costs, stated plainly: unlike a real OTP this value is
+ * static — it never rotates and never expires — so an attacker who learns the
+ * review numbers has unlimited wall-clock time against it. At four digits that
+ * is 10,000 possibilities. What stands in the way is OTP_MAX_ATTEMPTS and the
+ * one-hour per-phone lockout, and those only apply because send-otp now mints
+ * and stores a real OTP record for review numbers too (see routes.ts) — without
+ * that record consumeOtp returns "not_found" before it ever reaches the counter,
+ * and the guessing is unbounded. A longer random value is still the better
+ * choice, and needs no code change to adopt.
  */
-const MIN_REVIEW_CODE_LENGTH = 6;
+const MIN_REVIEW_CODE_LENGTH = 4;
 
 /** The configured code, or "" when the mechanism is switched off. */
 function configuredCode(): string {

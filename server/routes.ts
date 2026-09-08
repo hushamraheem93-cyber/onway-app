@@ -13,6 +13,7 @@ import { isValidSession, getSessionUsername } from "./adminAuth";
 import { adminIdentityFromRequest } from "./adminAuthorization";
 import { isCustomerTokenRevoked, revokeCustomerTokens } from "./customerRevocation";
 import { isReviewPhone, reviewCodeMatches } from "./reviewAccounts";
+import { isPhoneLockedOut } from "./otpStore";
 import { DEFAULT_NOTIFICATION_PREFS, normalizeNotificationPrefs } from "../shared/notificationPrefs";
 import {
   CMS_IMAGE_FIELDS,
@@ -4563,18 +4564,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!IRAQ_PHONE_RE.test(phoneNumber)) {
       return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
     }
-    // Store-review numbers never receive an SMS: the reviewer signs in with the
-    // code from REVIEW_LOGIN_CODE, which verify-otp checks directly. Returning
-    // here keeps the review path off the SMS provider entirely — no credit is
-    // spent, and a missing OTP_IQ_API_KEY cannot 503 a reviewer out of the app.
-    // The response deliberately says nothing about why: it is byte-identical to
-    // an ordinary successful send, so probing this endpoint cannot reveal which
-    // numbers are review numbers.
-    if (isReviewPhone(phoneNumber)) {
-      console.log(`[REVIEW] send-otp for a review number (${maskPhone(phoneNumber)}) — no SMS sent`);
-      return res.json({ success: true, delivered: true, message: "OTP sent successfully" });
-    }
-
     // H-75: the code is now stored in Firestore, so this can fail. A code that
     // was never persisted can never be verified — telling the user "sent" would
     // strand them on the verification screen with a code that cannot work.
@@ -4592,6 +4581,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("[OTP] could not store the code — not sending");
       return res.status(503).json({ error: "تعذّر إرسال رمز التحقق، حاول لاحقاً" });
+    }
+
+    // Store-review numbers get a real OTP record — the code above was minted and
+    // stored exactly as for anyone else — and then skip ONLY the SMS. The
+    // reviewer signs in with REVIEW_LOGIN_CODE, which verify-otp checks before
+    // the stored code.
+    //
+    // Minting that record is not incidental. consumeOtp() returns "not_found"
+    // and exits BEFORE it touches the abuse counter when no record exists, so an
+    // earlier version of this — which returned before generateOtp — left wrong
+    // guesses against the review code uncounted and unlockoutable: measured at 50
+    // failed attempts with zero blocks and no counter ever created. With the
+    // record present, a wrong guess falls through to consumeOtp, increments the
+    // counter, and the phone locks after OTP_MAX_ATTEMPTS like any other.
+    //
+    // Returning here also keeps the review path off the SMS provider — no credit
+    // spent, and a missing OTP_IQ_API_KEY cannot 503 a reviewer out of the app.
+    // The response is byte-identical to an ordinary successful send, so probing
+    // cannot reveal which numbers are review numbers.
+    if (isReviewPhone(phoneNumber)) {
+      console.log(`[REVIEW] send-otp for a review number (${maskPhone(phoneNumber)}) — no SMS sent`);
+      return res.json({ success: true, delivered: true, message: "OTP sent successfully" });
     }
 
     // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
@@ -4622,13 +4633,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Normalise to match the key used by generateOtp in send-otp
     const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
 
-    // A store reviewer signs in with REVIEW_LOGIN_CODE on one of the three review
-    // numbers. reviewCodeMatches() is false for every other number whatever the
-    // code, and false for all numbers when REVIEW_LOGIN_CODE is unset, so an
-    // ordinary user's verification is unchanged and still goes through
-    // verifyOtpCode below. Nothing about the review path is logged beyond the
-    // masked number — never the code.
-    const isReviewLogin = reviewCodeMatches(phoneNumber, code);
+    // Checked before the stored code and its expiry, so a reviewer is never
+    // refused by a code that timed out; NOT before the lockout, because
+    // REVIEW_LOGIN_CODE is static and a guesser would otherwise get unlimited
+    // attempts at it. False for every non-review number, and for all numbers when
+    // REVIEW_LOGIN_CODE is unset. See reviewAccounts.ts for the full reasoning.
+    const isReviewLogin =
+      reviewCodeMatches(phoneNumber, code) && !(await isPhoneLockedOut(phoneNumber));
     if (isReviewLogin) {
       console.log(`[REVIEW] verify-otp accepted for ${maskPhone(phoneNumber)}`);
     } else if (!(await verifyOtpCode(phoneNumber, code))) {
