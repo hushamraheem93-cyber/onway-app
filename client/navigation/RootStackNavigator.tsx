@@ -79,9 +79,13 @@ export type RootStackParamList = {
     initialCategoryFilter?: string;
   };
   StoreRatings: { storeId: string; storeName: string };
+  // Omitting every field opens the screen in "all stores" mode: no filter is sent
+  // and /api/stores returns the full list, which is the same unfiltered call the
+  // home feed already makes. With a categoryId or a businessType it filters, as
+  // it always has.
   StoresList: {
-    categoryId: string;
-    categoryName: string;
+    categoryId?: string;
+    categoryName?: string;
     businessType?: string;
   };
   AdminLogin: undefined;

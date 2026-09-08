@@ -427,28 +427,42 @@ export default function StoresListScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
-  const { categoryId, categoryName, businessType } = route.params;
+  const { categoryId, categoryName, businessType } = route.params ?? {};
   const [searchQuery, setSearchQuery] = useState("");
+
+  // "all stores" mode has no category to name, and the two places that print
+  // categoryName would otherwise render the literal string "undefined". The
+  // fallback is the wording the home feed already uses for the section this
+  // screen opens from, so the title matches where the user tapped.
+  const listTitle = categoryName ?? "المتاجر المتاحة";
 
   // Pass businessType if available (preferred filter), otherwise fall back to categoryId.
   // The server maps categoryId→businessType for common values, but sending businessType
   // directly is more reliable and works even for categories not yet in the server map.
+  //
+  // With neither, the screen is in "all stores" mode: the request carries no
+  // filter at all, which is the same unfiltered /api/stores call the home feed
+  // makes. Nothing was added to the API for this — the mode is simply the request
+  // with its query string left empty.
   const apiUrl = (() => {
     const base = new URL("/api/stores", getApiUrl()).toString();
     const params = new URLSearchParams();
     if (businessType) {
       params.set("businessType", businessType);
-    } else {
+    } else if (categoryId) {
       params.set("categoryId", categoryId);
     }
-    return `${base}?${params.toString()}`;
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
   })();
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery<{
     stores: VendorStore[];
     total: number;
   }>({
-    queryKey: ["/api/stores", "category", categoryId],
+    // The key has to separate the modes, or the unfiltered list and a filtered
+    // one would share a cache entry and serve each other's results.
+    queryKey: ["/api/stores", "category", businessType ?? categoryId ?? "all"],
     queryFn: () => fetch(apiUrl).then((r) => r.json()),
   });
 
@@ -529,7 +543,9 @@ export default function StoresListScreen() {
             <ThemedText
               style={[styles.emptySubtitle, { color: theme.textSecondary }]}
             >
-              نعمل حالياً على ضم أفضل المتاجر في قسم {categoryName}
+              {categoryName
+                ? `نعمل حالياً على ضم أفضل المتاجر في قسم ${categoryName}`
+                : "نعمل حالياً على ضم أفضل المتاجر"}
             </ThemedText>
             <Pressable
               onPress={() => navigation.goBack()}
@@ -575,7 +591,7 @@ export default function StoresListScreen() {
                 type="h3"
                 style={{ textAlign: "right", color: theme.text }}
               >
-                {categoryName}
+                {listTitle}
               </ThemedText>
               <View
                 style={[

@@ -223,7 +223,15 @@ describe("H-77 · G+H. expo-updates is installed and pointed at this project", (
   });
 
   test("H. the id is written once, not repeated by hand", () => {
-    const literals = APP_RAW.match(/31018b2b-d742-4f09-8d17-48d00575216c/g) ?? [];
+    // The id this counts is READ from the loaded config, not written in here.
+    // It used to be a literal, and when the project id changed the test failed
+    // for the one reason that says nothing about the property under test: it was
+    // counting a string the file no longer contains. What matters is that
+    // whatever id the config resolves to appears exactly once in its source —
+    // every other use has to go through the constant, so the URL and the
+    // projectId cannot drift apart.
+    const id = APP.extra.eas.projectId;
+    const literals = APP_RAW.match(new RegExp(id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? [];
     assert.equal(literals.length, 1,
       `the project id is typed ${literals.length} times — they can drift apart`);
   });

@@ -32,6 +32,36 @@ const ts = createRequire(import.meta.url)("typescript");
 const RAW = readFileSync(join(root, "client/screens/HomeScreen.tsx"), "utf8");
 const SRC = stripComments(RAW);
 
+/** How many stores the home feed shows before "عرض الكل" takes over. */
+const HOME_STORES_LIMIT = Number(
+  SRC.match(/HOME_STORES_LIMIT = (\d+)/)?.[1] ??
+    assert.fail("HOME_STORES_LIMIT disappeared from HomeScreen"),
+);
+
+// The two SHIPPED expressions that cap the feed, lifted verbatim. Evaluating
+// these rather than reimplementing them is what makes the cap tests real: change
+// the slice in HomeScreen and these tests change with it.
+const CAP_EXPR = (() => {
+  const m = SRC.match(/homeVendorStores = useMemo\(\s*\(\) =>\s*([\s\S]*?),\s*\[/);
+  assert.ok(m, "the homeVendorStores expression changed shape — update this test");
+  return m[1].trim();
+})();
+const MORE_EXPR = (() => {
+  const m = SRC.match(/hasMoreVendorStores =\s*([^;]+);/);
+  assert.ok(m, "the hasMoreVendorStores expression changed shape — update this test");
+  return m[1].trim();
+})();
+
+/** Run one lifted expression with the bindings it closes over. */
+function evalFromSource(expr, bindings) {
+  const names = Object.keys(bindings);
+  // eslint-disable-next-line no-new-func
+  return new Function(...names, "HOME_STORES_LIMIT", `return (${expr});`)(
+    ...names.map((n) => bindings[n]),
+    HOME_STORES_LIMIT,
+  );
+}
+
 /** Lift buildSections() and run it against injected state. */
 function buildSectionsWith(state) {
   const at = SRC.indexOf("const buildSections = (): HomeSection[] => {");
@@ -43,14 +73,25 @@ function buildSectionsWith(state) {
     else if (SRC[i] === "}") { depth -= 1; if (depth === 0) { close = i; break; } }
   }
   const body = SRC.slice(open, close + 1);
-  const names = Object.keys(state);
+  // The builder reads the CAPPED store list. That cap must come from the SHIPPED
+  // expression, not be recomputed here: a harness that slices the list itself
+  // would keep passing after the screen stopped slicing at all, which is exactly
+  // what happened the first time this was written.
+  const full = state.vendorOtherStores ?? [];
+  const withDerived = {
+    ...state,
+    homeVendorStores: state.homeVendorStores ?? evalFromSource(CAP_EXPR, { vendorOtherStores: full }),
+    hasMoreVendorStores: state.hasMoreVendorStores ?? evalFromSource(MORE_EXPR, { vendorOtherStores: full }),
+  };
+  const names = Object.keys(withDerived);
+  const state_ = withDerived;
   const js = ts.transpileModule(
     `export function build(){ const out0 = (() => ${body})(); return out0; }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } },
   ).outputText;
   const exports = {};
   // eslint-disable-next-line no-new-func
-  new Function("exports", ...names, js)(exports, ...names.map((n) => state[n]));
+  new Function("exports", ...names, js)(exports, ...names.map((n) => state_[n]));
   return exports.build();
 }
 
@@ -121,12 +162,64 @@ describe("C-20 · unbounded collections become individual list items", () => {
   });
 
   test("the section count grows with the data — proof it is not one blob", () => {
-    const few = buildSectionsWith({ ...base, vendorOtherStores: [store("a")] });
+    // Restaurants are still uncapped, so they remain the proof that each record
+    // becomes its own list item rather than one rendered blob. The stores side
+    // is capped now and is asserted separately below.
+    const few = buildSectionsWith({ ...base, activeTab: "restaurants", vendorRestaurants: [store("a")] });
     const many = buildSectionsWith({
-      ...base, vendorOtherStores: Array.from({ length: 40 }, (_, i) => store(`s${i}`)),
+      ...base, activeTab: "restaurants",
+      vendorRestaurants: Array.from({ length: 40 }, (_, i) => store(`s${i}`)),
     });
     assert.equal(many.length - few.length, 39,
-      "adding 39 stores did not add 39 list items");
+      "adding 39 restaurants did not add 39 list items");
+  });
+
+  test("the home feed never renders more than HOME_STORES_LIMIT stores", () => {
+    // However many the API returns. Each store is a whole section — cover, logo,
+    // name and a product strip — so an uncapped list buries everything below it.
+    for (const n of [0, 1, HOME_STORES_LIMIT, HOME_STORES_LIMIT + 1, 40, 500]) {
+      const secs = buildSectionsWith({
+        ...base, vendorOtherStores: Array.from({ length: n }, (_, i) => store(`s${i}`)),
+      });
+      const shown = types(secs).filter((t) => t === "vendorStoreSection").length;
+      assert.equal(shown, Math.min(n, HOME_STORES_LIMIT),
+        `${n} stores rendered ${shown} sections`);
+      // The header only exists when there is at least one store under it.
+      assert.equal(types(secs).includes("storesHeader"), n > 0);
+    }
+  });
+
+  test('"عرض الكل" appears exactly when the feed is hiding something', () => {
+    // The shipped condition, executed. A button that is always on would send the
+    // user to a list identical to the one already on screen; one that is always
+    // off would strand every store past the cap.
+    for (let n = 0; n <= HOME_STORES_LIMIT + 2; n += 1) {
+      const stores = Array.from({ length: n }, (_, i) => store(`s${i}`));
+      assert.equal(
+        evalFromSource(MORE_EXPR, { vendorOtherStores: stores }),
+        n > HOME_STORES_LIMIT,
+        `${n} stores: the link's visibility is wrong`,
+      );
+    }
+    assert.equal(evalFromSource(MORE_EXPR, { vendorOtherStores: Array.from({ length: 500 }, (_, i) => store(`s${i}`)) }), true);
+  });
+
+  test('the header renders "عرض الكل" only behind that condition', () => {
+    const at = SRC.indexOf('case "storesHeader":');
+    assert.ok(at > 0, "the stores header disappeared");
+    const block = SRC.slice(at, SRC.indexOf('case "bestSellersHeader":', at));
+    assert.match(block, /hasMoreVendorStores \?/,
+      "the link is not gated — it would show even when nothing is hidden");
+    assert.match(block, /navigation\.navigate\("StoresList", \{\}\)/,
+      "the link must open the existing stores screen in its unfiltered mode");
+  });
+
+  test("the cap is display only — it never reorders or reshapes the data", () => {
+    const all = Array.from({ length: 10 }, (_, i) => store(`s${i}`));
+    const secs = buildSectionsWith({ ...base, vendorOtherStores: all });
+    const shown = secs.filter((x) => x.type === "vendorStoreSection").map((x) => x.store.id);
+    assert.deepEqual(shown, all.slice(0, HOME_STORES_LIMIT).map((s) => s.id),
+      "the feed must show the FIRST stores in the API's own order");
   });
 
   test("keys are stable and identity-based for the repeated items", () => {

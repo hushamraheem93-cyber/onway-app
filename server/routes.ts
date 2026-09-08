@@ -12,6 +12,7 @@ import { orderEvents } from "./orderEvents";
 import { isValidSession, getSessionUsername } from "./adminAuth";
 import { adminIdentityFromRequest } from "./adminAuthorization";
 import { isCustomerTokenRevoked, revokeCustomerTokens } from "./customerRevocation";
+import { isReviewPhone, reviewCodeMatches } from "./reviewAccounts";
 import { DEFAULT_NOTIFICATION_PREFS, normalizeNotificationPrefs } from "../shared/notificationPrefs";
 import {
   CMS_IMAGE_FIELDS,
@@ -4530,6 +4531,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return d;
   }
 
+  /**
+   * A phone number reduced to something safe to write to a log.
+   *
+   * Standing rule on this project: no real phone number reaches the logs. The
+   * review lines below need to say WHICH account signed in — otherwise the audit
+   * trail is useless — so they say it in masked form: 077****104.
+   */
+  function maskPhone(raw: string): string {
+    const d = toLocalPhone(String(raw ?? ""));
+    if (!/^07\d{9}$/.test(d)) return "0*********";
+    return `${d.slice(0, 3)}****${d.slice(-3)}`;
+  }
+
   // M-23: ownership compares must use the same canonical identity on both sides.
   // Invalid/empty values never compare equal, even if both are empty strings.
   function sameLocalPhone(a: unknown, b: unknown): boolean {
@@ -4549,6 +4563,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!IRAQ_PHONE_RE.test(phoneNumber)) {
       return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
     }
+    // Store-review numbers never receive an SMS: the reviewer signs in with the
+    // code from REVIEW_LOGIN_CODE, which verify-otp checks directly. Returning
+    // here keeps the review path off the SMS provider entirely — no credit is
+    // spent, and a missing OTP_IQ_API_KEY cannot 503 a reviewer out of the app.
+    // The response deliberately says nothing about why: it is byte-identical to
+    // an ordinary successful send, so probing this endpoint cannot reveal which
+    // numbers are review numbers.
+    if (isReviewPhone(phoneNumber)) {
+      console.log(`[REVIEW] send-otp for a review number (${maskPhone(phoneNumber)}) — no SMS sent`);
+      return res.json({ success: true, delivered: true, message: "OTP sent successfully" });
+    }
+
     // H-75: the code is now stored in Firestore, so this can fail. A code that
     // was never persisted can never be verified — telling the user "sent" would
     // strand them on the verification screen with a code that cannot work.
@@ -4596,7 +4622,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Normalise to match the key used by generateOtp in send-otp
     const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
 
-    if (!(await verifyOtpCode(phoneNumber, code))) {
+    // A store reviewer signs in with REVIEW_LOGIN_CODE on one of the three review
+    // numbers. reviewCodeMatches() is false for every other number whatever the
+    // code, and false for all numbers when REVIEW_LOGIN_CODE is unset, so an
+    // ordinary user's verification is unchanged and still goes through
+    // verifyOtpCode below. Nothing about the review path is logged beyond the
+    // masked number — never the code.
+    const isReviewLogin = reviewCodeMatches(phoneNumber, code);
+    if (isReviewLogin) {
+      console.log(`[REVIEW] verify-otp accepted for ${maskPhone(phoneNumber)}`);
+    } else if (!(await verifyOtpCode(phoneNumber, code))) {
       return res.status(400).json({ error: "رمز التحقق غير صحيح أو انتهت صلاحيته" });
     }
 

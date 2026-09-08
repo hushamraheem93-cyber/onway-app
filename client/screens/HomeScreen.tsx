@@ -298,6 +298,19 @@ export default function HomeScreen() {
     [allVendorStores],
   );
 
+  // The home feed shows the first few stores and nothing more, however many the
+  // API returns. Each store renders as a full section — cover, logo, name, and a
+  // product strip — so an unbounded list pushes "الأكثر مبيعاً" and everything
+  // under it off the bottom of the feed as vendors sign up. The cut is display
+  // only: the query is untouched, the order is untouched, and the remainder is
+  // reached through the header's "عرض الكل".
+  const HOME_STORES_LIMIT = 3;
+  const homeVendorStores = useMemo(
+    () => vendorOtherStores.slice(0, HOME_STORES_LIMIT),
+    [vendorOtherStores],
+  );
+  const hasMoreVendorStores = vendorOtherStores.length > HOME_STORES_LIMIT;
+
   // ── Promotional sections ────────────────────────────────────────────────
   const bestSellerProducts = useMemo(() => {
     const section = promotionalSections.find((s) => s.type === "bestSellers");
@@ -1200,9 +1213,9 @@ export default function HomeScreen() {
     } else {
       out.push({ type: "categoriesHeader" });
       out.push(categoriesLoading ? { type: "categoriesLoading" } : { type: "categoriesRows" });
-      if (vendorOtherStores.length > 0) {
+      if (homeVendorStores.length > 0) {
         out.push({ type: "storesHeader" });
-        for (const store of vendorOtherStores) out.push({ type: "vendorStoreSection", store });
+        for (const store of homeVendorStores) out.push({ type: "vendorStoreSection", store });
       }
       out.push({ type: "bestSellersHeader" });
       out.push(
@@ -1469,6 +1482,19 @@ export default function HomeScreen() {
         return (
           <View style={styles.sectionHeader}>
             {renderSectionTitle("المتاجر المتاحة")}
+            {/* Only when there is something the feed is not already showing.
+                With three stores or fewer the feed holds all of them, so a link
+                to "all" would lead to the same list the user is looking at. */}
+            {hasMoreVendorStores ? (
+              <Pressable
+                onPress={() => navigation.navigate("StoresList", {})}
+                accessibilityRole="button"
+                accessibilityLabel="عرض كل المتاجر المتاحة"
+                testID="button-home-all-stores"
+              >
+                <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+              </Pressable>
+            ) : null}
           </View>
         );
 
