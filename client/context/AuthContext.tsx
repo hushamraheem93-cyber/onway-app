@@ -87,6 +87,14 @@ interface AuthContextType {
   isProfileLoading: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
+  // Password sign-in. OTP stays exactly as it is; these are an additional path,
+  // added so a returning user does not cost an SMS on every login.
+  /** Does the signed-in account have a password? Drives the settings row. */
+  accountHasPassword: boolean;
+  checkHasPassword: (phone: string) => Promise<boolean>;
+  loginWithPassword: (phone: string, password: string) => Promise<void>;
+  createPassword: (password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   setUserType: (type: UserType) => void;
   login: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -257,6 +265,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isVendorRegistered, setIsVendorRegistered] = useState(false);
   // Customer JWT (issued by /api/auth/verify-otp)
   const [customerToken, setCustomerToken] = useState<string | null>(null);
+  // Advisory only — it gates nothing. It tells the settings screen whether to
+  // offer "create a password" or "change password", and it is refreshed from
+  // every auth response so it cannot go stale after one is set.
+  const [accountHasPassword, setAccountHasPassword] = useState(false);
   // Guest mode — browse-only, no ordering allowed
   const [isGuest, setIsGuest] = useState(false);
 
@@ -528,6 +540,112 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       throw error;
     }
+  };
+
+  /**
+   * Turn a successful auth response into a signed-in session.
+   *
+   * verifyOtp did this inline. A password login has to do exactly the same
+   * things — store the token, adopt the server's canonical phone, follow the
+   * detected role — so it is one function now rather than two copies that can
+   * drift. The server returns an identical payload from both endpoints, which is
+   * what makes that possible.
+   */
+  const applyAuthSession = async (data: any, fallbackPhone: string) => {
+    // verify-otp reports it; the password endpoints imply it by succeeding.
+    if (typeof data?.hasPassword === "boolean") setAccountHasPassword(data.hasPassword);
+    const newCToken: string | null = data?.customerToken || null;
+    if (newCToken) {
+      setCustomerToken(newCToken);
+      try {
+        await setToken(CUSTOMER_TOKEN_KEY, newCToken);
+      } catch {}
+    }
+    const canonicalPhone = data?.phoneNumber || fallbackPhone;
+    setPhoneNumber(canonicalPhone);
+    setPendingPhone(canonicalPhone);
+    setIsOtpVerified(true);
+    if (data?.existingRole && canonicalPhone) {
+      await selectRoleForPhone(data.existingRole as UserType, canonicalPhone, newCToken);
+    }
+    return { canonicalPhone, customerToken: newCToken };
+  };
+
+  /**
+   * Does this number sign in with a password, or does it need an OTP?
+   *
+   * Asked before any code is sent, so a returning user never triggers an SMS —
+   * which is the entire reason this feature exists. On any error it answers
+   * false, which routes the user to OTP: the slower path, never a locked door.
+   */
+  const checkHasPassword = async (phone: string): Promise<boolean> => {
+    try {
+      const res = await fetch(new URL("/api/auth/password-status", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone }),
+      });
+      if (!res.ok) return false;
+      return Boolean((await res.json())?.hasPassword);
+    } catch {
+      return false;
+    }
+  };
+
+  /** Sign in with a password. No SMS is sent. */
+  const loginWithPassword = async (phone: string, password: string) => {
+    const res = await fetch(new URL("/api/auth/login-password", getApiUrl()).toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber: phone, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || "رقم الهاتف أو كلمة المرور غير صحيحة");
+    }
+    // Signing in this way is itself proof that a password exists; the endpoint
+    // does not repeat the obvious in its response.
+    setAccountHasPassword(true);
+    await applyAuthSession(data, phone);
+  };
+
+  /**
+   * Create or reset the password for the number this session already proved.
+   *
+   * Used by both the "create a password" step after a first OTP and the
+   * forgot-password reset, because on the server they are the same call: the
+   * customer JWT is the proof, and an OTP is how that JWT was obtained.
+   * The server revokes the old sessions and returns a fresh token, so the
+   * response is applied here rather than discarded.
+   */
+  const createPassword = async (password: string) => {
+    const res = await fetch(new URL("/api/auth/set-password", getApiUrl()).toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+      },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "تعذّر حفظ كلمة المرور");
+    setAccountHasPassword(true);
+    await applyAuthSession(data, phoneNumber || pendingPhone || "");
+  };
+
+  /** Change the password from inside the account, proving the current one. */
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const res = await fetch(new URL("/api/auth/change-password", getApiUrl()).toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "تعذّر تغيير كلمة المرور");
+    await applyAuthSession(data, phoneNumber || pendingPhone || "");
   };
 
   /**
@@ -1055,6 +1173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         customerToken,
         sendOtp,
         verifyOtp,
+        accountHasPassword,
+        checkHasPassword,
+        loginWithPassword,
+        createPassword,
+        changePassword,
         setUserType,
         login,
         logout,

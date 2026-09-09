@@ -28,6 +28,7 @@ import VendorRegistrationScreen from "@/screens/VendorRegistrationScreen";
 import StoreProductsScreen from "@/screens/StoreProductsScreen";
 import StoreRatingsScreen from "@/screens/StoreRatingsScreen";
 import StoresListScreen from "@/screens/StoresListScreen";
+import PasswordSettingsScreen from "@/screens/PasswordSettingsScreen";
 import ProductDetailScreen from "@/screens/ProductDetailScreen";
 import AdminScreen from "@/screens/AdminScreen";
 import AdminLoginScreen from "@/screens/AdminLoginScreen";
@@ -88,6 +89,8 @@ export type RootStackParamList = {
     categoryName?: string;
     businessType?: string;
   };
+  // Create or change the account password. Reached from the profile; never a gate.
+  PasswordSettings: undefined;
   AdminLogin: undefined;
   Admin: undefined;
   ProductDetail: {
@@ -405,6 +408,11 @@ export default function RootStackNavigator() {
         options={({ route }) => ({
           headerTitle: route.params.categoryName,
         })}
+      />
+      <Stack.Screen
+        name="PasswordSettings"
+        component={PasswordSettingsScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ProductDetail"

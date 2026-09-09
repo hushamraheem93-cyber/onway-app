@@ -151,6 +151,14 @@ function setupRateLimiter(app: express.Application) {
     // Auth OTP endpoints: strict limits so codes cannot be spammed or brute-forced.
     "/api/auth/send-otp": 5,
     "/api/auth/verify-otp": 15,
+    // Password auth. Tighter than verify-otp: a stored password never expires the
+    // way a five-minute code does, so a patient grinder has unlimited time at it.
+    // The real bound is the per-phone lockout in authCredentials.ts — this only
+    // stops one IP working through many different numbers.
+    "/api/auth/login-password": 10,
+    "/api/auth/password-status": 20,
+    "/api/auth/set-password": 5,
+    "/api/auth/change-password": 5,
     // Driver registration uploads Base64 ID images — throttle to prevent storage abuse.
     "/api/drivers": 10,
     // Proxies our billable Google Maps key — cap it so a leaked token cannot run up cost.

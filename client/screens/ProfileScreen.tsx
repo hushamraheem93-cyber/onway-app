@@ -99,7 +99,7 @@ export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
-  const { phoneNumber, userProfile, logout, deleteAccount } = useAuth();
+  const { phoneNumber, userProfile, logout, deleteAccount, accountHasPassword } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -229,6 +229,16 @@ export default function ProfileScreen() {
           title="العناوين المحفوظة"
           subtitle="إدارة عناوين التوصيل"
           onPress={() => navigation.navigate("Addresses")}
+        />
+        <SettingsItem
+          icon="lock"
+          title={accountHasPassword ? "تغيير كلمة المرور" : "إنشاء كلمة مرور"}
+          subtitle={
+            accountHasPassword
+              ? "تحديث كلمة مرور الدخول"
+              : "ادخل بكلمة مرور بدل انتظار رمز التحقق"
+          }
+          onPress={() => (navigation as any).navigate("PasswordSettings")}
         />
         <SettingsItem icon="globe" title="اللغة" subtitle="العربية" />
 

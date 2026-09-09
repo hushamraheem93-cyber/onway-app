@@ -11,7 +11,8 @@ import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
 import { isValidSession, getSessionUsername } from "./adminAuth";
 import { adminIdentityFromRequest } from "./adminAuthorization";
-import { isCustomerTokenRevoked, revokeCustomerTokens } from "./customerRevocation";
+import { isCustomerTokenRevoked, revokeCustomerTokens, iatAfterRevocation } from "./customerRevocation";
+import { hasPassword, setPassword, checkPassword, passwordPolicyError } from "./authCredentials";
 import { isReviewPhone, reviewCodeMatches } from "./reviewAccounts";
 import { isPhoneLockedOut } from "./otpStore";
 import { DEFAULT_NOTIFICATION_PREFS, normalizeNotificationPrefs } from "../shared/notificationPrefs";
@@ -4669,7 +4670,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Return the normalized phone so the client stores the canonical form
     // that matches what the JWT contains — preventing ownership-check mismatches.
-    res.json({ success: true, message: "OTP verified", customerToken, phoneNumber, existingRole });
+    res.json({
+      success: true, message: "OTP verified", customerToken, phoneNumber, existingRole,
+      // Lets the client decide whether to offer "create a password" after this
+      // sign-in. Purely advisory — it grants nothing.
+      hasPassword: await hasPassword(phoneNumber),
+    });
+  });
+
+  // ── Password authentication ────────────────────────────────────────────────
+  //
+  // Added to cut the SMS bill: an OTP costs money on every sign-in, a password
+  // costs nothing. OTP is NOT replaced — it remains how a phone is first proved,
+  // and the only way back in when the password is forgotten.
+  //
+  // Every one of these mints the SAME customer JWT that /api/auth/verify-otp
+  // mints, which is what makes the feature work for all three apps without
+  // touching either of them: /api/driver/mobile-auth and /api/vendor/mobile-auth
+  // already exchange that token (plus a record in their own collection) for a
+  // role token, so a password login reaches the driver and vendor apps by the
+  // same route an OTP login always has.
+  //
+  // The review accounts are untouched. reviewCodeMatches() lives in verify-otp
+  // and nothing here goes near it; a review number simply has no password
+  // document, so it falls through to OTP exactly as before.
+
+  /** The session payload every auth path returns, built once so they cannot drift. */
+  async function customerSession(phoneNumber: string, iat?: number) {
+    const customerToken = jwt.sign(
+      { phoneNumber, role: "customer", ...(iat ? { iat } : {}) },
+      ROUTES_JWT_SECRET,
+      { expiresIn: "30d" },
+    );
+    let existingRole: "driver" | "vendor" | "customer" | null = null;
+    try {
+      const [driver, vendorId, userProfile] = await Promise.all([
+        getDriverByPhone(phoneNumber),
+        getVendorByPhone(phoneNumber),
+        getUserByPhone(phoneNumber),
+      ]);
+      if (driver) existingRole = "driver";
+      else if (vendorId) existingRole = "vendor";
+      else if (userProfile) existingRole = "customer";
+    } catch { /* best-effort, as in verify-otp */ }
+    return { customerToken, phoneNumber, existingRole };
+  }
+
+  /**
+   * Does this number sign in with a password, or does it need an OTP?
+   *
+   * The login screen has to know which field to show. What this reveals is
+   * narrow on purpose: it answers "has a password", not "has an account". An
+   * unregistered number and a registered one that never set a password give the
+   * identical answer, so it cannot be used to enumerate who is on the platform.
+   */
+  app.post("/api/auth/password-status", async (req: Request, res: Response) => {
+    const raw = req.body?.phoneNumber;
+    if (!raw) return res.status(400).json({ error: "رقم الهاتف مطلوب" });
+    const phoneNumber = toLocalPhone(String(raw));
+    if (!/^07\d{9}$/.test(phoneNumber)) {
+      return res.status(400).json({ error: "رقم الهاتف غير صحيح" });
+    }
+    res.json({ phoneNumber, hasPassword: await hasPassword(phoneNumber) });
+  });
+
+  /**
+   * Sign in with a password. No SMS is sent, which is the entire point.
+   *
+   * Every failure returns the same message and the same 401. "No account", "no
+   * password set" and "wrong password" are indistinguishable from outside, so
+   * this endpoint cannot be turned into an account oracle. The one exception is
+   * the lockout, which returns 429 with a retry time — withholding that would
+   * leave a locked-out user retrying blindly with no idea why.
+   */
+  app.post("/api/auth/login-password", async (req: Request, res: Response) => {
+    const raw = req.body?.phoneNumber;
+    if (!raw || !req.body?.password) {
+      return res.status(400).json({ error: "رقم الهاتف وكلمة المرور مطلوبان" });
+    }
+    const phoneNumber = toLocalPhone(String(raw));
+    if (!/^07\d{9}$/.test(phoneNumber)) {
+      return res.status(401).json({ error: "رقم الهاتف أو كلمة المرور غير صحيحة" });
+    }
+
+    const check = await checkPassword(phoneNumber, req.body.password);
+    if (check.ok) {
+      console.log(`[AUTH] password login ${maskPhone(phoneNumber)}`);
+      return res.json({ success: true, ...(await customerSession(phoneNumber)) });
+    }
+    if (check.reason === "locked") {
+      const retryAfterSeconds = check.retryAfterSeconds ?? 900;
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({
+        error: "تم إيقاف المحاولات مؤقتاً. جرّب لاحقاً أو استخدم «نسيت كلمة المرور»",
+        retryAfterSeconds,
+      });
+    }
+    if (check.reason === "unavailable") {
+      return res.status(503).json({ error: "تعذّر تسجيل الدخول، حاول لاحقاً" });
+    }
+    return res.status(401).json({ error: "رقم الهاتف أو كلمة المرور غير صحيحة" });
+  });
+
+  /**
+   * Set a password for the number this session already proved.
+   *
+   * Requires the customer JWT, which only /api/auth/verify-otp and a successful
+   * password login can produce — so setting a password always follows a proof of
+   * ownership of the phone. That single rule covers three flows at once: a new
+   * user creating one after their first OTP, an existing OTP-only user adding one
+   * whenever they choose, and the forgot-password reset, which is just
+   * verify-otp followed by this call.
+   *
+   * Because it doubles as the reset, it revokes every token issued for the phone
+   * before now — a password reset must end any session an attacker still holds.
+   * The replacement token is minted with an `iat` past the revocation instant;
+   * without that it would be born revoked and throw the user straight back out.
+   */
+  app.post("/api/auth/set-password", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = toLocalPhone(String((req as any).customerPhone || ""));
+    const policyError = passwordPolicyError(req.body?.password);
+    if (policyError) return res.status(400).json({ error: policyError });
+
+    if (!(await setPassword(phoneNumber, String(req.body.password)))) {
+      return res.status(503).json({ error: "تعذّر حفظ كلمة المرور، حاول لاحقاً" });
+    }
+    revokeCustomerTokens(phoneNumber);
+    console.log(`[AUTH] password set for ${maskPhone(phoneNumber)}`);
+    return res.json({
+      success: true,
+      ...(await customerSession(phoneNumber, iatAfterRevocation(phoneNumber))),
+    });
+  });
+
+  /**
+   * Change a password from inside the account, proving the current one first.
+   *
+   * The current password is required even though the caller already holds a
+   * valid session: a session can be an unlocked phone left on a table, and
+   * without this check that is enough to lock the real owner out permanently.
+   */
+  app.post("/api/auth/change-password", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = toLocalPhone(String((req as any).customerPhone || ""));
+    const policyError = passwordPolicyError(req.body?.newPassword);
+    if (policyError) return res.status(400).json({ error: policyError });
+
+    const check = await checkPassword(phoneNumber, req.body?.currentPassword);
+    if (!check.ok) {
+      if (check.reason === "locked") {
+        const retryAfterSeconds = check.retryAfterSeconds ?? 900;
+        res.setHeader("Retry-After", String(retryAfterSeconds));
+        return res.status(429).json({ error: "تم إيقاف المحاولات مؤقتاً، حاول لاحقاً", retryAfterSeconds });
+      }
+      if (check.reason === "no_password") {
+        return res.status(400).json({ error: "لا توجد كلمة مرور لهذا الحساب — أنشئ واحدة أولاً" });
+      }
+      return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
+    }
+
+    if (!(await setPassword(phoneNumber, String(req.body.newPassword)))) {
+      return res.status(503).json({ error: "تعذّر حفظ كلمة المرور، حاول لاحقاً" });
+    }
+    revokeCustomerTokens(phoneNumber);
+    console.log(`[AUTH] password changed for ${maskPhone(phoneNumber)}`);
+    return res.json({
+      success: true,
+      ...(await customerSession(phoneNumber, iatAfterRevocation(phoneNumber))),
+    });
   });
 
   // Driver Routes

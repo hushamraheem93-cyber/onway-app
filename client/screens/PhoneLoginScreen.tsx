@@ -30,7 +30,7 @@ const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 
 export default function PhoneLoginScreen() {
-  const { sendOtp, loginAsGuest } = useAuth();
+  const { sendOtp, loginAsGuest, checkHasPassword, loginWithPassword } = useAuth();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -39,6 +39,12 @@ export default function PhoneLoginScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
+  // The screen has two steps. "phone" asks for the number; "password" appears
+  // only for a number the server says already has one. A number without a
+  // password never sees this step — it goes straight to OTP, exactly as before.
+  const [step, setStep] = useState<"phone" | "password">("phone");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // H-52: this screen used to build the number as `00964${phone}` — prefixing the
   // country code without dropping the local leading zero, and without noticing a
@@ -62,7 +68,52 @@ export default function PhoneLoginScreen() {
     setIsLoading(true);
     try {
       const fullPhone = toLocalIraqiPhone(phoneNumber);
+      // Ask before sending anything. A returning user with a password costs no
+      // SMS at all, which is the whole reason this step exists. The check fails
+      // to `false`, so a server hiccup routes the user to OTP rather than to a
+      // password field they may not have.
+      if (await checkHasPassword(fullPhone)) {
+        setStep("password");
+        return;
+      }
       await sendOtp(fullPhone);
+    } catch (err: any) {
+      setError(err.message || "حدث خطأ أثناء إرسال رمز التحقق");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /** Sign in with the password. No code is sent. */
+  const handlePasswordLogin = async () => {
+    Keyboard.dismiss();
+    setError("");
+    if (!password) {
+      setError("الرجاء إدخال كلمة المرور");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsLoading(true);
+    try {
+      await loginWithPassword(toLocalIraqiPhone(phoneNumber), password);
+    } catch (err: any) {
+      setError(err.message || "رقم الهاتف أو كلمة المرور غير صحيحة");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Forgotten password: fall back to the OTP that was always here. The code
+   * proves the phone, and the OTP screen then offers to set a new password.
+   */
+  const handleForgotPassword = async () => {
+    Keyboard.dismiss();
+    setError("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsLoading(true);
+    try {
+      await sendOtp(toLocalIraqiPhone(phoneNumber));
     } catch (err: any) {
       setError(err.message || "حدث خطأ أثناء إرسال رمز التحقق");
     } finally {
@@ -163,6 +214,45 @@ export default function PhoneLoginScreen() {
                 </View>
               </View>
 
+              {step === "password" ? (
+                <>
+                  <ThemedText style={styles.label}>كلمة المرور</ThemedText>
+                  <View style={styles.phoneRow}>
+                    <TextInput
+                      placeholder="كلمة المرور"
+                      placeholderTextColor="rgba(0,0,0,0.30)"
+                      secureTextEntry={!showPassword}
+                      returnKeyType="done"
+                      style={styles.phoneInput}
+                      value={password}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (error) setError("");
+                      }}
+                      onSubmitEditing={handlePasswordLogin}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      testID="input-password"
+                      accessibilityLabel="كلمة المرور"
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword((v) => !v)}
+                      style={styles.prefixBox}
+                      hitSlop={8}
+                      testID="button-toggle-password"
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                    >
+                      <Feather
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={19}
+                        color={AppColors.gray500}
+                      />
+                    </Pressable>
+                  </View>
+                </>
+              ) : null}
+
               {error ? (
                 <View style={styles.errorRow}>
                   <Feather
@@ -180,7 +270,7 @@ export default function PhoneLoginScreen() {
                   isLoading ? styles.submitDisabled : undefined,
                   pressed && !isLoading ? styles.submitPressed : undefined,
                 ]}
-                onPress={handleContinue}
+                onPress={step === "password" ? handlePasswordLogin : handleContinue}
                 disabled={isLoading}
                 testID="button-continue"
                 accessibilityRole="button"
@@ -200,6 +290,22 @@ export default function PhoneLoginScreen() {
                   </>
                 )}
               </Pressable>
+
+              {step === "password" ? (
+                <Pressable
+                  onPress={handleForgotPassword}
+                  disabled={isLoading}
+                  hitSlop={8}
+                  style={styles.forgotWrap}
+                  testID="button-forgot-password"
+                  accessibilityRole="button"
+                  accessibilityLabel="نسيت كلمة المرور"
+                >
+                  <ThemedText style={styles.forgotPasswordText}>
+                    نسيت كلمة المرور؟
+                  </ThemedText>
+                </Pressable>
+              ) : null}
 
               <Pressable
                 onPress={() =>
